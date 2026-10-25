@@ -156,6 +156,11 @@
       name: "google",
       render() { overlay.setProps({ layers: layers() }); },
       flyTo(lat, lng, zoom) { map.panTo({ lat, lng }); if (zoom) map.setZoom(zoom); },
+      fitTo(b) {
+        if (b.single) { this.flyTo(b.lat, b.lng, 15); return; }
+        map.fitBounds({ south: b.s, west: b.w, north: b.n, east: b.e }, FIT_PADDING);
+        google.maps.event.addListenerOnce(map, "idle", () => { if (map.getZoom() > 16) map.setZoom(16); });
+      },
       theme() { if (!mapId) map.setOptions({ styles: isDark() ? MAP_STYLE_DARK : MAP_STYLE_LIGHT, backgroundColor: isDark() ? "#1a1a19" : "#f2f1ed" }); },
       destroy() { try { overlay.setMap(null); overlay.finalize(); } catch (e) { /* map never initialised */ } fill($("#map")); },
     };
@@ -188,6 +193,13 @@
       flyTo(lat, lng, zoom) {
         d.setProps({ initialViewState: { ...view, latitude: lat, longitude: lng, zoom: zoom || view.zoom, transitionDuration: 700, transitionInterpolator: new deck.FlyToInterpolator() } });
       },
+      fitTo(b) {
+        if (b.single) { this.flyTo(b.lat, b.lng, 15); return; }
+        const el = $("#map");
+        const vp = new deck.WebMercatorViewport({ width: el.clientWidth || 800, height: el.clientHeight || 600 });
+        const { longitude, latitude, zoom } = vp.fitBounds([[b.w, b.s], [b.e, b.n]], { padding: FIT_PADDING, maxZoom: 16 });
+        this.flyTo(latitude, longitude, zoom);
+      },
       theme() { baseLayer = base(); this.render(); },
       destroy() { d.finalize(); fill($("#map"), ); },
     };
@@ -210,6 +222,20 @@
     engine = tileEngine();
   }
 
+  const FIT_PADDING = { top: 80, right: 60, bottom: 190, left: 60 };
+
+  // Zoom to the incidents currently shown, like a search result on Google Maps.
+  function fitToResults(fallback) {
+    const pts = state.incidents.filter((i) => i.lat != null);
+    if (!engine) return;
+    if (!pts.length) { if (fallback) engine.flyTo(fallback.lat, fallback.lng, fallback.zoom); return; }
+    const lats = pts.map((i) => i.lat), lngs = pts.map((i) => i.lng);
+    const b = { s: Math.min(...lats), n: Math.max(...lats), w: Math.min(...lngs), e: Math.max(...lngs) };
+    b.single = (b.n - b.s) < 0.002 && (b.e - b.w) < 0.002;
+    if (b.single) { b.lat = lats[0]; b.lng = lngs[0]; }
+    engine.fitTo(b);
+  }
+
   /* ---------- data ---------- */
   function query() {
     const p = new URLSearchParams();
@@ -219,7 +245,7 @@
     return p.toString();
   }
 
-  async function refresh() {
+  async function refresh(opts = {}) {
     const q = query();
     const [inc, stats] = await Promise.all([fetch(`/api/incidents?${q}`).then((r) => r.json()), fetch(`/api/stats?${q}`).then((r) => r.json())]);
     // Category counts for chips ignore the category filter itself
@@ -228,6 +254,7 @@
     state.incidents = inc; state.stats = stats; state.catCounts = all.by_category;
     if (state.selected && !inc.some((i) => i.id === state.selected.id)) state.selected = null;
     renderAll();
+    if (opts.fit) fitToResults(opts.fallback);
   }
 
   async function loadMeta() {
@@ -273,7 +300,7 @@
     const box = $("#cats");
     fill(box, ...CAT_ORDER.map((k) => el("button", {
       type: "button", class: `chip${state.cats.has(k) ? "" : " off"}`, "aria-pressed": String(state.cats.has(k)),
-      onclick: () => { if (state.cats.size === CAT_ORDER.length) { state.cats = new Set([k]); } else if (state.cats.has(k)) { state.cats.delete(k); if (!state.cats.size) state.cats = new Set(CAT_ORDER); } else state.cats.add(k); refresh(); },
+      onclick: () => { if (state.cats.size === CAT_ORDER.length) { state.cats = new Set([k]); } else if (state.cats.has(k)) { state.cats.delete(k); if (!state.cats.size) state.cats = new Set(CAT_ORDER); } else state.cats.add(k); refresh({ fit: true }); },
     }, el("span", { class: "dot", style: `background:${cssColor(k)}` }), catLabel(k), el("span", { class: "n" }, num(state.catCounts?.[k] || 0)))));
   }
 
@@ -293,7 +320,7 @@
     const max = Math.max(1, ...rows.map((r) => r.count));
     fill($("#rank"), ...(rows.length ? rows.map((r, i) => el("li", {}, el("button", {
       type: "button", class: state.thana === r.id ? "on" : "",
-      onclick: () => { state.thana = state.thana === r.id ? "" : r.id; $("#thana").value = state.thana; if (r.lat) engine?.flyTo(r.lat, r.lng, state.thana ? 14 : 12); refresh(); },
+      onclick: () => { state.thana = state.thana === r.id ? "" : r.id; $("#thana").value = state.thana; refresh({ fit: true, fallback: { lat: r.lat || DHAKA.lat, lng: r.lng || DHAKA.lng, zoom: 14 } }); },
     },
       el("span", { class: "pos" }, num(i + 1)),
       el("span", { class: "name" }, el("b", {}, state.lang === "bn" ? r.name_bn : r.name_en),
@@ -392,17 +419,17 @@
   function wire() {
     document.querySelectorAll("#period button").forEach((b) => b.addEventListener("click", () => {
       state.days = +b.dataset.days; state.start = state.end = ""; $("#start").value = $("#end").value = "";
-      document.querySelectorAll("#period button").forEach((x) => x.classList.toggle("on", x === b)); refresh();
+      document.querySelectorAll("#period button").forEach((x) => x.classList.toggle("on", x === b)); refresh({ fit: true });
     }));
     const onDate = () => {
       state.start = $("#start").value; state.end = $("#end").value;
       if (state.start && state.end) { document.querySelectorAll("#period button").forEach((x) => x.classList.remove("on")); refresh(); }
     };
     $("#start").addEventListener("change", onDate); $("#end").addEventListener("change", onDate);
-    $("#cats-all").addEventListener("click", () => { state.cats = new Set(CAT_ORDER); refresh(); });
+    $("#cats-all").addEventListener("click", () => { state.cats = new Set(CAT_ORDER); refresh({ fit: true }); });
     $("#thana").addEventListener("change", (e) => {
       state.thana = e.target.value; const p = state.meta.thanas.find((x) => x.id === state.thana);
-      engine?.flyTo(p ? p.lat : DHAKA.lat, p ? p.lng : DHAKA.lng, p ? 14 : 12); refresh();
+      refresh({ fit: true, fallback: { lat: p ? p.lat : DHAKA.lat, lng: p ? p.lng : DHAKA.lng, zoom: p ? 14 : 12 } });
     });
     document.querySelectorAll("#mode button").forEach((b) => b.addEventListener("click", () => {
       state.mode = b.dataset.mode; document.querySelectorAll("#mode button").forEach((x) => x.classList.toggle("on", x === b));
