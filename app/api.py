@@ -1,11 +1,10 @@
-"""HTTP API + static dashboard."""
+"""API service: dashboard + read API. Writes only one thing: 'collect now' requests for the collector."""
 from __future__ import annotations
 
 import hmac
 import logging
-import threading
-from contextlib import asynccontextmanager
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
+from urllib.parse import urlsplit
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import FileResponse
@@ -14,70 +13,59 @@ from fastapi.staticfiles import StaticFiles
 from . import db
 from .config import ROOT, settings
 from .gazetteer import load as load_gazetteer
-from .pipeline import Pipeline, RunInProgress, is_running
+from .scheduler import next_run
 from .schema import CATEGORIES, TIME_OF_DAY
 from .scraper import DHAKA_TZ
 
 log = logging.getLogger(__name__)
 STATIC = ROOT / "app" / "static"
-state: dict = {"scheduler": None, "last_error": None}
+MIN_DATE, MAX_DATE = date(2000, 1, 1), date(2100, 1, 1)
+UI_HEADER = "x-dcm-ui"
 
 
-def start_run(trigger: str, days_back: int = 1) -> bool:
-    """Start a run in a background thread. False if one is already running."""
-    if is_running():
-        return False
-
-    def target():
-        try:
-            Pipeline().run(trigger=trigger, days_back=days_back)
-            state["last_error"] = None
-        except RunInProgress:
-            pass
-        except Exception as e:
-            state["last_error"] = f"{type(e).__name__}: {e}"
-            log.exception("run failed")
-
-    threading.Thread(target=target, name=f"run-{trigger}", daemon=True).start()
-    return True
-
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    db.connect()
-    if settings.scheduler_enabled and app.state.enable_scheduler:
-        from .scheduler import Scheduler
-        state["scheduler"] = Scheduler(lambda trigger: Pipeline().run(trigger=trigger, days_back=1))
-        state["scheduler"].start()
-    yield
-    if state["scheduler"]:
-        state["scheduler"].stop.set()
+def _filters(start: str | None, end: str | None, days: int | None, categories: str | None,
+             thana: str | None) -> tuple[str, list, date, date]:
+    today = datetime.now(DHAKA_TZ).date()
+    try:
+        end_d = date.fromisoformat(end) if end else today
+        start_d = date.fromisoformat(start) if start else end_d - timedelta(days=(days or 30) - 1)
+    except (ValueError, OverflowError):
+        raise HTTPException(400, "dates must be YYYY-MM-DD")
+    if not (MIN_DATE <= start_d <= end_d <= MAX_DATE):
+        raise HTTPException(400, "date range must be ordered and within 2000-01-01..2100-01-01")
+    where = ["i.published", "i.duplicate_of IS NULL", "i.event_date BETWEEN %s AND %s"]
+    params: list = [start_d, end_d]
+    if categories:
+        cats = [c for c in categories.split(",") if c in CATEGORIES]
+        if cats:
+            where.append("i.category = ANY(%s)")
+            params.append(cats)
+    if thana:
+        where.append("i.thana_id = %s")
+        params.append(thana)
+    return " AND ".join(where), params, start_d, end_d
 
 
-def create_app(enable_scheduler: bool = True) -> FastAPI:
-    app = FastAPI(title="Dhaka Crime Map", version="0.1.0", lifespan=lifespan)
-    app.state.enable_scheduler = enable_scheduler
+def _authorize_trigger(request: Request) -> None:
+    token = request.headers.get("x-admin-token", "")
+    if settings.admin_token and token and hmac.compare_digest(token, settings.admin_token):
+        return
+    if settings.allow_ui_trigger and request.headers.get(UI_HEADER) == "1":
+        # A custom header forces a CORS preflight for cross-site requests, which this API never approves.
+        # Origin, when sent, must also match the host the dashboard was loaded from.
+        origin = request.headers.get("origin")
+        if origin is None or urlsplit(origin).netloc == request.headers.get("host"):
+            return
+    raise HTTPException(403, "not allowed: use the dashboard button or X-Admin-Token")
+
+
+def _iso(v):
+    return v.isoformat() if isinstance(v, (date, datetime)) else v
+
+
+def create_app() -> FastAPI:
+    app = FastAPI(title="Dhaka Crime Map", version="0.2.0")
     app.mount("/static", StaticFiles(directory=STATIC), name="static")
-
-    def filters(start: str | None, end: str | None, days: int | None, categories: str | None,
-                thana: str | None) -> tuple[str, list]:
-        today = datetime.now(DHAKA_TZ).date()
-        try:
-            end_d = date.fromisoformat(end) if end else today
-            start_d = date.fromisoformat(start) if start else end_d - timedelta(days=(days or 30) - 1)
-        except ValueError:
-            raise HTTPException(400, "dates must be YYYY-MM-DD")
-        where = ["i.duplicate_of IS NULL", "i.event_date BETWEEN ? AND ?"]
-        params: list = [start_d.isoformat(), end_d.isoformat()]
-        if categories:
-            cats = [c for c in categories.split(",") if c in CATEGORIES]
-            if cats:
-                where.append(f"i.category IN ({','.join('?' * len(cats))})")
-                params += cats
-        if thana:
-            where.append("i.thana_id = ?")
-            params.append(thana)
-        return " AND ".join(where), params
 
     @app.get("/", include_in_schema=False)
     def index():
@@ -85,97 +73,113 @@ def create_app(enable_scheduler: bool = True) -> FastAPI:
 
     @app.get("/api/health")
     def health():
-        return {"ok": True, "running": is_running()}
+        with db.connect() as c:
+            c.execute("SELECT 1")
+        return {"ok": True}
 
     @app.get("/api/meta")
     def meta():
-        conn = db.connect()
         gaz = load_gazetteer()
-        sched = state["scheduler"]
-        counts = {r["status"]: r["n"] for r in conn.execute("SELECT status, count(*) n FROM articles GROUP BY status")}
-        span = conn.execute("SELECT min(event_date) a, max(event_date) b FROM incidents").fetchone()
-        last = conn.execute("SELECT * FROM runs ORDER BY id DESC LIMIT 1").fetchone()
+        with db.connect() as c:
+            counts = {r["status"]: r["n"] for r in c.execute("SELECT status, count(*) n FROM articles GROUP BY status")}
+            queue = {r["state"]: r["n"] for r in c.execute("SELECT state, count(*) n FROM jobs GROUP BY state")}
+            span = c.execute("SELECT min(event_date) a, max(event_date) b FROM incidents WHERE published").fetchone()
+            last = c.execute("SELECT * FROM runs ORDER BY id DESC LIMIT 1").fetchone()
+            beats = {r["service"]: r for r in c.execute("SELECT service, seen_at, detail FROM heartbeats")}
+            pending = c.execute("SELECT count(*) n FROM run_requests WHERE status IN ('pending','running')").fetchone()["n"]
+            collecting = c.execute("SELECT count(*) n FROM runs WHERE status = 'running'").fetchone()["n"]
+            day0 = datetime.now(DHAKA_TZ).replace(hour=0, minute=0, second=0, microsecond=0)
+            spend = c.execute("""SELECT count(*) calls, coalesce(sum(cost_usd), 0) usd FROM analyses
+                                 WHERE created_at >= %s AND NOT legacy""", (day0,)).fetchone()
+        now = datetime.now(timezone.utc)
+        clf = (beats.get("classifier") or {}).get("detail") or {}
         return {
             "categories": [{"key": k, **v} for k, v in CATEGORIES.items()],
             "time_of_day": [{"key": k, **v} for k, v in TIME_OF_DAY.items()],
             "thanas": [p.to_dict() for p in gaz.places if p.kind in ("thana", "upazila")],
-            "classifier": settings.classifier, "model": settings.claude_model if settings.classifier == "claude"
-            else settings.gemma_model if settings.classifier == "gemma" else "keyword rules",
-            "schedule": settings.scrape_times,
-            "next_run": sched.next_at.isoformat() if sched and sched.next_at else None,
-            "running": is_running(), "last_run": dict(last) if last else None,
-            "last_error": state["last_error"],
-            "articles": counts, "data_span": {"first": span["a"], "last": span["b"]},
+            "classifier": settings.classifier, "model": clf.get("backend") or settings.classifier,
+            "schedule": settings.scrape_times, "next_run": next_run(now).isoformat(),
+            "running": bool(pending or collecting or queue.get("queued") or queue.get("running")),
+            "collecting": bool(pending or collecting), "queue": queue,
+            "services": {s: {"alive": (now - b["seen_at"]).total_seconds() < 180, "seen_at": b["seen_at"].isoformat()}
+                         for s, b in beats.items()},
+            "last_run": {k: _iso(v) for k, v in last.items()} if last else None,
+            "articles": counts, "data_span": {"first": _iso(span["a"]), "last": _iso(span["b"])},
+            "spend_today": {"calls": spend["calls"], "usd": float(spend["usd"])},
             "google_maps_api_key": settings.google_maps_api_key,
             "google_maps_map_id": settings.google_maps_map_id,
         }
 
     @app.get("/api/incidents")
     def incidents(start: str | None = None, end: str | None = None, days: int | None = Query(None, ge=1, le=3650),
-                  categories: str | None = None, thana: str | None = None, limit: int = Query(3000, le=10000)):
-        where, params = filters(start, end, days, categories, thana)
-        rows = db.connect().execute(
-            f"""SELECT i.id, i.category, i.headline_bn, i.headline_en, i.location_text, i.place_id, i.thana_id,
-                       i.lat, i.lng, i.precision, i.geocoded, i.incident_date, i.event_date, i.time_of_day,
-                       i.victims, i.evidence, i.evidence_ok, a.url, a.title, a.published_at,
-                       (SELECT count(*) FROM incidents d WHERE d.duplicate_of = i.id) AS more_reports
-                FROM incidents i JOIN articles a ON a.id = i.article_id
-                WHERE {where} ORDER BY i.event_date DESC, i.id DESC LIMIT ?""", (*params, limit)).fetchall()
+                  categories: str | None = None, thana: str | None = None,
+                  limit: int = Query(3000, ge=1, le=10000)):
+        where, params, _, _ = _filters(start, end, days, categories, thana)
+        with db.connect() as c:
+            rows = c.execute(
+                f"""SELECT i.id, i.category, i.headline_bn, i.headline_en, i.location_text, i.place_id, i.thana_id,
+                           i.lat, i.lng, i.precision, i.geocoded, i.incident_date, i.event_date, i.time_of_day,
+                           i.victims, i.evidence, i.evidence_ok, a.url, a.title, a.published_at,
+                           (SELECT count(*) FROM incidents d WHERE d.duplicate_of = i.id) AS more_reports
+                    FROM incidents i JOIN articles a ON a.id = i.article_id
+                    WHERE {where} ORDER BY i.event_date DESC, i.id DESC LIMIT %s""", (*params, limit)).fetchall()
         gaz = load_gazetteer()
         out = []
-        for r in rows:
-            d = dict(r)
+        for d in rows:
             p, t = gaz.get(d["place_id"]), gaz.get(d["thana_id"])
             d["place_bn"], d["place_en"] = (p.name_bn, p.name_en) if p else (None, None)
             d["thana_bn"], d["thana_en"] = (t.name_bn, t.name_en) if t else (None, None)
-            out.append(d)
+            out.append({k: _iso(v) for k, v in d.items()})
         return out
 
     @app.get("/api/stats")
     def stats(start: str | None = None, end: str | None = None, days: int | None = Query(None, ge=1, le=3650),
               categories: str | None = None, thana: str | None = None):
-        where, params = filters(start, end, days, categories, thana)
-        conn = db.connect()
-        q = lambda sql: conn.execute(sql.format(w=where), params).fetchall()  # noqa: E731
+        where, params, start_d, end_d = _filters(start, end, days, categories, thana)
         gaz = load_gazetteer()
-        total = q("SELECT count(*) n, sum(victims) v, sum(lat IS NULL) unloc FROM incidents i WHERE {w}")[0]
-        by_thana = []
-        for r in q("""SELECT thana_id, count(*) n FROM incidents i WHERE {w} AND thana_id IS NOT NULL
-                      GROUP BY thana_id ORDER BY n DESC LIMIT 15"""):
-            p = gaz.get(r["thana_id"])
-            cats = conn.execute(f"""SELECT category, count(*) n FROM incidents i WHERE {where} AND thana_id = ?
-                                    GROUP BY category ORDER BY n DESC""", (*params, r["thana_id"])).fetchall()
-            by_thana.append({"id": r["thana_id"], "name_bn": p.name_bn if p else r["thana_id"],
-                             "name_en": p.name_en if p else r["thana_id"], "lat": p.lat if p else None,
-                             "lng": p.lng if p else None, "count": r["n"],
-                             "categories": {c["category"]: c["n"] for c in cats}})
-        return {
-            "total": total["n"], "victims": total["v"] or 0, "unlocated": total["unloc"] or 0,
-            "by_category": {r["category"]: r["n"] for r in
-                            q("SELECT category, count(*) n FROM incidents i WHERE {w} GROUP BY category")},
-            "by_time_of_day": {r["time_of_day"]: r["n"] for r in
-                               q("SELECT time_of_day, count(*) n FROM incidents i WHERE {w} GROUP BY time_of_day")},
-            "by_day": [{"date": r["event_date"], "count": r["n"]} for r in
-                       q("SELECT event_date, count(*) n FROM incidents i WHERE {w} GROUP BY event_date ORDER BY 1")],
-            "by_thana": by_thana,
-            "range": {"start": params[0], "end": params[1]},
-        }
+        with db.connect() as c:
+            def q(sql):
+                return c.execute(sql.format(w=where), params).fetchall()
+            total = q("""SELECT count(*) n, coalesce(sum(victims), 0) v, count(*) FILTER (WHERE lat IS NULL) unloc
+                         FROM incidents i WHERE {w}""")[0]
+            by_thana = []
+            for r in q("""SELECT thana_id, count(*) n FROM incidents i WHERE {w} AND thana_id IS NOT NULL
+                          GROUP BY thana_id ORDER BY n DESC LIMIT 15"""):
+                p = gaz.get(r["thana_id"])
+                cats = c.execute(f"""SELECT category, count(*) n FROM incidents i WHERE {where} AND thana_id = %s
+                                     GROUP BY category ORDER BY n DESC""", (*params, r["thana_id"])).fetchall()
+                by_thana.append({"id": r["thana_id"], "name_bn": p.name_bn if p else r["thana_id"],
+                                 "name_en": p.name_en if p else r["thana_id"], "lat": p.lat if p else None,
+                                 "lng": p.lng if p else None, "count": r["n"],
+                                 "categories": {x["category"]: x["n"] for x in cats}})
+            return {
+                "total": total["n"], "victims": total["v"], "unlocated": total["unloc"],
+                "by_category": {r["category"]: r["n"] for r in
+                                q("SELECT category, count(*) n FROM incidents i WHERE {w} GROUP BY category")},
+                "by_time_of_day": {r["time_of_day"]: r["n"] for r in
+                                   q("SELECT time_of_day, count(*) n FROM incidents i WHERE {w} GROUP BY time_of_day")},
+                "by_day": [{"date": r["event_date"].isoformat(), "count": r["n"]} for r in
+                           q("SELECT event_date, count(*) n FROM incidents i WHERE {w} GROUP BY event_date ORDER BY 1")],
+                "by_thana": by_thana,
+                "range": {"start": start_d.isoformat(), "end": end_d.isoformat()},
+            }
 
     @app.get("/api/runs")
-    def runs(limit: int = Query(20, le=200)):
-        return [dict(r) for r in db.connect().execute("SELECT * FROM runs ORDER BY id DESC LIMIT ?", (limit,))]
+    def runs(limit: int = Query(20, ge=1, le=200)):
+        with db.connect() as c:
+            return [{k: _iso(v) for k, v in r.items()}
+                    for r in c.execute("SELECT * FROM runs ORDER BY id DESC LIMIT %s", (limit,))]
 
     @app.post("/api/scrape", status_code=202)
     def scrape(request: Request, days_back: int = Query(1, ge=0, le=30)):
-        token = request.headers.get("x-admin-token", "")
-        if settings.admin_token:
-            if not hmac.compare_digest(token, settings.admin_token):
-                raise HTTPException(401, "admin token required")
-        elif request.client is None or request.client.host not in ("127.0.0.1", "::1", "localhost"):
-            raise HTTPException(403, "set ADMIN_TOKEN to allow remote runs")
-        if not start_run("manual", days_back):
-            raise HTTPException(409, "a run is already in progress")
-        return {"started": True}
+        _authorize_trigger(request)
+        with db.tx() as c:
+            busy = c.execute("SELECT id FROM run_requests WHERE status IN ('pending','running') LIMIT 1").fetchone()
+            if busy:
+                raise HTTPException(409, "a collection is already queued or running")
+            rid = c.execute("INSERT INTO run_requests (source, days_back) VALUES (%s, %s) RETURNING id",
+                            ("ui" if request.headers.get(UI_HEADER) else "token", days_back)).fetchone()["id"]
+        return {"queued": True, "request_id": rid}
 
     return app
 

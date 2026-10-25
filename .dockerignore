@@ -1,0 +1,9 @@
+# Only what the Dockerfile copies explicitly is needed; keep secrets and data out of the build context.
+*
+!requirements.txt
+!requirements-dev.txt
+!app/
+!data/dhaka_places.json
+!migrations/
+!tests/
+**/__pycache__

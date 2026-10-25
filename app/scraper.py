@@ -15,6 +15,7 @@ import time
 import urllib.robotparser
 from dataclasses import dataclass, field
 from datetime import date, datetime
+from urllib.parse import urljoin, urlsplit
 from zoneinfo import ZoneInfo
 
 import httpx
@@ -148,34 +149,72 @@ def parse_article(page: str, url: str) -> Article:
                    published_at=parse_dt(node.get("datePublished")), keywords=kw)
 
 
+ALLOWED_HOSTS = {"www.prothomalo.com", "prothomalo.com"}
+MAX_REDIRECTS = 3
+MAX_ROBOTS_BYTES = 512 * 1024
+
+
+class FetchBlocked(PermissionError):
+    """robots.txt, host allowlist or size limit forbids this request."""
+
+
 class ProthomAloClient:
     def __init__(self, client: httpx.Client | None = None, delay: float | None = None):
+        # Redirects are followed manually so every hop is host- and robots-checked.
         self.http = client or httpx.Client(headers={"User-Agent": settings.user_agent, "Accept-Language": "bn,en"},
-                                           timeout=30, follow_redirects=True)
+                                           timeout=30, follow_redirects=False)
         self.delay = settings.request_delay if delay is None else delay
         self._robots: urllib.robotparser.RobotFileParser | None = None
         self._last = 0.0
 
+    def _download(self, url: str, limit: int) -> httpx.Response:
+        """GET with a streamed size cap (Content-Length is not trusted)."""
+        with self.http.stream("GET", url) as r:
+            chunks, size = [], 0
+            if not r.is_redirect:
+                for chunk in r.iter_bytes():
+                    size += len(chunk)
+                    if size > limit:
+                        raise FetchBlocked(f"response larger than {limit} bytes: {url}")
+                    chunks.append(chunk)
+            # iter_bytes() already decompressed the body: drop encoding/length headers so it isn't decoded twice.
+            headers = [(k, v) for k, v in r.headers.items() if k.lower() not in ("content-encoding", "content-length")]
+            return httpx.Response(r.status_code, headers=headers, content=b"".join(chunks), request=r.request)
+
     def _get(self, url: str) -> str:
-        if not self.allowed(url):
-            raise PermissionError(f"robots.txt disallows {url}")
-        wait = self.delay - (time.monotonic() - self._last)
-        if wait > 0:
-            time.sleep(wait)
-        self._last = time.monotonic()
-        r = self.http.get(url)
-        r.raise_for_status()
-        if len(r.content) > MAX_BYTES:
-            raise ValueError("response too large")
-        return r.text
+        for _ in range(MAX_REDIRECTS + 1):
+            host = (urlsplit(url).hostname or "").lower()
+            if urlsplit(url).scheme != "https" or host not in ALLOWED_HOSTS:
+                raise FetchBlocked(f"host not allowed: {url}")
+            if not self.allowed(url):
+                raise FetchBlocked(f"robots.txt disallows {url}")
+            wait = self.delay - (time.monotonic() - self._last)
+            if wait > 0:
+                time.sleep(wait)
+            self._last = time.monotonic()
+            r = self._download(url, MAX_BYTES)
+            if r.is_redirect:
+                url = urljoin(url, r.headers.get("location", ""))
+                continue
+            r.raise_for_status()
+            return r.text
+        raise FetchBlocked(f"too many redirects: {url}")
 
     def allowed(self, url: str) -> bool:
+        """RFC 9309: 4xx robots.txt = no restrictions; 5xx or unreachable = crawl nothing (retry next run)."""
         if self._robots is None:
             rp = urllib.robotparser.RobotFileParser()
             try:
-                rp.parse(self.http.get(f"{BASE}/robots.txt").text.splitlines())
-            except httpx.HTTPError:
-                rp.parse([])
+                r = self._download(f"{BASE}/robots.txt", MAX_ROBOTS_BYTES)
+                if r.status_code >= 500:
+                    rp.disallow_all = True
+                elif r.status_code >= 400:
+                    rp.allow_all = True
+                else:
+                    rp.parse(r.text.splitlines())
+            except (httpx.HTTPError, FetchBlocked):
+                rp.disallow_all = True
+                log.warning("robots.txt unreachable; not crawling this run")
             self._robots = rp
         return self._robots.can_fetch(settings.user_agent, url)
 

@@ -5,7 +5,7 @@ import re
 
 from ..gazetteer import load as load_gazetteer
 from ..schema import ArticleAnalysis, Incident
-from ..scraper import Article
+from ..scraper import DHAKA_TZ, Article
 from ..text import crime_signal, normalize
 from .base import Classifier
 
@@ -40,7 +40,7 @@ class RulesClassifier(Classifier):
         sentence = next((s for s in re.split(r"(?<=[।\n])", article.body) if place.name_bn in s or
                          any(a in s for a in place.aliases)), article.body[:150])
         tod = next((t for t, words in TIME_WORDS if any(w in sentence for w in words)), "unknown")
-        day = article.published_at.date().isoformat() if article.published_at else None
+        day = article.published_at.astimezone(DHAKA_TZ).date().isoformat() if article.published_at else None
         precision = {"landmark": "exact", "area": "neighbourhood"}.get(place.kind, "thana")
         return ArticleAnalysis(is_crime_report=True, in_dhaka=True, note="keyword baseline", incidents=[Incident(
             category=category, headline_bn=article.title[:120], headline_en="", location_text=place.name_bn,

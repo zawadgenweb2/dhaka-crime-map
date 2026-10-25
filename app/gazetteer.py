@@ -14,6 +14,22 @@ DHAKA_TERMS = ["ঢাকা", "রাজধানী", "ডিএমপি", "�
 # Bangla case endings allowed right after a place name ("মিরপুরে", "গুলশানের", "বাড্ডায়")
 SUFFIXES = {normalize(s) for s in ["", "র", "এর", "ের", "য়", "য়ে", "য়ের", "তে", "তেই", "ে", "েই", "এ", "কে",
                                   "বাসী", "স্থ", "ও", "ই", "গামী", "মুখী"]}
+# Other districts. "কুষ্টিয়ার মিরপুরে" or "দিনাজপুরের নবাবগঞ্জে" names a namesake outside Dhaka.
+OTHER_DISTRICTS = {normalize(d) for d in """
+বাগেরহাট বান্দরবান বরগুনা বরিশাল ভোলা বগুড়া ব্রাহ্মণবাড়িয়া চাঁদপুর চাঁপাইনবাবগঞ্জ চট্টগ্রাম চুয়াডাঙ্গা কুমিল্লা
+কক্সবাজার দিনাজপুর ফরিদপুর ফেনী গাইবান্ধা গাজীপুর গোপালগঞ্জ হবিগঞ্জ জামালপুর যশোর ঝালকাঠি ঝিনাইদহ জয়পুরহাট
+খাগড়াছড়ি খুলনা কিশোরগঞ্জ কুড়িগ্রাম কুষ্টিয়া লক্ষ্মীপুর লালমনিরহাট মাদারীপুর মাগুরা মানিকগঞ্জ মেহেরপুর মৌলভীবাজার
+মুন্সিগঞ্জ মুন্সীগঞ্জ ময়মনসিংহ নওগাঁ নড়াইল নারায়ণগঞ্জ নরসিংদী নাটোর নেত্রকোনা নীলফামারী নোয়াখালী পাবনা পঞ্চগড়
+পটুয়াখালী পিরোজপুর রাজবাড়ী রাজশাহী রাঙামাটি রংপুর সাতক্ষীরা শরীয়তপুর শেরপুর সিরাজগঞ্জ সুনামগঞ্জ সিলেট টাঙ্গাইল
+ঠাকুরগাঁও""".split()}
+_GENITIVE = [normalize(x) for x in ("ের", "এর", "য়ের", "র")]
+
+
+def _other_district(word: str) -> bool:
+    for suffix in _GENITIVE:
+        if word.endswith(suffix) and word[: -len(suffix)] in OTHER_DISTRICTS:
+            return True
+    return word in OTHER_DISTRICTS
 
 
 @dataclass(frozen=True)
@@ -61,6 +77,9 @@ class Gazetteer:
                 word_end = n.find(" ", end)
                 rest = n[end:word_end]
                 ok_boundary = n[start - 1] == " " and rest in SUFFIXES
+                prev_word = n[:start].rstrip().rsplit(" ", 1)[-1]
+                if ok_boundary and _other_district(prev_word):
+                    ok_boundary = False  # e.g. Kushtia's Mirpur, Chattogram's Kotwali
                 if ok_boundary and not any(s < end and start < e for s, e in taken):
                     taken.append((start, end))
                     if place not in found:

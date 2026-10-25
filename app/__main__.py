@@ -1,10 +1,16 @@
 """Command line: python -m app <command>
 
-  serve                 dashboard + API + twice-daily scheduler (http://127.0.0.1:8100)
-  scrape [--days N]     one collection run now (N = also scan daily sitemaps N days back)
-  classify [--all]      classify pending articles (or re-classify everything with --all)
-  compare --with gemma  run another classifier on stored articles and compare with saved results
-  stats                 quick counts in the terminal
+Services (one per container):
+  api                     dashboard + read API on HOST:PORT
+  collector               the only scheduler: scrapes at SCRAPE_TIMES, queues articles
+  classifier              claims queued articles and classifies them (CLASSIFIER=claude|gemma|rules)
+  migrate [--import-sqlite PATH]   apply schema migrations; optionally import the v0.1 SQLite data once
+
+Admin:
+  collect-now [--days N]  ask the running collector to scrape now (inserts a run request)
+  rebuild-duplicates      regroup duplicate reports with the current rule (no model calls)
+  compare --with gemma    run another classifier on articles Claude already analysed and report agreement
+  stats                   counts in the terminal
 """
 from __future__ import annotations
 
@@ -20,76 +26,62 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="python -m app", description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
-    sp = sub.add_parser("serve"); sp.add_argument("--no-scheduler", action="store_true")
-    sc = sub.add_parser("scrape"); sc.add_argument("--days", type=int, default=1)
-    sc.add_argument("--max", type=int, default=None, help="max new articles to fetch")
-    cl = sub.add_parser("classify"); cl.add_argument("--all", action="store_true")
-    cl.add_argument("--limit", type=int, default=500)
+    sub.add_parser("api")
+    sub.add_parser("collector")
+    sub.add_parser("classifier")
+    m = sub.add_parser("migrate"); m.add_argument("--import-sqlite", metavar="PATH")
+    cn = sub.add_parser("collect-now"); cn.add_argument("--days", type=int, default=1)
+    sub.add_parser("rebuild-duplicates")
     cp = sub.add_parser("compare"); cp.add_argument("--with", dest="other", default="gemma")
-    cp.add_argument("--limit", type=int, default=30)
+    cp.add_argument("--limit", type=int, default=65); cp.add_argument("--out", default=None)
     sub.add_parser("stats")
     args = ap.parse_args(argv)
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
-    logging.getLogger("httpx").setLevel(logging.WARNING)
-    logging.getLogger("httpx2").setLevel(logging.WARNING)
+    for noisy in ("httpx", "httpx2", "uvicorn.access"):
+        logging.getLogger(noisy).setLevel(logging.WARNING)
 
-    if args.cmd == "serve":
+    if args.cmd == "api":
         import uvicorn
         from .api import create_app
-        uvicorn.run(create_app(enable_scheduler=not args.no_scheduler), host=settings.host, port=settings.port)
-        return 0
-
-    from .pipeline import Pipeline
-    if args.cmd == "scrape":
-        result = Pipeline(progress=print).run(trigger="cli", days_back=args.days, max_articles=args.max)
-        print(result)
-        return 0 if result["status"] == "ok" else 1
-    if args.cmd == "classify":
-        done, found, errors = Pipeline(progress=print).classify_pending(limit=args.limit, reclassify=args.all)
-        print(f"classified={done} incidents={found} errors={errors}")
-        return 0
-    if args.cmd == "compare":
-        return compare(args.other, args.limit)
-    if args.cmd == "stats":
-        conn = db.connect()
-        for r in conn.execute("SELECT status, count(*) n FROM articles GROUP BY status"):
-            print(f"articles {r['status']:<11} {r['n']}")
-        for r in conn.execute("""SELECT category, count(*) n FROM incidents WHERE duplicate_of IS NULL
-                                 GROUP BY category ORDER BY n DESC"""):
-            print(f"incidents {r['category']:<16} {r['n']}")
-        return 0
-    return 1
-
-
-def compare(other: str, limit: int) -> int:
-    """Agreement between the saved classifier output and another backend (e.g. Gemma vs Claude)."""
-    from .classifiers import get_classifier
-    from .pipeline import _row_to_article
-    clf = get_classifier(other)
-    conn = db.connect()
-    rows = conn.execute("""SELECT * FROM articles WHERE status='classified' ORDER BY published_at DESC LIMIT ?""",
-                        (limit,)).fetchall()
-    same_crime = same_cat = same_thana = n = 0
-    from .gazetteer import load
-    gaz = load()
-    for row in rows:
-        saved = conn.execute("SELECT category, thana_id FROM incidents WHERE article_id=? ORDER BY id LIMIT 1",
-                             (row["id"],)).fetchone()
-        try:
-            a = clf.classify(_row_to_article(row))
-        except Exception as e:
-            print(f"! {row['url']}: {e}")
-            continue
-        n += 1
-        first = a.incidents[0] if (a.in_dhaka and a.incidents) else None
-        same_crime += int(bool(saved) == bool(first))
-        if saved and first:
-            same_cat += int(saved["category"] == first.category)
-            p = gaz.get(first.place_id) or gaz.best_match(first.location_text)
-            same_thana += int(bool(p) and gaz.thana_of(p).id == saved["thana_id"])
-    print(f"{other} vs saved on {n} articles: has-incident agreement {same_crime}/{n}, "
-          f"category {same_cat}, thana {same_thana}")
+        uvicorn.run(create_app(), host=settings.host, port=settings.port, proxy_headers=False)
+    elif args.cmd == "collector":
+        from .collector import Collector
+        Collector().serve()
+    elif args.cmd == "classifier":
+        from .worker import Worker
+        Worker().serve()
+    elif args.cmd == "migrate":
+        print("applied:", db.migrate() or "nothing new")
+        if args.import_sqlite:
+            from .importer import import_sqlite
+            print("imported:", import_sqlite(args.import_sqlite))
+    elif args.cmd == "collect-now":
+        with db.tx() as c:
+            rid = c.execute("INSERT INTO run_requests (source, days_back) VALUES ('cli', %s) RETURNING id",
+                            (args.days,)).fetchone()["id"]
+        print(f"queued run request {rid}; the collector picks it up within ~20 s")
+    elif args.cmd == "rebuild-duplicates":
+        from .store import MATERIALIZE_LOCK, rebuild_groups
+        with db.tx() as c:
+            c.execute("SELECT pg_advisory_xact_lock(%s)", (MATERIALIZE_LOCK,))
+            keys = {(r["category"], r["place_id"], r["event_date"]) for r in c.execute(
+                "SELECT DISTINCT category, place_id, event_date FROM incidents "
+                "WHERE published AND place_id IS NOT NULL AND event_date IS NOT NULL")}
+            c.execute("UPDATE incidents SET duplicate_of = NULL WHERE NOT published")
+            print(f"regrouped; {rebuild_groups(c, keys)} links changed")
+    elif args.cmd == "compare":
+        from .evaluate import compare
+        return compare(args.other, args.limit, args.out)
+    elif args.cmd == "stats":
+        with db.connect() as c:
+            for r in c.execute("SELECT status, count(*) n FROM articles GROUP BY 1 ORDER BY 1"):
+                print(f"articles  {r['status']:<11} {r['n']}")
+            for r in c.execute("SELECT state, count(*) n FROM jobs GROUP BY 1 ORDER BY 1"):
+                print(f"jobs      {r['state']:<11} {r['n']}")
+            for r in c.execute("""SELECT category, count(*) n FROM incidents WHERE published AND duplicate_of IS NULL
+                                  GROUP BY 1 ORDER BY 2 DESC"""):
+                print(f"incidents {r['category']:<16} {r['n']}")
     return 0
 
 

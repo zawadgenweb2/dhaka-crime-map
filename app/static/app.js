@@ -442,7 +442,7 @@
     matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { if (!state.theme) { engine?.theme(); renderAll(); } });
     document.querySelectorAll("#tabs button").forEach((b) => b.addEventListener("click", () => setTab(b.dataset.tab)));
     $("#run-btn").addEventListener("click", async () => {
-      const r = await fetch("/api/scrape", { method: "POST" });
+      const r = await fetch("/api/scrape", { method: "POST", headers: { "X-DCM-UI": "1" } });
       note(r.status === 202 ? t("started") : r.status === 409 ? t("busy") : `${t("failed")} (${r.status})`);
       await loadMeta(); poll();
     });

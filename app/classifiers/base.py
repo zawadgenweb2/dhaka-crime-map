@@ -11,7 +11,11 @@ from ..scraper import Article
 
 
 class ClassifierError(RuntimeError):
-    pass
+    """permanent=True: misconfiguration (bad key, unknown model); retrying other articles won't help."""
+
+    def __init__(self, message: str, permanent: bool = False):
+        super().__init__(message)
+        self.permanent = permanent
 
 
 class Classifier(ABC):
@@ -20,6 +24,10 @@ class Classifier(ABC):
     @abstractmethod
     def classify(self, article: Article) -> ArticleAnalysis:
         """Return incidents found in the article. Raise ClassifierError on failure."""
+
+    def classify_with_meta(self, article: Article) -> tuple[ArticleAnalysis, dict]:
+        """Like classify(), plus usage metadata (model, token counts, cost_usd) when the backend reports it."""
+        return self.classify(article), {}
 
 
 _INSTRUCTIONS = """You analyse Bangla newspaper articles from Prothom Alo and extract crime incidents that \

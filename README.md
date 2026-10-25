@@ -3,113 +3,101 @@
 Collects crime reports from **Prothom Alo** (Bangla), uses an AI model to classify each article and pinpoint
 where in **Dhaka district** it happened, and shows the result as a heat map with filters, hotspots and a news feed.
 
+## Architecture (Docker Compose)
+
 ```
-Prothom Alo sitemaps ──► pre-filter ──► fetch article ──► classifier ──► locate ──► SQLite ──► API ──► map
- (08:00 & 20:00 Dhaka)   (free, rules)   (JSON-LD text)   Claude Opus 5.5   gazetteer      (dedup)        Google Maps
-                                                          → Gemma 4 E2B     + OSM geocode                 + deck.gl
+                      ┌────────────┐  08:00 / 20:00 Asia/Dhaka (one row per slot, runs once)
+ prothomalo.com ◄─────┤ collector  │  sitemaps → pre-filter → fetch article → INSERT article + job
+  (robots.txt,        └─────┬──────┘  never calls a model; singleton via Postgres advisory lock
+   1 req/s, ≤8 MB)          │ jobs (queue)
+                      ┌─────▼──────┐  claim job with lease (FOR UPDATE SKIP LOCKED)
+ Claude API / local ◄─┤ classifier │  record call → call model once → save full answer → geocode → incidents
+ model server         └─────┬──────┘  daily budget; crash after sending ⇒ 'uncertain', never re-sent
+                            │
+ OSM Nominatim ◄────────────┤ shared geocoding lane: ≤ 4 requests/minute across all containers
+                      ┌─────▼──────┐
+                      │ PostgreSQL │  articles · jobs · llm_calls · analyses · incidents · runs · slots
+                      └─────▲──────┘
+                      ┌─────┴──────┐
+ browser ────────────►│    api     │  dashboard + read API (127.0.0.1:8100); only writes "collect now" requests
+                      └────────────┘
 ```
 
-## Quick start
+| Service | Role | Model credentials |
+|---|---|---|
+| `db` | PostgreSQL 17: data, job queue, locks | – |
+| `migrate` | one-shot: schema migrations (and the one-time SQLite import) | – |
+| `api` | dashboard and read API, `POST /api/scrape` queues a run request | – |
+| `collector` | the only scheduler; scrapes and queues articles | – |
+| `classifier` | claims queued articles, classifies, saves, locates, deduplicates | **only here** |
+
+The design was reviewed by an independent Codex council (architecture + code review); its findings are fixed and
+covered by tests: atomic job claiming, bounded paid calls, results saved before anything else can fail,
+no network calls inside database transactions, Nominatim rate limits, a scheduler that cannot double-run,
+CSRF-safe "collect now", streamed size limits and RFC 9309 robots handling.
+
+## Run it
 
 ```bash
 cd dhaka-crime-map
-uv venv --python 3.12 .venv && uv pip install --python .venv/bin/python -r requirements-dev.txt
-cp .env.example .env            # add ANTHROPIC_API_KEY (and GOOGLE_MAPS_API_KEY)
-.venv/bin/python -m app scrape --days 7    # one-off backfill of the last week
-.venv/bin/python -m app serve              # http://127.0.0.1:8100, scheduler included
+cp .env.example .env          # set POSTGRES_PASSWORD and ANTHROPIC_API_KEY (GOOGLE_MAPS_API_KEY optional)
+docker compose up -d --build  # http://127.0.0.1:8100
+docker compose --profile test run --rm test      # full test suite against Postgres
 ```
 
-Run as a service (keeps the 08:00/20:00 schedule after reboot): see `deploy/dhaka-crime-map.service`.
+Admin commands run in the same image:
+
+```bash
+docker compose run --rm migrate collect-now --days 1   # ask the collector to scrape now
+docker compose run --rm migrate stats
+docker compose run --rm migrate rebuild-duplicates     # regroup duplicate reports (no model calls)
+docker compose run --rm migrate compare --with gemma   # local model vs saved Claude answers
+docker compose logs -f collector classifier
+```
 
 ## How an article becomes a point on the map
 
-1. **Discover.** Prothom Alo's `news_sitemap.xml` (last ~48 h, with title and keywords) plus the daily sitemaps
-   for today and yesterday. Both are advertised in the site's robots.txt, which is respected; requests are spaced
-   1 s apart.
+1. **Discover.** Prothom Alo's `news_sitemap.xml` (last ~48 h, with title and keywords) plus the daily sitemaps for
+   today and yesterday. robots.txt is honoured (5xx or unreachable = crawl nothing this run), redirects are
+   re-checked hop by hop, responses are streamed with an 8 MB cap.
 2. **Pre-filter (no model, no cost).** Keep the অপরাধ and রাজধানী sections. From other news sections keep a
-   story only if its title or Prothom Alo keywords contain a crime term (হত্যা, ছিনতাই, ধর্ষণ, মাদক, …) **and** a
-   Dhaka place from the gazetteer. Sports, entertainment, opinion, video and the like are never fetched.
-   After download, the full text must pass the same check before it reaches the model.
+   story only if its title or keywords contain a crime term **and** a Dhaka place from the gazetteer.
 3. **Classify.** The model reads the full Bangla article and returns structured JSON (`app/schema.py`): whether it
-   is a crime report, whether it happened inside Dhaka district, and for every incident its category, the exact
-   location phrase, a place id from the catalogue, date, time of day, victim count and a verbatim evidence quote.
-4. **Validate and locate.**
-   * the place id must exist in `data/dhaka_places.json`, otherwise the location text is matched again locally;
-   * when the article names a precise spot (station, market, road), it is geocoded on OpenStreetMap and kept
-     **only** if it lands within 2.5 km of the chosen area;
-   * the evidence quote must appear in the article (`evidence_ok`);
-   * dates after publication are discarded;
-   * the same category in the same thana within ±1 day from another article is marked as a duplicate report.
+   is a crime report inside Dhaka district, and per incident the category, verbatim location phrase, a place id
+   from the catalogue, date, time of day, victims and a verbatim evidence quote.
+4. **Validate and locate.** Unknown place ids are re-matched locally; exact spots are geocoded and kept only within
+   2.5 km of the chosen place; dates after publication or before 2000 are dropped; an incident is **published**
+   only if its evidence quote is in the article and the article was judged a Dhaka crime report.
+5. **Group duplicates.** Reports are the same event only with the same category, the same specific place, dates
+   within a day and compatible time of day (so Mirpur 11 and Mirpur 12 stay separate).
 
-Precision shown in the UI: **নির্দিষ্ট স্থান** (exact spot) · **এলাকা** (neighbourhood centre) · **থানা পর্যায়**
-(thana centre) · **স্থান অস্পষ্ট** (only "রাজধানী", listed but not mapped).
-
-### Scope and categories
-
-* **Dhaka district**: the 50 DMP thanas plus Savar, Ashulia, Dhamrai, Keraniganj, Dohar, Nawabganj.
-  Gazipur/Tongi and Narayanganj are excluded.
-* **Categories**: হত্যা, হামলা ও সংঘর্ষ, ছিনতাই ও ডাকাতি, চুরি, যৌন সহিংসতা, অপহরণ, মাদক ও অস্ত্র (arrests and
-  seizures, placed where they happened), প্রতারণা ও চাঁদাবাজি, অন্যান্য. Road accidents, fires and suicides are
-  not crimes here.
-
-### The gazetteer
-
-`data/dhaka_places.json` has 163 places (50 thanas, 6 upazilas, neighbourhoods and landmarks) with Bangla names,
-spelling variants and coordinates. Edit `scripts/build_gazetteer.py`, rebuild, and re-check against OpenStreetMap:
-
-```bash
-.venv/bin/python scripts/build_gazetteer.py
-.venv/bin/python scripts/verify_gazetteer.py      # lists places > 1.2 km from their OSM match
-```
-
-Matching understands Bangla digits, "১০ নম্বর", hyphens and case endings (মিরপুরে, গুলশানের, বাড্ডায়), and will
-not match inside other words (উত্তরাঞ্চল is not উত্তরা).
+Scope: **Dhaka district** (50 DMP thanas + Savar, Ashulia, Dhamrai, Keraniganj, Dohar, Nawabganj). A place name
+right after another district's name ("কুষ্টিয়ার মিরপুরে") is not treated as Dhaka.
 
 ## Models
 
-| `CLASSIFIER` | What | Where it runs |
+| `CLASSIFIER` | What | Cost |
 |---|---|---|
-| `claude` (default) | Claude Opus 5.5, adaptive thinking, structured output, prompt caching, server-side refusal fallback | Anthropic API, ~US$0.01–0.02 per article |
-| `gemma` | Gemma 4 E2B via any OpenAI-compatible server, same prompt and schema | Local CPU/GPU (Ollama: `ollama pull gemma4:e2b`) |
-| `rules` | Keyword baseline | Offline, free; used in tests |
+| `claude` (default) | Claude Opus 5.5, adaptive thinking, structured output, prompt caching (cache warmed by one request before the rest run in parallel), server-side refusal fallback | ~US$0.01–0.02 per article, capped by `MAX_LLM_CALLS_PER_DAY` |
+| `gemma` | any OpenAI-compatible server (llama.cpp / Ollama / vLLM), same prompt and schema | self-hosted |
+| `rules` | keyword baseline | free, offline |
 
-Before switching to the local model, measure it against Claude's saved results:
-
-```bash
-.venv/bin/python -m app compare --with gemma --limit 50
-```
+Every call is recorded (`llm_calls`) and every answer saved with token usage and cost (`analyses`);
+`/api/meta` reports today's spend.
 
 ## Map
 
-With `GOOGLE_MAPS_API_KEY` set, the dashboard uses the **Google Maps JavaScript API** (`v=weekly`, async loader)
-and draws the heat map and incident points with **deck.gl 9.4** `GoogleMapsOverlay`. Google retired its own
-`HeatmapLayer` in May 2026 and recommends deck.gl. Without a key, the same layers are drawn on OpenStreetMap tiles.
+With `GOOGLE_MAPS_API_KEY` set, the dashboard uses the Google Maps JavaScript API and draws the heat map and points
+with deck.gl 9.4 (`GoogleMapsOverlay`; Google retired its own HeatmapLayer in May 2026). Without a key the same
+layers are drawn on OpenStreetMap tiles. Filters zoom the map to the matching incidents.
 
-Creating the key: Google Cloud Console → enable **Maps JavaScript API** → Credentials → Create API key →
-restrict it to *HTTP referrers* `http://localhost:8100/*` and to *Maps JavaScript API*. A billing account is
-required by Google; normal personal use stays inside the free monthly allowance.
+## The gazetteer
 
-## CLI
-
-```
-python -m app serve [--no-scheduler]   dashboard + API + scheduler
-python -m app scrape [--days N] [--max M]
-python -m app classify [--all]         classify pending (or re-classify everything)
-python -m app compare --with gemma
-python -m app stats
-```
-
-API: `GET /api/meta`, `/api/incidents`, `/api/stats` (filters: `days` or `start`/`end`, `categories`, `thana`),
-`/api/runs`, `POST /api/scrape` (localhost, or `X-Admin-Token`).
+`data/dhaka_places.json`: 163 places (50 thanas, 6 upazilas, neighbourhoods, landmarks) with Bangla names,
+spelling variants and coordinates checked against OpenStreetMap. Edit `scripts/build_gazetteer.py`, then run it
+and `scripts/verify_gazetteer.py`.
 
 ## Limits
 
-These are **reported** incidents in one newspaper, not all crime, and AI extraction can be wrong; every point
-links to its source article. Area centroids are approximate. Check Prothom Alo's terms before any public or
-commercial use.
-
-## Tests
-
-```bash
-.venv/bin/python -m pytest -q
-```
+These are **reported** incidents in one newspaper, not all crime, and AI extraction can be wrong; every point links
+to its source article. Area centroids are approximate. Check Prothom Alo's terms before public or commercial use.
