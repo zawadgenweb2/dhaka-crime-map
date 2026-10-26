@@ -117,6 +117,33 @@ class Gazetteer:
                 out |= {p.id, self.thana_of(p).id}
         return out
 
+    def incident_support(self, body: str, location_text: str, evidence: str) -> tuple[set[str], bool, bool]:
+        """Where the article describes this incident: its location phrase plus the sentence holding the evidence
+        quote and one sentence either side. Returns (Dhaka places named there, says রাজধানী/ঢাকা there,
+        the quote's own sentence names another district without any Dhaka place or term)."""
+        nb, ne = normalize(body or ""), normalize(evidence or "")
+        sentences = [x.strip() for x in (body or "").split("।")]
+        quote_sentence, window = "", ""
+        if ne:
+            pos = nb.find(ne[:60])
+            if pos >= 0:   # sentence index = number of sentence ends before the quote in the normalized body
+                ends, n = 0, 0
+                for k, sent in enumerate(sentences):
+                    n += len(normalize(sent)) + 1
+                    if n > pos:
+                        ends = k
+                        break
+                quote_sentence = sentences[ends]
+                window = " । ".join(sentences[max(0, ends - 1): ends + 2])
+        ctx = f"{location_text or ''} । {window or evidence or ''}"
+        places = self.grounded_places(ctx)
+        nctx = normalize(ctx)
+        capital = any(normalize(t) in nctx for t in DHAKA_TERMS)
+        nq = normalize(quote_sentence or evidence or "")
+        conflict = any(_other_district(w) for w in nq.split(" ")) and not (
+            self.grounded_places(quote_sentence or evidence or "") or any(normalize(t) in nq for t in DHAKA_TERMS))
+        return places, capital, conflict
+
     def lead_in_other_district(self, body: str) -> bool:
         """News leads say where it happened: "চট্টগ্রাম নগরের ..." vs "রাজধানীর মিরপুরে ...". True if the first
         sentence names another district and no Dhaka place or Dhaka/capital term."""
