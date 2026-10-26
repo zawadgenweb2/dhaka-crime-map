@@ -1,0 +1,7 @@
+# systemd --user: nightly database backup (install with the timer).
+[Unit]
+Description=Dhaka Crime Map database backup
+
+[Service]
+Type=oneshot
+ExecStart=%h/dhaka-crime-map/deploy/backup-db.sh

@@ -1,0 +1,10 @@
+# cp deploy/dhaka-backup.{service,timer} ~/.config/systemd/user/ && systemctl --user enable --now dhaka-backup.timer
+[Unit]
+Description=Nightly Dhaka Crime Map database backup
+
+[Timer]
+OnCalendar=*-*-* 02:30:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
