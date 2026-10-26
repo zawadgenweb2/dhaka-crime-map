@@ -58,6 +58,8 @@ def compare(other: str, limit: int = 1000, out: str | None = None) -> int:
     inc_tp = inc_fp = inc_fn = 0
     cat_ok = thana_ok = place_ok = date_ok = date_n = matched = 0
     latencies, disagreements = [], []
+    speed: dict[str, list[float]] = {"ttft_s": [], "prefill_tps": [], "decode_tps": [], "prompt_tokens": [],
+                                     "cached_tokens": [], "output_tokens": []}
     for i, a in enumerate(arts, 1):
         with db.connect() as c:
             ref = _reference(c, a["id"])
@@ -69,6 +71,9 @@ def compare(other: str, limit: int = 1000, out: str | None = None) -> int:
             analysis, meta, ok, err = None, {}, False, f"{type(e).__name__}: {e}"
         latency = meta.get("latency_s") or round(time.monotonic() - started, 2)
         latencies.append(latency)
+        for k in speed:
+            if meta.get(k) is not None:
+                speed[k].append(meta[k])
         with db.tx() as c:
             c.execute("""INSERT INTO eval_results (run_label, article_id, backend, model, ok, error, result, latency_s,
                            input_tokens, output_tokens) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
@@ -117,6 +122,8 @@ def compare(other: str, limit: int = 1000, out: str | None = None) -> int:
         "latency_p95_s": round(sorted(latencies)[int(0.95 * (len(latencies) - 1))], 1) if latencies else None,
         "disagreements": disagreements,
     }
+    med = lambda v: round(statistics.median(v), 2) if v else None  # noqa: E731
+    report["speed_p50"] = {k: med(v) for k, v in speed.items()}
     report["gates"] = {k: (report[k] is not None and report[k] >= v) for k, v in GATES.items()}
     report["passes_all_gates"] = all(report["gates"].values())
     print(json.dumps({k: v for k, v in report.items() if k != "disagreements"}, indent=1))

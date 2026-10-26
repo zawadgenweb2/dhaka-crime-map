@@ -365,3 +365,19 @@ def test_prompt_counts_one_episode_once():
     from app.classifiers.base import compact_system_prompt
     p = compact_system_prompt()
     assert "ONE incident" in p and "never separate incidents" in p and "drugs_arms only when" in p
+
+
+def test_streaming_measures_prefill_and_decode(monkeypatch):
+    import json as _json
+    monkeypatch.setenv("GEMMA_STREAM", "1")
+    half = len(GOOD) // 2
+    events = [{"model": "dhaka-gemma", "choices": [{"delta": {"content": GOOD[:half]}}]},
+              {"choices": [{"delta": {"content": GOOD[half:]}, "finish_reason": "stop"}]},
+              {"choices": [], "usage": {"prompt_tokens": 2000, "completion_tokens": 300,
+                                        "prompt_tokens_details": {"cached_tokens": 1500}}}]
+    sse = "".join(f"data: {_json.dumps(e)}\n\n" for e in events) + "data: [DONE]\n\n"
+    analysis, meta = _gemma([httpx.Response(200, text=sse, headers={"content-type": "text/event-stream"})]
+                            ).classify_with_meta(ART)
+    assert analysis.incidents[0].place_id == "mirpur11"
+    assert meta["prompt_tokens"] == 2000 and meta["cached_tokens"] == 1500 and meta["ttft_s"] >= 0
+    assert meta["output_tokens"] == 300

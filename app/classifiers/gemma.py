@@ -37,6 +37,7 @@ class GemmaClassifier(Classifier):
         self.http = httpx.Client(timeout=timeout, headers=headers, transport=transport)
         # compact (default): per-article place shortlist + grammar-enforced ids; full: whole 163-place catalogue
         self.prompt_mode = os.getenv("GEMMA_PROMPT", "compact")
+        self.stream = os.getenv("GEMMA_STREAM", "0") == "1"   # streaming = measure prefill/decode speed
         self.name = f"gemma:{self.model}" + ("" if self.prompt_mode == "compact" else ":full")
 
     @staticmethod
@@ -49,6 +50,59 @@ class GemmaClassifier(Classifier):
             props["place_id"] = {"anyOf": allowed + [{"type": "null"}],
                                  "description": props["place_id"].get("description", "")}
         return schema
+
+    def _send(self, body: dict) -> tuple[int, dict | str]:
+        """One chat completion. Returns (status, result) where result has model, usage, finish, content and,
+        when streaming (GEMMA_STREAM=1, used for speed benchmarks), time to first token and total time."""
+        url = f"{self.base_url}/chat/completions"
+        if not self.stream:
+            r = self.http.post(url, json=body)
+            if r.status_code >= 400:
+                return r.status_code, r.text
+            data = r.json()
+            choice = (data.get("choices") or [{}])[0]
+            return 200, {"model": data.get("model"), "usage": data.get("usage") or {}, "timings": data.get("timings"),
+                         "finish": choice.get("finish_reason"),
+                         "content": (choice.get("message") or {}).get("content") or ""}
+        t0, ttft, parts = time.monotonic(), None, []
+        out = {"model": None, "usage": {}, "timings": None, "finish": None}
+        with self.http.stream("POST", url, json={**body, "stream": True,
+                                                 "stream_options": {"include_usage": True}}) as r:
+            if r.status_code >= 400:
+                r.read()
+                return r.status_code, r.text
+            for line in r.iter_lines():
+                if not line.startswith("data:"):
+                    continue
+                payload = line[5:].strip()
+                if payload == "[DONE]":
+                    break
+                ev = json.loads(payload)
+                out["model"] = ev.get("model") or out["model"]
+                out["usage"] = ev.get("usage") or out["usage"]
+                out["timings"] = ev.get("timings") or out["timings"]
+                for ch in ev.get("choices") or []:
+                    if (ch.get("delta") or {}).get("content"):
+                        ttft = ttft if ttft is not None else time.monotonic() - t0
+                        parts.append(ch["delta"]["content"])
+                    out["finish"] = ch.get("finish_reason") or out["finish"]
+        return 200, {**out, "content": "".join(parts), "ttft": ttft, "total": time.monotonic() - t0}
+
+    @staticmethod
+    def _speed(res: dict) -> dict:
+        """Prefill/decode speed from client-side timing (same method for every server)."""
+        if res.get("ttft") is None:
+            return {}
+        u, ttft, total = res["usage"], res["ttft"], res["total"]
+        prompt, completion = u.get("prompt_tokens", 0), u.get("completion_tokens", 0)
+        details = u.get("prompt_tokens_details") or {}
+        cached = details.get("cached_tokens")
+        if cached is None and res.get("timings"):                 # llama.cpp: prompt_n = tokens actually computed
+            cached = max(0, prompt - res["timings"].get("prompt_n", prompt))
+        computed = prompt - (cached or 0)
+        return {"ttft_s": round(ttft, 3), "prompt_tokens": prompt, "cached_tokens": cached,
+                "prefill_tps": round(computed / ttft, 1) if ttft > 0 else None,
+                "decode_tps": round((completion - 1) / (total - ttft), 1) if completion > 1 and total > ttft else None}
 
     @staticmethod
     def _keep_allowed_places(analysis: ArticleAnalysis, allowed: set[str]) -> ArticleAnalysis:
@@ -86,29 +140,28 @@ class GemmaClassifier(Classifier):
         last_error = ""
         for attempt in range(2):
             try:
-                r = self.http.post(f"{self.base_url}/chat/completions", json=body)
+                status, res = self._send(body)
             except httpx.HTTPError as e:
                 raise ClassifierError(f"local model server unreachable: {type(e).__name__}") from e
-            if r.status_code in (401, 403):
+            if status in (401, 403):
                 raise ClassifierError("local model server rejected the API key", permanent=True)
-            if r.status_code == 404:
+            if status == 404:
                 raise ClassifierError(f"local model {self.model!r} or endpoint not found", permanent=True)
-            if r.status_code >= 400:
-                raise ClassifierError(f"local model server error {r.status_code}: {r.text[:200]}")
-            data = r.json()
-            u = data.get("usage") or {}
+            if status >= 400:
+                raise ClassifierError(f"local model server error {status}: {str(res)[:200]}")
+            u = res["usage"]
             usage["input_tokens"] += u.get("prompt_tokens", 0)
             usage["output_tokens"] += u.get("completion_tokens", 0)
-            choice = (data.get("choices") or [{}])[0]
-            content = (choice.get("message") or {}).get("content") or ""
-            if choice.get("finish_reason") == "length":
+            content = res["content"]
+            if res["finish"] == "length":
                 last_error = "output was cut off (finish_reason=length)"
             else:
                 try:
                     analysis = self._keep_allowed_places(
                         ArticleAnalysis.model_validate(json.loads(content)), allowed)
-                    meta = {"model": data.get("model") or self.model, **usage, "cost_usd": 0,
-                            "latency_s": round(time.monotonic() - started, 2), "attempts": attempt + 1}
+                    meta = {"model": res["model"] or self.model, **usage, "cost_usd": 0,
+                            "latency_s": round(time.monotonic() - started, 2), "attempts": attempt + 1,
+                            **self._speed(res)}
                     return analysis, meta
                 except (ValueError, ValidationError) as e:
                     last_error = str(e)[:400]
