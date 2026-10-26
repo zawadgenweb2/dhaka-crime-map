@@ -62,7 +62,7 @@
   };
 
   const state = {
-    lang: store.get("dcm.lang", "bn"), theme: store.get("dcm.theme", ""), days: 30, start: "", end: "",
+    lang: store.get("dcm.lang", "bn"), theme: store.get("dcm.theme", ""), days: 7, start: "", end: "",
     cats: new Set(CAT_ORDER), thana: "", mode: "both", meta: null, incidents: [], stats: null, selected: null,
   };
   let engine = null;
