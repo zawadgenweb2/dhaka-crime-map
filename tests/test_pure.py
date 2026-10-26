@@ -231,7 +231,7 @@ def _completion(content, finish="stop"):
 
 
 GOOD = ArticleAnalysis(is_crime_report=True, in_dhaka=True, incidents=[_inc()], note="ok").model_dump_json()
-ART = Article(url="u", section="bangladesh/crime", title="t", body="b",
+ART = Article(url="u", section="bangladesh/crime", title="t", body="রাজধানীর মিরপুর ১১ নম্বরে গ্রেপ্তার।",
               published_at=datetime(2026, 10, 24, tzinfo=timezone.utc))
 
 
