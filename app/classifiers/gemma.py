@@ -15,7 +15,8 @@ from pydantic import ValidationError
 from ..config import settings
 from ..schema import ArticleAnalysis
 from ..scraper import Article
-from .base import Classifier, ClassifierError, system_prompt, user_message
+from .base import (Classifier, ClassifierError, candidate_places, compact_system_prompt, compact_user_message,
+                   system_prompt, user_message)
 
 SCHEMA_NOTE = (
     "\n\nAnswer with one JSON object only, matching the provided JSON schema exactly. "
@@ -30,21 +31,40 @@ class GemmaClassifier(Classifier):
                  api_key: str | None = None, transport: httpx.BaseTransport | None = None):
         self.base_url = (base_url or settings.gemma_base_url).rstrip("/")
         self.model = model or settings.gemma_model
-        self.name = f"gemma:{self.model}"
         key = api_key if api_key is not None else os.getenv("GEMMA_API_KEY", "")
         headers = {"Authorization": f"Bearer {key}"} if key else {}
         self.http = httpx.Client(timeout=timeout, headers=headers, transport=transport)
+        # compact (default): per-article place shortlist + grammar-enforced ids; full: same prompt as Claude
+        self.prompt_mode = os.getenv("GEMMA_PROMPT", "compact")
+        self.name = f"gemma:{self.model}" + ("" if self.prompt_mode == "compact" else ":full")
+
+    @staticmethod
+    def _schema(candidate_ids: list[str] | None) -> dict:
+        schema = ArticleAnalysis.model_json_schema()
+        props = schema["$defs"]["Incident"]["properties"]
+        props["victims"]["minimum"] = 0
+        if candidate_ids:
+            props["place_id"] = {"anyOf": [{"type": "string", "enum": candidate_ids}, {"type": "null"}],
+                                 "description": props["place_id"].get("description", "")}
+        return schema
 
     def classify(self, article: Article) -> ArticleAnalysis:
         return self.classify_with_meta(article)[0]
 
     def classify_with_meta(self, article: Article) -> tuple[ArticleAnalysis, dict]:
-        messages = [{"role": "system", "content": system_prompt() + SCHEMA_NOTE},
-                    {"role": "user", "content": user_message(article)}]
+        if self.prompt_mode == "compact":
+            candidates = candidate_places(article)
+            messages = [{"role": "system", "content": compact_system_prompt() + SCHEMA_NOTE},
+                        {"role": "user", "content": compact_user_message(article, candidates)}]
+            schema = self._schema([p.id for p in candidates])
+        else:
+            messages = [{"role": "system", "content": system_prompt() + SCHEMA_NOTE},
+                        {"role": "user", "content": user_message(article)}]
+            schema = self._schema(None)
         body = {
             "model": self.model, "messages": messages, "temperature": 0, "max_tokens": 4096,
             "response_format": {"type": "json_schema", "json_schema": {
-                "name": "article_analysis", "schema": ArticleAnalysis.model_json_schema(), "strict": True}},
+                "name": "article_analysis", "schema": schema, "strict": True}},
             "cache_prompt": True,                                   # llama.cpp: reuse the shared prompt prefix
             "chat_template_kwargs": {"enable_thinking": False},     # plain extraction, no reasoning trace
         }

@@ -268,3 +268,18 @@ def test_review_mode_holds_incidents():
     rows = build_rows(ARTICLE, ArticleAnalysis(is_crime_report=True, in_dhaka=True, incidents=[_inc()], note=""),
                       g, {}, "review")
     assert rows[0]["passes"] and not rows[0]["published"] and rows[0]["review_status"] == "pending"
+
+
+def test_compact_prompt_shortlists_places_and_constrains_ids():
+    seen = []
+    art = Article(url="u", section="bangladesh/crime", title="মিরপুর ১১-তে ছিনতাই", keywords="",
+                  body="রাজধানীর মিরপুর ১১ নম্বরে রাতে ছিনতাই হয়েছে।",
+                  published_at=datetime(2026, 10, 24, 19, 0, tzinfo=timezone.utc))
+    _gemma([_completion(GOOD)], seen).classify(art)
+    body = __import__("json").loads(seen[0].content)
+    user = __import__("json").loads(body["messages"][1]["content"])
+    assert user["publication_date_asia_dhaka"] == "2026-10-25" and user["yesterday_গতকাল"] == "2026-10-24"
+    assert [c.split(" | ")[0] for c in user["place_candidates"]] == ["mirpur11", "pallabi"]
+    pid = body["response_format"]["json_schema"]["schema"]["$defs"]["Incident"]["properties"]["place_id"]
+    assert pid["anyOf"][0]["enum"] == ["mirpur11", "pallabi"]
+    assert "mirpur11 | মিরপুর ১১" not in body["messages"][0]["content"]          # no full catalogue

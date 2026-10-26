@@ -84,3 +84,41 @@ def user_message(article: Article) -> str:
         "title": article.title,
         "body": article.body,
     }, ensure_ascii=False)
+
+
+# ---- compact prompt for small local models ------------------------------------------------------
+_COMPACT_CATALOGUE = ("Place candidates are given per article in the user message (`place_candidates`): only places "
+                      "this article mentions, plus their parent thanas. Use only those ids for place_id, or null.")
+_WEEKDAYS_BN = ["সোমবার", "মঙ্গলবার", "বুধবার", "বৃহস্পতিবার", "শুক্রবার", "শনিবার", "রবিবার"]
+
+
+def candidate_places(article: Article) -> list:
+    """Places the article mentions (gazetteer matcher) plus their thanas; all thanas/upazilas if none found."""
+    gaz = load_gazetteer()
+    out = []
+    for p in gaz.find_all(f"{article.title}\n{article.keywords}\n{article.body}"):
+        for q in (p, gaz.thana_of(p)):
+            if q not in out:
+                out.append(q)
+    return out or [p for p in gaz.places if p.kind in ("thana", "upazila")]
+
+
+@lru_cache(maxsize=1)
+def compact_system_prompt() -> str:
+    cats = "; ".join(f"{k} ({v['en']} / {v['bn']})" for k, v in CATEGORIES.items())
+    return _INSTRUCTIONS.format(categories=cats, catalogue=_COMPACT_CATALOGUE)
+
+
+def compact_user_message(article: Article, candidates: list) -> str:
+    from datetime import timedelta
+    from ..scraper import DHAKA_TZ
+    pub = article.published_at.astimezone(DHAKA_TZ) if article.published_at else None
+    return json.dumps({
+        "publication_date_asia_dhaka": pub.date().isoformat() if pub else "unknown",
+        "publication_weekday": f"{pub.strftime('%A')} / {_WEEKDAYS_BN[pub.weekday()]}" if pub else "unknown",
+        "yesterday_গতকাল": (pub.date() - timedelta(days=1)).isoformat() if pub else "unknown",
+        "place_candidates": [f"{p.id} | {p.name_bn} | {p.name_en} | {p.kind} | thana: {p.parent or p.id}"
+                             for p in candidates],
+        "section": article.section, "keywords": article.keywords,
+        "title": article.title, "body": article.body,
+    }, ensure_ascii=False)
