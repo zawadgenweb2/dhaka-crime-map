@@ -53,8 +53,9 @@
   };
   const CAT_ORDER = ["murder", "assault", "robbery", "theft", "sexual_violence", "kidnapping", "drugs_arms", "fraud_extortion", "other"];
   // Light pink where there are few incidents, deep red where there are many (the busiest area is the darkest).
-  const HEAT = [[254, 224, 210, 0], [253, 200, 175, 135], [252, 160, 130, 175], [249, 120, 90, 200], [235, 75, 55, 218],
-    [205, 35, 35, 232], [160, 15, 25, 244], [110, 5, 15, 252]];
+  // The lightest step must stay visible: one incident is only a small fraction of the busiest spot.
+  const HEAT = [[253, 224, 217, 120], [252, 187, 161, 155], [251, 140, 110, 185], [239, 90, 70, 210], [214, 45, 40, 228],
+    [175, 20, 28, 240], [127, 10, 18, 250]];
   const DHAKA = { lat: 23.785, lng: 90.395 };
 
   const $ = (s) => document.querySelector(s);
@@ -111,7 +112,7 @@
       // Each incident counts 1; colours follow the view, so the area with the most incidents is always the darkest.
       out.push(new deck.HeatmapLayer({
         id: "heat", data: pts, getPosition: (d) => [d.lng, d.lat], getWeight: 1,
-        radiusPixels: heatRadius(zoom), intensity: 1, threshold: 0.03, colorRange: HEAT, aggregation: "SUM",
+        radiusPixels: heatRadius(zoom), intensity: 1, threshold: 0.05, colorRange: HEAT, aggregation: "SUM",
       }));
     }
     if (state.mode !== "heat") {
