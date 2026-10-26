@@ -100,13 +100,13 @@
     return [d.lng + Math.cos(a) * r, d.lat + Math.sin(a) * r];
   }
 
-  // Heat scale: "how many incidents pile up in one place", fixed for the current data so the colours mean the
-  // same thing at every zoom (deck.gl's automatic scale is re-computed per view, which made the heat fade out).
-  function heatScale(pts) {
+  // Many incidents at one spot (e.g. 14 follow-up reports of one event at a thana centre) would make every other
+  // area invisible next to them; each incident counts 1/sqrt(n) where n share its spot, so the pile counts sqrt(n).
+  function heatWeights(pts) {
+    const key = (p) => `${p.lat.toFixed(3)},${p.lng.toFixed(3)}`;
     const n = {};
-    for (const p of pts) { const k = `${p.lat.toFixed(3)},${p.lng.toFixed(3)}`; n[k] = (n[k] || 0) + 1; }
-    // compressed: a single incident glows faintly, a quarter of the largest pile-up is already deep red
-    return Math.max(1.5, Math.max(0, ...Object.values(n)) / 4);
+    for (const p of pts) n[key(p)] = (n[key(p)] || 0) + 1;
+    return new Map(pts.map((p) => [p.id, 1 / Math.sqrt(n[key(p)])]));
   }
   // Blobs grow as you zoom in (half as fast as the map), so hotspots stay visible instead of shrinking to dots.
   const heatRadius = (zoom) => Math.max(30, Math.min(150, 42 * 2 ** ((zoom - 11.5) * 0.55)));
@@ -116,11 +116,11 @@
     const out = [];
     if (state.mode !== "points") {
       const zoom = engine?.zoom ? engine.zoom() : 12;
+      const w = heatWeights(pts);
       out.push(new deck.HeatmapLayer({
-        id: "heat", data: pts, getPosition: (d) => [d.lng, d.lat], getWeight: 1,
-        radiusPixels: heatRadius(zoom), intensity: 1, threshold: 0.03, colorRange: HEAT, aggregation: "SUM",
-        colorDomain: [0, heatScale(pts)], debounceTimeout: 0,
-        updateTriggers: { radiusPixels: Math.round(zoom * 2) },
+        id: "heat", data: pts, getPosition: (d) => [d.lng, d.lat], getWeight: (d) => w.get(d.id),
+        radiusPixels: heatRadius(zoom), intensity: 1.2, threshold: 0.02, colorRange: HEAT, aggregation: "SUM",
+        updateTriggers: { getWeight: state.incidents.length },
       }));
     }
     if (state.mode !== "heat") {
