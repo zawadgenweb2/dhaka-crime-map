@@ -9,6 +9,7 @@ Services (one per container):
 Admin:
   collect-now [--days N] [--max M]   ask the running collector to scrape now; --days 90 --max 3000 = backfill
   reprocess-all --yes     re-run every collected article through Gemma (replaces all current incidents)
+  requeue-set-aside [--days N]   queue articles set aside as 'outside the 7-day window' published in the last N days
   rebuild-duplicates      regroup duplicate reports with the current rule (no model calls)
   compare --with gemma    run the model on the frozen reference articles and report agreement (offline only)
   stats                   counts in the terminal
@@ -34,6 +35,7 @@ def main(argv: list[str] | None = None) -> int:
     cn = sub.add_parser("collect-now"); cn.add_argument("--days", type=int, default=1)
     cn.add_argument("--max", type=int, default=None, help="article cap for this run (default MAX_ARTICLES_PER_RUN)")
     rp = sub.add_parser("reprocess-all"); rp.add_argument("--yes", action="store_true")
+    rq = sub.add_parser("requeue-set-aside"); rq.add_argument("--days", type=int, default=30)
     sub.add_parser("rebuild-duplicates")
     cp = sub.add_parser("compare"); cp.add_argument("--with", dest="other", default="gemma")
     cp.add_argument("--limit", type=int, default=1000); cp.add_argument("--out", default=None)
@@ -73,6 +75,9 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         from .reprocess import reprocess_all
         print(reprocess_all())
+    elif args.cmd == "requeue-set-aside":
+        from .reprocess import requeue_set_aside
+        print(requeue_set_aside(args.days))
     elif args.cmd == "rebuild-duplicates":
         from .store import MATERIALIZE_LOCK, rebuild_groups
         with db.tx() as c:

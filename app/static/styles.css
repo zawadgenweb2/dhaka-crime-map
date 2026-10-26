@@ -216,3 +216,17 @@ input[type="date"], select {
   .legend .cats { display: none; }
   .card.selected { top: auto; bottom: 8px; right: 8px; left: 8px; width: auto; }
 }
+
+/* coverage: how completely the selected period has been processed */
+.coverage {
+  position: absolute; z-index: 6; left: 50%; top: 12px; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  background: var(--surface); border: 1px solid var(--line); border-left: 4px solid #d9a21b;
+  border-radius: 10px; padding: 8px 12px; box-shadow: var(--shadow); font-size: 13px;
+  max-width: min(620px, calc(100% - 24px));
+}
+.coverage .btn { padding: 4px 10px; font-size: 12px; }
+.coverage + .map-note:not([hidden]) { top: 64px; }
+/* days with no data yet: striped, full height, so a gap never looks like "no crime" */
+.trend .b.nc { background: repeating-linear-gradient(135deg, var(--line) 0 3px, transparent 3px 6px); height: 100% !important; opacity: .9; }
+.trend .b.proc { opacity: .5; }

@@ -20,6 +20,9 @@
       gemmaProgress: "Gemma পড়ছে: {done}/{total}টি প্রতিবেদন", fetching: "প্রতিবেদন সংগ্রহ: {done}/{total}",
       spotsWaiting: "নির্দিষ্ট স্থান খোঁজা বাকি {n}টি", truncated: "অনেক ঘটনা; প্রথম {n}টি দেখানো হচ্ছে",
       showing: "{n}/{total}", offline: "সার্ভারে পৌঁছানো যাচ্ছে না; পুরোনো তথ্য দেখানো হচ্ছে", updated: "হালনাগাদ",
+      covDone: "এই সময়ের {done}/{total} দিন সম্পূর্ণ প্রক্রিয়া হয়েছে", covMissing: "{n} দিন এখনো সংগ্রহ হয়নি",
+      covPartial: "{n} দিন আংশিক", covProcessing: "{n} দিন Gemma পড়ছে", covCollect: "বাকি দিন সংগ্রহ করুন",
+      notCollected: "সংগ্রহ হয়নি", processingDay: "Gemma পড়ছে", partialDay: "আংশিক সংগ্রহ",
     },
     en: {
       title: "Dhaka Crime Map", runNow: "Collect now", period: "Period", from: "From", to: "To",
@@ -39,6 +42,10 @@
       gemmaProgress: "Gemma reading: {done}/{total} articles", fetching: "Collecting articles: {done}/{total}",
       spotsWaiting: "{n} exact spots still being looked up", truncated: "Many incidents; showing the first {n}",
       showing: "{n} of {total}", offline: "Server unreachable; showing the last data", updated: "updated",
+      covDone: "{done} of {total} days in this period fully processed", covMissing: "{n} days not collected yet",
+      covPartial: "{n} days partly collected", covProcessing: "{n} days still being read by Gemma",
+      covCollect: "Collect the missing days", notCollected: "not collected", processingDay: "Gemma reading",
+      partialDay: "partly collected",
     },
   };
   const CAT_ORDER = ["murder", "assault", "robbery", "theft", "sexual_violence", "kidnapping", "drugs_arms", "fraud_extortion", "other"];
@@ -243,6 +250,13 @@
   }
 
   /* ---------- data ---------- */
+  // Coverage is about days only: the same period, without category/thana filters
+  function rangeQuery() {
+    const p = new URLSearchParams();
+    if (state.start && state.end) { p.set("start", state.start); p.set("end", state.end); } else p.set("days", state.days);
+    return p.toString();
+  }
+
   function query() {
     const p = new URLSearchParams();
     if (state.start && state.end) { p.set("start", state.start); p.set("end", state.end); } else p.set("days", state.days);
@@ -263,9 +277,10 @@
     const seq = ++refreshSeq;
     const q = query();
     const qc = new URLSearchParams(q); qc.delete("categories");  // chip counts ignore the category filter itself
-    const [inc, stats, all] = await Promise.all([getJSON(`/api/incidents?${q}`), getJSON(`/api/stats?${q}`),
-      qc.toString() === q ? null : getJSON(`/api/stats?${qc}`)]);
+    const [inc, stats, all, cov] = await Promise.all([getJSON(`/api/incidents?${q}`), getJSON(`/api/stats?${q}`),
+      qc.toString() === q ? null : getJSON(`/api/stats?${qc}`), getJSON(`/api/coverage?${rangeQuery()}`)]);
     if (seq !== refreshSeq) return false;
+    state.coverage = cov.data;
     state.incidents = inc.data; state.stats = stats.data; state.catCounts = (all || stats).data.by_category;
     state.truncated = inc.headers.get("X-Truncated") === "true";
     state.totalCount = +(inc.headers.get("X-Total-Count") || inc.data.length);
@@ -284,8 +299,27 @@
   }
 
   /* ---------- rendering ---------- */
+  function renderCoverage() {
+    const box = $("#coverage"), c = state.coverage;
+    if (!c) { box.hidden = true; return; }
+    const s = c.summary, total = c.days.length, done = s.complete + s.today;
+    if (done >= total) { box.hidden = true; return; }
+    const parts = [t("covDone", { done: s.complete, total })];
+    if (s.not_collected) parts.push(t("covMissing", { n: s.not_collected }));
+    if (s.partial) parts.push(t("covPartial", { n: s.partial }));
+    if (s.processing) parts.push(t("covProcessing", { n: s.processing }));
+    const busy = state.meta?.collecting;
+    fill(box, el("span", {}, parts.join(" · ")),
+      c.days_to_collect > 0 && !busy ? el("button", { class: "btn", type: "button", onclick: async () => {
+        const r = await fetch(`/api/scrape?days_back=${Math.min(90, c.days_to_collect)}`, { method: "POST", headers: { "X-DCM-UI": "1" } });
+        note(r.status === 202 ? t("started") : r.status === 409 ? t("busy") : `${t("failed")} (${r.status})`);
+        tick();
+      } }, t("covCollect")) : null);
+    box.hidden = false;
+  }
+
   function renderAll() {
-    renderChips(); renderTiles(); renderRank(); renderTod(); renderTrend(); renderFeed(); renderLegend(); renderSelected();
+    renderCoverage(); renderChips(); renderTiles(); renderRank(); renderTod(); renderTrend(); renderFeed(); renderLegend(); renderSelected();
     engine?.render();
   }
 
@@ -376,12 +410,15 @@
     const days = [];
     for (let d = new Date(start + "T00:00:00Z"); d <= new Date(end + "T00:00:00Z"); d.setUTCDate(d.getUTCDate() + 1)) days.push(d.toISOString().slice(0, 10));
     const shown = days.slice(-120);
+    const status = Object.fromEntries((state.coverage?.days || []).map((d) => [d.date, d.status]));
+    const statusLabel = { not_collected: t("notCollected"), partial: t("partialDay"), processing: t("processingDay") };
     const max = Math.max(1, ...shown.map((d) => counts[d] || 0));
     const tip = $("#tooltip");
     const box = $("#trend");
     fill(box, ...shown.map((d) => el("div", {
-      class: "b", style: `height:${((counts[d] || 0) / max) * 100}%`,
-      onmouseenter: (e) => { tip.textContent = `${fmtDate(d)}: ${num(counts[d] || 0)} ${t("incidents")}`; tip.hidden = false; const r = e.target.getBoundingClientRect(); tip.style.position = "fixed"; tip.style.left = `${r.left}px`; tip.style.top = `${r.top - 44}px`; },
+      class: `b${["not_collected", "partial"].includes(status[d]) && !counts[d] ? " nc" : status[d] === "processing" ? " proc" : ""}`,
+      style: `height:${((counts[d] || 0) / max) * 100}%`,
+      onmouseenter: (e) => { tip.textContent = `${fmtDate(d)}: ${num(counts[d] || 0)} ${t("incidents")}${statusLabel[status[d]] ? ` · ${statusLabel[status[d]]}` : ""}`; tip.hidden = false; const r = e.target.getBoundingClientRect(); tip.style.position = "fixed"; tip.style.left = `${r.left}px`; tip.style.top = `${r.top - 44}px`; },
       onmouseleave: () => { tip.hidden = true; tip.style.position = ""; },
     })));
     const axis = box.nextElementSibling?.classList.contains("trend-axis") ? box.nextElementSibling : box.after(el("div", { class: "trend-axis" })) || box.nextElementSibling;

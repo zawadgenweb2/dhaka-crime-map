@@ -41,3 +41,29 @@ def reprocess_all() -> dict:
         db.bump_revision(c)
     return {"run_id": run_id, "articles_queued": len(arts), "non_gemma_incidents_removed": removed,
             "old_queued_jobs_superseded": superseded}
+
+
+def requeue_set_aside(days: int) -> dict:
+    """Give articles that were set aside as 'outside the 7-day window' (when a backfill was cut short) a fresh Gemma job
+    if they were published in the last `days` days. Same versioning as reprocess_all, so older jobs can never write."""
+    with db.tx() as c:
+        c.execute("SELECT pg_advisory_xact_lock(%s)", (MATERIALIZE_LOCK,))
+        run_id = c.execute("""INSERT INTO runs (trigger, status, finished_at, message, days_back)
+                              VALUES ('reprocess', 'ok', now(), 're-queue articles set aside outside the 7-day window', %s)
+                              RETURNING id""", (days,)).fetchone()["id"]
+        arts = c.execute("""UPDATE articles a SET analysis_version = v.nv, status = 'queued', error = NULL, note = NULL
+                            FROM (SELECT a2.id, greatest(a2.analysis_version,
+                                                         coalesce(max(j.analysis_version), 0)) + 1 AS nv
+                                  FROM articles a2 LEFT JOIN jobs j ON j.article_id = a2.id
+                                  WHERE a2.status = 'skipped' AND a2.note = 'outside the 7-day window'
+                                    AND a2.published_at >= now() - make_interval(days => %s)
+                                    AND NOT EXISTS (SELECT 1 FROM jobs q WHERE q.article_id = a2.id
+                                                    AND q.state IN ('queued', 'running'))
+                                  GROUP BY a2.id) v
+                            WHERE a.id = v.id RETURNING a.id, a.analysis_version""", (days,)).fetchall()
+        for a in arts:
+            c.execute("INSERT INTO jobs (article_id, analysis_version, backend, run_id) VALUES (%s, %s, %s, %s)",
+                      (a["id"], a["analysis_version"], settings.classifier, run_id))
+        c.execute("UPDATE runs SET discovered = %s, fetched = %s, queued = %s WHERE id = %s",
+                  (len(arts), len(arts), len(arts), run_id))
+    return {"run_id": run_id, "articles_queued": len(arts)}

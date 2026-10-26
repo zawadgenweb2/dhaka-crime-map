@@ -231,6 +231,46 @@ def create_app() -> FastAPI:
                 "range": {"start": start_d.isoformat(), "end": end_d.isoformat()},
             }
 
+    @app.get("/api/coverage")
+    def coverage(start: str | None = None, end: str | None = None, days: int | None = Query(None, ge=1, le=3650)):
+        """How completely each day of a period has been processed. Per day: `complete` (every candidate article
+        downloaded and read by Gemma), `processing` (Gemma still reading), `partial` (some candidates not downloaded
+        yet), `not_collected` (that day's article list was never read), `today` (the day is not over)."""
+        _, _, start_d, end_d = _filters(start, end, days, None, None)
+        today = datetime.now(DHAKA_TZ).date()
+        with db.connect() as c:
+            rows = {r["day"]: r for r in c.execute(
+                "SELECT day, links, candidates, missing FROM coverage_days WHERE day BETWEEN %s AND %s",
+                (start_d, end_d))}
+            pending = {r["d"]: r["n"] for r in c.execute(
+                """SELECT (a.published_at AT TIME ZONE 'Asia/Dhaka')::date d, count(*) n FROM jobs j
+                   JOIN articles a ON a.id = j.article_id
+                   WHERE j.state IN ('queued', 'running') GROUP BY 1""")}
+        out, summary = [], {"complete": 0, "processing": 0, "partial": 0, "not_collected": 0, "today": 0}
+        d = start_d
+        while d <= end_d:
+            r = rows.get(d)
+            if d >= today:
+                status = "today"
+            elif r is None:
+                status = "not_collected"
+            elif r["missing"] > 0:
+                status = "partial"
+            elif pending.get(d):
+                status = "processing"
+            else:
+                status = "complete"
+            summary[status] += 1
+            out.append({"date": d.isoformat(), "status": status, "links": r["links"] if r else None,
+                        "candidates": r["candidates"] if r else None, "missing": r["missing"] if r else None,
+                        "gemma_pending": pending.get(d, 0)})
+            d += timedelta(days=1)
+        gaps = [x["date"] for x in out if x["status"] in ("not_collected", "partial")]
+        # how far back a "collect now" must reach to fill every gap in this period
+        days_to_collect = (today - date.fromisoformat(min(gaps))).days if gaps else 0
+        return {"range": {"start": start_d.isoformat(), "end": end_d.isoformat()}, "summary": summary,
+                "days_to_collect": days_to_collect, "days": out}
+
     @app.get("/api/runs")
     def runs(limit: int = Query(20, ge=1, le=200)):
         with db.connect() as c:
@@ -238,13 +278,17 @@ def create_app() -> FastAPI:
                     for r in c.execute("SELECT * FROM runs ORDER BY id DESC LIMIT %s", (limit,))]
 
     @app.post("/api/scrape", status_code=202)
-    def scrape(request: Request, days_back: int = Query(1, ge=0, le=30), token: str | None = Security(ADMIN_KEY)):
-        """Queue a "collect now" request for the collector (it never scrapes inside the API)."""
+    def scrape(request: Request, days_back: int = Query(1, ge=0, le=90),
+               max_articles: int | None = Query(None, ge=1, le=5000), token: str | None = Security(ADMIN_KEY)):
+        """Queue a "collect now" request for the collector (it never scrapes inside the API). `days_back` up to 90
+        fills older days (see /api/coverage); `max_articles` raises the per-run cap (default MAX_ARTICLES_PER_RUN)."""
         _authorize_trigger(request, token)
+        if max_articles is None and days_back > 1:
+            max_articles = 5000      # a backfill must not stop at the daily cap
         try:
             with db.tx() as c:
-                rid = c.execute("INSERT INTO run_requests (source, days_back) VALUES (%s, %s) RETURNING id",
-                                ("token" if token else "ui", days_back)).fetchone()["id"]
+                rid = c.execute("""INSERT INTO run_requests (source, days_back, max_articles) VALUES (%s, %s, %s)
+                                   RETURNING id""", ("token" if token else "ui", days_back, max_articles)).fetchone()["id"]
         except psycopg.errors.UniqueViolation:  # one active request at a time (migration 004)
             raise HTTPException(409, "a collection is already queued or running")
         return {"queued": True, "request_id": rid}

@@ -600,3 +600,34 @@ def test_swagger_preauthorize_only_when_enabled(monkeypatch):
     monkeypatch.setattr(api_mod, "settings", dataclasses.replace(on, swagger_preauthorize=False))
     page = TestClient(api_mod.create_app()).get("/docs").text
     assert "preauthorizeApiKey" not in page and "t" * 24 not in page
+
+
+def test_coverage_marks_each_day(monkeypatch):
+    from datetime import timedelta
+    from app.scraper import DHAKA_TZ
+    yday = datetime.now(DHAKA_TZ).date() - timedelta(days=1)
+    when = datetime.combine(yday, datetime.min.time(), tzinfo=DHAKA_TZ).replace(hour=10)
+
+    class DailySite(FakeSite):
+        def news_sitemap(self):
+            return []
+
+        def daily_sitemap(self, day):
+            if day != yday:
+                return []
+            return [Candidate(u, "bangladesh/crime", published_at=when) for u in self.urls] + \
+                   [Candidate("https://www.prothomalo.com/sports/cricket/zz", "sports/cricket", published_at=when)]
+    site = DailySite(urls=(URL, URL + "b"))
+    collect("test", days_back=3, client=site, max_articles=1)           # cap: one of two candidates downloaded
+    from app.api import create_app
+    api = TestClient(create_app())
+    cov = api.get("/api/coverage", params={"days": 3}).json()
+    by = {d["date"]: d for d in cov["days"]}
+    assert by[yday.isoformat()]["status"] == "partial" and by[yday.isoformat()]["candidates"] == 2
+    assert by[(yday - timedelta(days=1)).isoformat()]["status"] == "not_collected"
+    assert cov["days_to_collect"] >= 1
+    collect("test", days_back=3, client=site, max_articles=10)          # the rest
+    assert api.get("/api/coverage", params={"days": 3}).json()["summary"]["processing"] == 1
+    Worker(classifier=FakeClassifier(), use_geocoder=False).drain()
+    by = {d["date"]: d for d in api.get("/api/coverage", params={"days": 3}).json()["days"]}
+    assert by[yday.isoformat()]["status"] == "complete" and by[yday.isoformat()]["missing"] == 0
