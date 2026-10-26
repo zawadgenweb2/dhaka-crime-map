@@ -22,6 +22,8 @@ from .text import crime_signal
 log = logging.getLogger(__name__)
 COLLECTOR_LOCK = 7_000_003
 TICK_SECONDS = 20
+SLOT_ATTEMPTS = 3          # a failed scheduled run is retried this many times in total
+SLOT_RETRY_MINUTES = 10
 
 
 def discover(client, days_back: int, progress: Callable[[str], None]) -> list[Candidate]:
@@ -121,17 +123,24 @@ class Collector:
 
     def _run_slot(self):
         with db.tx() as c:
-            slot = c.execute("""SELECT scheduled_for FROM schedule_slots WHERE status = 'pending'
-                                AND scheduled_for <= now() ORDER BY scheduled_for DESC LIMIT 1""").fetchone()
+            slot = c.execute("""SELECT scheduled_for, attempts FROM schedule_slots WHERE status = 'pending'
+                                AND scheduled_for <= now() AND (next_try_at IS NULL OR next_try_at <= now())
+                                ORDER BY scheduled_for DESC LIMIT 1""").fetchone()
             if not slot:
                 return False
-            c.execute("UPDATE schedule_slots SET status = 'running', updated_at = now() WHERE scheduled_for = %s",
-                      (slot["scheduled_for"],))
+            c.execute("""UPDATE schedule_slots SET status = 'running', attempts = attempts + 1, updated_at = now()
+                         WHERE scheduled_for = %s""", (slot["scheduled_for"],))
         result = collect("schedule", days_back=1)
+        ok = result["status"] == "ok"
+        retry = not ok and slot["attempts"] + 1 < SLOT_ATTEMPTS
         with db.tx() as c:
-            c.execute("""UPDATE schedule_slots SET status = %s, run_id = %s, updated_at = now()
+            c.execute("""UPDATE schedule_slots SET status = %s, run_id = %s, updated_at = now(),
+                         next_try_at = CASE WHEN %s THEN now() + make_interval(mins => %s) END
                          WHERE scheduled_for = %s""",
-                      ("done" if result["status"] == "ok" else "failed", result["run_id"], slot["scheduled_for"]))
+                      ("done" if ok else ("pending" if retry else "failed"), result["run_id"], retry,
+                       SLOT_RETRY_MINUTES, slot["scheduled_for"]))
+        if retry:
+            log.warning("scheduled run failed; retrying in %d minutes", SLOT_RETRY_MINUTES)
         return True
 
     def _run_request(self):

@@ -384,3 +384,18 @@ def test_evaluation_penalizes_invented_incidents(monkeypatch, tmp_path):
     assert r["incident_counts"] == {"matched": 1, "extra": 1, "missed": 0}
     assert r["incident_precision"] == 0.5 and not r["passes_all_gates"] and len(r["disagreements"]) == 1
     assert q1("SELECT count(*) n FROM incidents")["n"] == 1                              # eval never writes incidents
+
+
+def test_failed_slot_is_retried_then_given_up(monkeypatch):
+    results = iter([{"status": "failed", "run_id": None}] * 3)
+    monkeypatch.setattr("app.collector.collect", lambda trigger, days_back=1: next(results))
+    col = Collector()
+    col._plan_slots()
+    assert col._run_slot() is True
+    assert q1("SELECT status, attempts FROM schedule_slots WHERE attempts > 0")["status"] == "pending"
+    assert col._run_slot() is False                                        # waits for next_try_at
+    for _ in range(2):
+        with db.tx() as c:
+            c.execute("UPDATE schedule_slots SET next_try_at = now() WHERE status = 'pending' AND attempts > 0")
+        assert col._run_slot() is True
+    assert q1("SELECT status, attempts FROM schedule_slots WHERE attempts > 0") == {"status": "failed", "attempts": 3}
