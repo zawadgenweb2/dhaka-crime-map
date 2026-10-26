@@ -6,7 +6,9 @@ import logging
 from datetime import date, datetime, timedelta, timezone
 from urllib.parse import urlsplit
 
-from fastapi import FastAPI, HTTPException, Query, Request
+import psycopg
+from fastapi import FastAPI, HTTPException, Query, Request, Response, Security
+from fastapi.security import APIKeyHeader
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -21,6 +23,8 @@ log = logging.getLogger(__name__)
 STATIC = ROOT / "app" / "static"
 MIN_DATE, MAX_DATE = date(2000, 1, 1), date(2100, 1, 1)
 UI_HEADER = "x-dcm-ui"
+# Declared in OpenAPI so Swagger's "Authorize" button can send it.
+ADMIN_KEY = APIKeyHeader(name="X-Admin-Token", auto_error=False, description="Team admin token (from the server .env)")
 
 
 def _filters(start: str | None, end: str | None, days: int | None, categories: str | None,
@@ -36,7 +40,10 @@ def _filters(start: str | None, end: str | None, days: int | None, categories: s
     where = ["i.published", "i.duplicate_of IS NULL", "i.event_date BETWEEN %s AND %s"]
     params: list = [start_d, end_d]
     if categories:
-        cats = [c for c in categories.split(",") if c in CATEGORIES]
+        cats = [c for c in categories.split(",") if c]
+        unknown = [c for c in cats if c not in CATEGORIES]
+        if unknown:  # never silently widen to "all categories"
+            raise HTTPException(400, f"unknown categories: {', '.join(unknown)}")
         if cats:
             where.append("i.category = ANY(%s)")
             params.append(cats)
@@ -46,8 +53,8 @@ def _filters(start: str | None, end: str | None, days: int | None, categories: s
     return " AND ".join(where), params, start_d, end_d
 
 
-def _authorize_trigger(request: Request) -> None:
-    token = request.headers.get("x-admin-token", "")
+def _authorize_trigger(request: Request, token: str | None = None) -> None:
+    token = token or request.headers.get("x-admin-token", "")
     if settings.admin_token and token and hmac.compare_digest(token, settings.admin_token):
         return
     if settings.allow_ui_trigger and request.headers.get(UI_HEADER) == "1":
@@ -115,11 +122,15 @@ def create_app() -> FastAPI:
         }
 
     @app.get("/api/incidents")
-    def incidents(start: str | None = None, end: str | None = None, days: int | None = Query(None, ge=1, le=3650),
-                  categories: str | None = None, thana: str | None = None,
-                  limit: int = Query(3000, ge=1, le=10000)):
+    def incidents(response: Response, start: str | None = None, end: str | None = None,
+                  days: int | None = Query(None, ge=1, le=3650), categories: str | None = None,
+                  thana: str | None = None, limit: int = Query(3000, ge=1, le=10000)):
+        """Published, non-duplicate incidents. X-Total-Count / X-Truncated tell clients when `limit` cut the list."""
         where, params, _, _ = _filters(start, end, days, categories, thana)
         with db.connect() as c:
+            total = c.execute(f"SELECT count(*) n FROM incidents i WHERE {where}", params).fetchone()["n"]
+            response.headers["X-Total-Count"] = str(total)
+            response.headers["X-Truncated"] = "true" if total > limit else "false"
             rows = c.execute(
                 f"""SELECT i.id, i.category, i.headline_bn, i.headline_en, i.location_text, i.place_id, i.thana_id,
                            i.lat, i.lng, i.precision, i.geocoded, i.incident_date, i.event_date, i.time_of_day,
@@ -175,19 +186,20 @@ def create_app() -> FastAPI:
                     for r in c.execute("SELECT * FROM runs ORDER BY id DESC LIMIT %s", (limit,))]
 
     @app.post("/api/scrape", status_code=202)
-    def scrape(request: Request, days_back: int = Query(1, ge=0, le=30)):
-        _authorize_trigger(request)
-        with db.tx() as c:
-            busy = c.execute("SELECT id FROM run_requests WHERE status IN ('pending','running') LIMIT 1").fetchone()
-            if busy:
-                raise HTTPException(409, "a collection is already queued or running")
-            rid = c.execute("INSERT INTO run_requests (source, days_back) VALUES (%s, %s) RETURNING id",
-                            ("ui" if request.headers.get(UI_HEADER) else "token", days_back)).fetchone()["id"]
+    def scrape(request: Request, days_back: int = Query(1, ge=0, le=30), token: str | None = Security(ADMIN_KEY)):
+        """Queue a "collect now" request for the collector (it never scrapes inside the API)."""
+        _authorize_trigger(request, token)
+        try:
+            with db.tx() as c:
+                rid = c.execute("INSERT INTO run_requests (source, days_back) VALUES (%s, %s) RETURNING id",
+                                ("token" if token else "ui", days_back)).fetchone()["id"]
+        except psycopg.errors.UniqueViolation:  # one active request at a time (migration 004)
+            raise HTTPException(409, "a collection is already queued or running")
         return {"queued": True, "request_id": rid}
 
     # ---- human review (always requires ADMIN_TOKEN) -------------------------------------------
-    def _reviewer(request: Request) -> str:
-        token = request.headers.get("x-admin-token", "")
+    def _reviewer(request: Request, token: str | None = None) -> str:
+        token = token or request.headers.get("x-admin-token", "")
         if not settings.admin_token or not hmac.compare_digest(token, settings.admin_token):
             raise HTTPException(401, "admin token required")
         return (request.headers.get("x-reviewer") or "reviewer")[:60]
@@ -198,8 +210,8 @@ def create_app() -> FastAPI:
 
     @app.get("/api/review/queue")
     def review_queue(request: Request, status: str = Query("pending", pattern="^(pending|failed|approved|rejected|auto)$"),
-                     limit: int = Query(50, ge=1, le=200)):
-        _reviewer(request)
+                     limit: int = Query(50, ge=1, le=200), token: str | None = Security(ADMIN_KEY)):
+        _reviewer(request, token)
         gaz = load_gazetteer()
         with db.connect() as c:
             rows = c.execute(
@@ -222,8 +234,8 @@ def create_app() -> FastAPI:
                 "categories": [{"key": k, **v} for k, v in CATEGORIES.items()]}
 
     @app.post("/api/review/incidents/{incident_id}")
-    def review_incident(incident_id: int, request: Request, payload: dict):
-        who = _reviewer(request)
+    def review_incident(incident_id: int, request: Request, payload: dict, token: str | None = Security(ADMIN_KEY)):
+        who = _reviewer(request, token)
         action = payload.get("action")
         if action not in ("approve", "reject"):
             raise HTTPException(400, "action must be approve or reject")
@@ -263,8 +275,8 @@ def create_app() -> FastAPI:
         return {"ok": True}
 
     @app.post("/api/review/articles/{article_id}")
-    def review_article(article_id: int, request: Request, payload: dict):
-        who = _reviewer(request)
+    def review_article(article_id: int, request: Request, payload: dict, token: str | None = Security(ADMIN_KEY)):
+        who = _reviewer(request, token)
         verdict = payload.get("verdict")
         if verdict not in ("ok", "missed_incident", "not_crime", "outside_dhaka", "other", "retry", "dismiss"):
             raise HTTPException(400, "bad verdict")
@@ -274,6 +286,10 @@ def create_app() -> FastAPI:
                 raise HTTPException(404, "article not found")
             c.execute("INSERT INTO article_reviews (article_id, verdict, note, reviewed_by) VALUES (%s,%s,%s,%s)",
                       (article_id, verdict, (payload.get("note") or "")[:1000], who))
+            active = c.execute("""SELECT 1 FROM jobs WHERE article_id = %s AND state IN ('queued','running')""",
+                               (article_id,)).fetchone()
+            if verdict == "retry" and active:
+                raise HTTPException(409, "this article is already queued for the model")
             if verdict == "retry":
                 # New analysis version = a fresh job for the (local) model; old attempts stay on record.
                 version = c.execute("SELECT coalesce(max(analysis_version), 0) + 1 v FROM jobs WHERE article_id = %s",
@@ -283,6 +299,9 @@ def create_app() -> FastAPI:
                 c.execute("UPDATE articles SET status = 'queued', error = NULL WHERE id = %s", (article_id,))
             elif verdict == "dismiss":
                 c.execute("UPDATE articles SET status = 'dismissed' WHERE id = %s", (article_id,))
+                # cancel waiting work so a dismissed article is not classified later
+                c.execute("""UPDATE jobs SET state = 'cancelled', updated_at = now()
+                             WHERE article_id = %s AND state = 'queued'""", (article_id,))
         return {"ok": True}
 
     return app

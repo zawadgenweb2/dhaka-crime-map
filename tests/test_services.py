@@ -425,3 +425,30 @@ def test_meta_data_version_changes_on_approval(monkeypatch):
     inc = q1("SELECT id FROM incidents")["id"]
     api.post(f"/api/review/incidents/{inc}", headers={"x-admin-token": "t" * 24}, json={"action": "approve"})
     assert api.get("/api/meta").json()["data_version"] != before
+
+
+def test_api_fixes_from_endpoint_review(monkeypatch):
+    import dataclasses
+    import app.api as api_mod
+    monkeypatch.setattr(api_mod, "settings", dataclasses.replace(api_mod.settings, admin_token="t" * 24))
+    collect("test", client=FakeSite(urls=(URL, URL + "b")))
+    Worker(classifier=FakeClassifier(), use_geocoder=False).run_once()          # one done, one still queued
+    api = TestClient(api_mod.create_app())
+    h = {"x-admin-token": "t" * 24}
+    # Swagger can authorize: the token is declared as a security scheme
+    spec = api.get("/openapi.json").json()
+    assert "APIKeyHeader" in spec["components"]["securitySchemes"]
+    # unknown category -> 400 instead of silently returning everything
+    assert api.get("/api/incidents", params={"categories": "murdr"}).status_code == 400
+    # truncation is visible
+    r = api.get("/api/incidents", params={"start": "2026-10-01", "end": "2026-10-31", "limit": 1})
+    assert r.headers["x-total-count"] == "1" and r.headers["x-truncated"] == "false"
+    # one active collect-now request, enforced by the database
+    assert api.post("/api/scrape", headers=h).status_code == 202
+    assert api.post("/api/scrape", headers=h).status_code == 409
+    # retry refused while a job is active; dismiss cancels the waiting job
+    queued = q1("SELECT article_id FROM jobs WHERE state = 'queued'")["article_id"]
+    assert api.post(f"/api/review/articles/{queued}", headers=h, json={"verdict": "retry"}).status_code == 409
+    assert api.post(f"/api/review/articles/{queued}", headers=h, json={"verdict": "dismiss"}).status_code == 200
+    assert q1("SELECT state FROM jobs WHERE article_id = %s", queued)["state"] == "cancelled"
+    assert Worker(classifier=FakeClassifier()).drain() == {}

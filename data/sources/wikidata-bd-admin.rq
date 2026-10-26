@@ -1,0 +1,9 @@
+SELECT ?item ?kind ?bn ?en ?coord ?parent ?parentEn WHERE {
+  VALUES (?cls ?kind) { (wd:Q152732 "district") (wd:Q620471 "upazila") (wd:Q19832617 "thana") }
+  ?item wdt:P31 ?cls .
+  FILTER NOT EXISTS { ?item wdt:P576 ?dissolved }
+  OPTIONAL { ?item rdfs:label ?bn FILTER(LANG(?bn) = "bn") }
+  OPTIONAL { ?item rdfs:label ?en FILTER(LANG(?en) = "en") }
+  OPTIONAL { ?item wdt:P625 ?coord }
+  OPTIONAL { ?item wdt:P131 ?parent . ?parent rdfs:label ?parentEn FILTER(LANG(?parentEn) = "en") }
+}
