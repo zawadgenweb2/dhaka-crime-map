@@ -181,6 +181,106 @@ def create_app() -> FastAPI:
                             ("ui" if request.headers.get(UI_HEADER) else "token", days_back)).fetchone()["id"]
         return {"queued": True, "request_id": rid}
 
+    # ---- human review (always requires ADMIN_TOKEN) -------------------------------------------
+    def _reviewer(request: Request) -> str:
+        token = request.headers.get("x-admin-token", "")
+        if not settings.admin_token or not hmac.compare_digest(token, settings.admin_token):
+            raise HTTPException(401, "admin token required")
+        return (request.headers.get("x-reviewer") or "reviewer")[:60]
+
+    @app.get("/review", include_in_schema=False)
+    def review_page():
+        return FileResponse(STATIC / "review.html")
+
+    @app.get("/api/review/queue")
+    def review_queue(request: Request, status: str = Query("pending", pattern="^(pending|failed|approved|rejected|auto)$"),
+                     limit: int = Query(50, ge=1, le=200)):
+        _reviewer(request)
+        gaz = load_gazetteer()
+        with db.connect() as c:
+            rows = c.execute(
+                """SELECT i.*, a.url, a.title, a.body, a.published_at, a.classifier AS article_classifier
+                   FROM incidents i JOIN articles a ON a.id = i.article_id
+                   WHERE i.review_status = %s ORDER BY i.event_date DESC NULLS LAST, i.id DESC LIMIT %s""",
+                (status, limit)).fetchall()
+            counts = {r["review_status"]: r["n"] for r in
+                      c.execute("SELECT review_status, count(*) n FROM incidents GROUP BY 1")}
+            stuck = c.execute("""SELECT a.id, a.url, a.title, a.status, j.last_error FROM articles a
+                                 LEFT JOIN jobs j ON j.article_id = a.id
+                                 WHERE a.status IN ('uncertain','failed') ORDER BY a.id DESC LIMIT 50""").fetchall()
+        items = []
+        for r in rows:
+            p = gaz.get(r["place_id"])
+            items.append({**{k: _iso(v) for k, v in r.items()}, "place_bn": p.name_bn if p else None,
+                          "place_en": p.name_en if p else None})
+        return {"counts": counts, "items": items, "stuck_articles": stuck,
+                "places": [{"id": p.id, "name_bn": p.name_bn, "name_en": p.name_en} for p in gaz.places],
+                "categories": [{"key": k, **v} for k, v in CATEGORIES.items()]}
+
+    @app.post("/api/review/incidents/{incident_id}")
+    def review_incident(incident_id: int, request: Request, payload: dict):
+        who = _reviewer(request)
+        action = payload.get("action")
+        if action not in ("approve", "reject"):
+            raise HTTPException(400, "action must be approve or reject")
+        category, place_id = payload.get("category"), payload.get("place_id")
+        if category is not None and category not in CATEGORIES:
+            raise HTTPException(400, "unknown category")
+        gaz = load_gazetteer()
+        place = gaz.get(place_id) if place_id else None
+        if place_id and place is None:
+            raise HTTPException(400, "unknown place_id")
+        from .store import MATERIALIZE_LOCK, rebuild_groups
+        with db.tx() as c:
+            c.execute("SELECT pg_advisory_xact_lock(%s)", (MATERIALIZE_LOCK,))
+            old = c.execute("SELECT category, place_id, event_date FROM incidents WHERE id = %s FOR UPDATE",
+                            (incident_id,)).fetchone()
+            if not old:
+                raise HTTPException(404, "incident not found")
+            if category:
+                c.execute("UPDATE incidents SET category = %s WHERE id = %s", (category, incident_id))
+            if place and place.id != old["place_id"]:  # keep exact geocodes unless the place really changes
+                thana = gaz.thana_of(place)
+                c.execute("""UPDATE incidents SET place_id = %s, thana_id = %s, lat = %s, lng = %s, geocoded = false,
+                             precision = %s WHERE id = %s""",
+                          (place.id, thana.id, place.lat, place.lng,
+                           {"landmark": "exact", "area": "neighbourhood"}.get(place.kind, "thana"), incident_id))
+            c.execute("""UPDATE incidents SET review_status = %s, published = %s, reviewed_by = %s, reviewed_at = now(),
+                         duplicate_of = CASE WHEN %s THEN duplicate_of ELSE NULL END WHERE id = %s""",
+                      ("approved" if action == "approve" else "rejected", action == "approve", who,
+                       action == "approve", incident_id))
+            c.execute("UPDATE incidents SET duplicate_of = NULL WHERE duplicate_of = %s AND %s",
+                      (incident_id, action == "reject"))
+            new = c.execute("SELECT category, place_id, event_date FROM incidents WHERE id = %s",
+                            (incident_id,)).fetchone()
+            keys = {(r["category"], r["place_id"], r["event_date"]) for r in (old, new)
+                    if r["place_id"] and r["event_date"]}
+            rebuild_groups(c, keys)
+        return {"ok": True}
+
+    @app.post("/api/review/articles/{article_id}")
+    def review_article(article_id: int, request: Request, payload: dict):
+        who = _reviewer(request)
+        verdict = payload.get("verdict")
+        if verdict not in ("ok", "missed_incident", "not_crime", "outside_dhaka", "other", "retry", "dismiss"):
+            raise HTTPException(400, "bad verdict")
+        with db.tx() as c:
+            art = c.execute("SELECT id, status FROM articles WHERE id = %s FOR UPDATE", (article_id,)).fetchone()
+            if not art:
+                raise HTTPException(404, "article not found")
+            c.execute("INSERT INTO article_reviews (article_id, verdict, note, reviewed_by) VALUES (%s,%s,%s,%s)",
+                      (article_id, verdict, (payload.get("note") or "")[:1000], who))
+            if verdict == "retry":
+                # New analysis version = a fresh job for the (local) model; old attempts stay on record.
+                version = c.execute("SELECT coalesce(max(analysis_version), 0) + 1 v FROM jobs WHERE article_id = %s",
+                                    (article_id,)).fetchone()["v"]
+                c.execute("INSERT INTO jobs (article_id, analysis_version, backend) VALUES (%s, %s, %s)",
+                          (article_id, version, settings.classifier))
+                c.execute("UPDATE articles SET status = 'queued', error = NULL WHERE id = %s", (article_id,))
+            elif verdict == "dismiss":
+                c.execute("UPDATE articles SET status = 'dismissed' WHERE id = %s", (article_id,))
+        return {"ok": True}
+
     return app
 
 

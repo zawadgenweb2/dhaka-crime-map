@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>পর্যালোচনা · Review</title>
+<link rel="stylesheet" href="/static/styles.css">
+<style>
+  body { display: block; overflow-y: auto; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 16px; }
+  .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 12px 0; }
+  .bar input { padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); min-height: 34px; }
+  .rv { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+  .rv h3 { margin: 6px 0; font-size: 16px; }
+  .rv .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0; }
+  .rv select { width: 100%; }
+  .body { max-height: 180px; overflow-y: auto; font-size: 14px; line-height: 1.7; background: var(--surface-2);
+          border-radius: 8px; padding: 8px 10px; white-space: pre-wrap; }
+  mark { background: #fde68a; color: #0b0b0b; border-radius: 3px; }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .btn.ok { background: #0ca30c; } .btn.no { background: #d03b3b; }
+  .tabs2 button.on { font-weight: 700; text-decoration: underline; }
+  .tabs2 button { background: none; border: 0; cursor: pointer; padding: 4px 6px; color: var(--ink); }
+  @media (max-width: 640px) { .rv .grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>পর্যালোচনা · Review queue</h1>
+  <p class="muted">Approve only what the article clearly supports. Precision first: when unsure, reject or flag.</p>
+  <div class="bar">
+    <input id="token" type="password" placeholder="Admin token" autocomplete="off">
+    <input id="who" placeholder="Your name">
+    <button class="btn" id="save" type="button">Save &amp; load</button>
+    <a href="/" class="link">← map</a>
+  </div>
+  <div class="bar tabs2" id="tabs"></div>
+  <div id="list"></div>
+  <h2 style="margin-top:24px">Articles needing attention (uncertain / failed)</h2>
+  <ul id="stuck"></ul>
+</div>
+<script>
+(() => {
+  const $ = (s) => document.querySelector(s);
+  const get = (k) => { try { return localStorage.getItem(k) || ""; } catch { return ""; } };
+  const set = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
+  let status = "pending", data = null;
+  $("#token").value = get("dcm.token"); $("#who").value = get("dcm.who");
+  const headers = () => ({ "Content-Type": "application/json", "X-Admin-Token": $("#token").value, "X-Reviewer": $("#who").value || "reviewer" });
+  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+  function highlight(body, quote) {
+    const b = esc(body), q = esc(quote || "").trim();
+    if (q.length > 8 && b.includes(q)) return b.replace(q, `<mark>${q}</mark>`);
+    return b;
+  }
+
+  async function load() {
+    const r = await fetch(`/api/review/queue?status=${status}`, { headers: headers() });
+    if (!r.ok) { $("#list").innerHTML = `<p class="empty">${r.status === 401 ? "Enter the admin token." : "Error " + r.status}</p>`; return; }
+    data = await r.json();
+    $("#tabs").innerHTML = ["pending", "failed", "approved", "rejected", "auto"].map((s) =>
+      `<button type="button" data-s="${s}" class="${s === status ? "on" : ""}">${s} (${data.counts[s] || 0})</button>`).join("");
+    document.querySelectorAll("#tabs button").forEach((b) => b.onclick = () => { status = b.dataset.s; load(); });
+    const placeOpts = (sel) => `<option value="">— keep —</option>` + data.places.map((p) =>
+      `<option value="${p.id}" ${p.id === sel ? "selected" : ""}>${esc(p.name_bn)} · ${esc(p.name_en)}</option>`).join("");
+    const catOpts = (sel) => data.categories.map((c) =>
+      `<option value="${c.key}" ${c.key === sel ? "selected" : ""}>${esc(c.bn)} · ${esc(c.en)}</option>`).join("");
+    $("#list").innerHTML = data.items.length ? data.items.map((i) => `
+      <div class="rv" id="rv-${i.id}">
+        <div class="meta"><span>#${i.id}</span><span>${esc(i.event_date || "")}</span><span>${esc(i.time_of_day)}</span>
+          <span>${esc(i.classifier || "")}</span><span class="badge">${i.evidence_ok ? "evidence ✓" : "evidence ✗"}</span>
+          <a href="${esc(i.url)}" target="_blank" rel="noopener">source ↗</a></div>
+        <h3>${esc(i.headline_bn)}</h3>
+        <div class="muted">${esc(i.headline_en || "")}</div>
+        <div class="muted">Location text: <b>${esc(i.location_text || "")}</b> → ${esc(i.place_bn || "no place")} ${i.place_en ? "· " + esc(i.place_en) : ""}</div>
+        <div class="grid">
+          <label>Category <select data-k="category">${catOpts(i.category)}</select></label>
+          <label>Place <select data-k="place_id">${placeOpts(i.place_id)}</select></label>
+        </div>
+        <div class="body">${highlight(i.body, i.evidence)}</div>
+        <div class="actions">
+          <button class="btn ok" type="button" data-a="approve">✓ Approve</button>
+          <button class="btn no" type="button" data-a="reject">✗ Reject</button>
+          <button class="btn ghost" type="button" data-f="missed_incident">Flag: missed another incident</button>
+        </div>
+      </div>`).join("") : `<p class="empty">Nothing in "${status}".</p>`;
+    data.items.forEach((i) => {
+      const card = $(`#rv-${i.id}`);
+      card.querySelectorAll("[data-a]").forEach((b) => b.onclick = async () => {
+        const cat = card.querySelector('[data-k="category"]').value, place = card.querySelector('[data-k="place_id"]').value;
+        const body = { action: b.dataset.a };
+        if (cat !== i.category) body.category = cat;
+        if (place && place !== i.place_id) body.place_id = place;
+        const r = await fetch(`/api/review/incidents/${i.id}`, { method: "POST", headers: headers(), body: JSON.stringify(body) });
+        if (r.ok) card.remove(); else alert("Failed: " + r.status);
+      });
+      card.querySelector("[data-f]").onclick = async () => {
+        const note = prompt("What was missed? (optional)") || "";
+        const r = await fetch(`/api/review/articles/${i.article_id}`, { method: "POST", headers: headers(),
+          body: JSON.stringify({ verdict: "missed_incident", note }) });
+        alert(r.ok ? "Flagged" : "Failed: " + r.status);
+      };
+    });
+    $("#stuck").innerHTML = data.stuck_articles.map((a) =>
+      `<li data-a="${a.id}"><a href="${esc(a.url)}" target="_blank" rel="noopener">${esc(a.title)}</a> — ${esc(a.status)} ${a.last_error ? "· " + esc(a.last_error) : ""}
+        <button class="link" type="button" data-v="retry">retry with model</button>
+        <button class="link" type="button" data-v="dismiss">dismiss</button></li>`).join("") || "<li class='muted'>none</li>";
+    document.querySelectorAll("#stuck [data-v]").forEach((b) => b.onclick = async () => {
+      const id = b.closest("li").dataset.a;
+      const r = await fetch(`/api/review/articles/${id}`, { method: "POST", headers: headers(), body: JSON.stringify({ verdict: b.dataset.v }) });
+      if (r.ok) b.closest("li").remove(); else alert("Failed: " + r.status);
+    });
+  }
+
+  $("#save").onclick = () => { set("dcm.token", $("#token").value); set("dcm.who", $("#who").value); load(); };
+  if ($("#token").value) load();
+})();
+</script>
+</body>
+</html>

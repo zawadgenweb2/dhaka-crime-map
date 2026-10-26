@@ -1,0 +1,18 @@
+# systemd --user unit: local model via llama.cpp (genweb2inhouse, lingering enabled).
+# Install:  cp deploy/inhouse-llm/dhaka-llm.service ~/.config/systemd/user/ && systemctl --user enable --now dhaka-llm
+# Model:    systemctl --user edit dhaka-llm  →  [Service] Environment=DHAKA_LLM_MODEL=gemma-4-E4B-it-Q8_0.gguf
+[Unit]
+Description=Dhaka Crime Map local model (llama.cpp)
+After=network-online.target
+Conflicts=dhaka-vllm.service
+
+[Service]
+Environment=DHAKA_LLM_MODEL=gemma-4-E2B-it-Q8_0.gguf
+ExecStart=%h/dhaka-crime-map/deploy/inhouse-llm/start-llama.sh
+Restart=on-failure
+RestartSec=15
+StartLimitIntervalSec=600
+StartLimitBurst=5
+
+[Install]
+WantedBy=default.target

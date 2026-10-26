@@ -44,7 +44,10 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "api":
         import uvicorn
         from .api import create_app
-        uvicorn.run(create_app(), host=settings.host, port=settings.port, proxy_headers=False)
+        import os
+        tls = {"ssl_certfile": os.getenv("TLS_CERT_FILE"), "ssl_keyfile": os.getenv("TLS_KEY_FILE")}
+        uvicorn.run(create_app(), host=settings.host, port=settings.port, proxy_headers=False,
+                    **({k: v for k, v in tls.items()} if all(tls.values()) else {}))
     elif args.cmd == "collector":
         from .collector import Collector
         Collector().serve()

@@ -1,15 +1,13 @@
-"""Future on-device classifier: Gemma 4 E2B served by any OpenAI-compatible server.
+"""Self-hosted classifier: any OpenAI-compatible server (llama.cpp llama-server, Ollama, vLLM).
 
-Examples:
-  Ollama:  ollama pull gemma4:e2b   ->  GEMMA_BASE_URL=http://127.0.0.1:11434/v1  GEMMA_MODEL=gemma4:e2b
-  vLLM:    vllm serve google/gemma-4-E2B-it --port 8001
-           ->  GEMMA_BASE_URL=http://127.0.0.1:8001/v1  GEMMA_MODEL=google/gemma-4-E2B-it
-Then set CLASSIFIER=gemma. Same prompt, same schema, same validation as Claude, so results are comparable
-(`python -m app compare` runs both on stored articles).
+Deployed on the in-house GPU server as llama.cpp (see deploy/inhouse-llm/). Same prompt, same schema and the same
+validation as Claude, so results are comparable (`python -m app compare --with gemma`).
 """
 from __future__ import annotations
 
 import json
+import os
+import time
 
 import httpx
 from pydantic import ValidationError
@@ -19,32 +17,70 @@ from ..schema import ArticleAnalysis
 from ..scraper import Article
 from .base import Classifier, ClassifierError, system_prompt, user_message
 
+SCHEMA_NOTE = (
+    "\n\nAnswer with one JSON object only, matching the provided JSON schema exactly. "
+    "Field meanings: victims = number of people killed or injured (0 if none or unknown); "
+    "incident_date = YYYY-MM-DD or null when the article does not let you work it out; "
+    "place_id must be an id from the catalogue above or null; evidence must be copied character-for-character "
+    "from the article body.")
+
 
 class GemmaClassifier(Classifier):
-    def __init__(self, base_url: str | None = None, model: str | None = None, timeout: float = 300):
+    def __init__(self, base_url: str | None = None, model: str | None = None, timeout: float = 300,
+                 api_key: str | None = None, transport: httpx.BaseTransport | None = None):
         self.base_url = (base_url or settings.gemma_base_url).rstrip("/")
         self.model = model or settings.gemma_model
         self.name = f"gemma:{self.model}"
-        self.http = httpx.Client(timeout=timeout)
+        key = api_key if api_key is not None else os.getenv("GEMMA_API_KEY", "")
+        headers = {"Authorization": f"Bearer {key}"} if key else {}
+        self.http = httpx.Client(timeout=timeout, headers=headers, transport=transport)
 
     def classify(self, article: Article) -> ArticleAnalysis:
+        return self.classify_with_meta(article)[0]
+
+    def classify_with_meta(self, article: Article) -> tuple[ArticleAnalysis, dict]:
+        messages = [{"role": "system", "content": system_prompt() + SCHEMA_NOTE},
+                    {"role": "user", "content": user_message(article)}]
         body = {
-            "model": self.model,
-            "messages": [{"role": "system", "content": system_prompt()},
-                         {"role": "user", "content": user_message(article)}],
+            "model": self.model, "messages": messages, "temperature": 0, "max_tokens": 4096,
             "response_format": {"type": "json_schema", "json_schema": {
                 "name": "article_analysis", "schema": ArticleAnalysis.model_json_schema(), "strict": True}},
-            "temperature": 0,
+            "cache_prompt": True,                                   # llama.cpp: reuse the shared prompt prefix
+            "chat_template_kwargs": {"enable_thinking": False},     # plain extraction, no reasoning trace
         }
+        usage = {"input_tokens": 0, "output_tokens": 0}
+        started = time.monotonic()
         last_error = ""
-        for _ in range(2):  # small models occasionally emit invalid JSON; retry once
+        for attempt in range(2):
             try:
                 r = self.http.post(f"{self.base_url}/chat/completions", json=body)
-                r.raise_for_status()
-                content = r.json()["choices"][0]["message"]["content"]
-                return ArticleAnalysis.model_validate(json.loads(content))
             except httpx.HTTPError as e:
-                raise ClassifierError(f"Gemma server unreachable or failed: {e}") from e
-            except (KeyError, IndexError, ValueError, ValidationError) as e:
-                last_error = str(e)[:300]
-        raise ClassifierError(f"Gemma returned invalid output: {last_error}")
+                raise ClassifierError(f"local model server unreachable: {type(e).__name__}") from e
+            if r.status_code in (401, 403):
+                raise ClassifierError("local model server rejected the API key", permanent=True)
+            if r.status_code == 404:
+                raise ClassifierError(f"local model {self.model!r} or endpoint not found", permanent=True)
+            if r.status_code >= 400:
+                raise ClassifierError(f"local model server error {r.status_code}: {r.text[:200]}")
+            data = r.json()
+            u = data.get("usage") or {}
+            usage["input_tokens"] += u.get("prompt_tokens", 0)
+            usage["output_tokens"] += u.get("completion_tokens", 0)
+            choice = (data.get("choices") or [{}])[0]
+            content = (choice.get("message") or {}).get("content") or ""
+            if choice.get("finish_reason") == "length":
+                last_error = "output was cut off (finish_reason=length)"
+            else:
+                try:
+                    analysis = ArticleAnalysis.model_validate(json.loads(content))
+                    meta = {"model": data.get("model") or self.model, **usage, "cost_usd": 0,
+                            "latency_s": round(time.monotonic() - started, 2), "attempts": attempt + 1}
+                    return analysis, meta
+                except (ValueError, ValidationError) as e:
+                    last_error = str(e)[:400]
+            # One corrective retry: show the model what was wrong instead of repeating the same request.
+            body = {**body, "messages": messages + [
+                {"role": "assistant", "content": content[:2000]},
+                {"role": "user", "content": f"That answer was invalid ({last_error}). Return one complete, valid "
+                                            f"JSON object that matches the schema."}]}
+        raise ClassifierError(f"local model returned invalid output: {last_error}")

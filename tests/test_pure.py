@@ -210,3 +210,61 @@ def test_scheduler_slots():
     assert next_run(datetime(2026, 10, 25, 9, 0, tzinfo=DHAKA_TZ)) == datetime(2026, 10, 25, 20, 0, tzinfo=DHAKA_TZ)
     assert next_run(datetime(2026, 10, 25, 21, 0, tzinfo=DHAKA_TZ)) == datetime(2026, 10, 26, 8, 0, tzinfo=DHAKA_TZ)
     assert previous_slot(datetime(2026, 10, 25, 7, 0, tzinfo=DHAKA_TZ)) == datetime(2026, 10, 24, 20, 0, tzinfo=DHAKA_TZ)
+
+
+# ---- local model adapter (fake OpenAI-compatible server) -----------------------------------------
+def _gemma(responses, seen=None):
+    from app.classifiers.gemma import GemmaClassifier
+    it = iter(responses)
+
+    def handler(req):
+        if seen is not None:
+            seen.append(req)
+        return next(it)
+    return GemmaClassifier(base_url="http://llm/v1", model="dhaka-gemma", api_key="k",
+                           transport=httpx.MockTransport(handler))
+
+
+def _completion(content, finish="stop"):
+    return httpx.Response(200, json={"model": "dhaka-gemma", "usage": {"prompt_tokens": 100, "completion_tokens": 20},
+                                     "choices": [{"finish_reason": finish, "message": {"content": content}}]})
+
+
+GOOD = ArticleAnalysis(is_crime_report=True, in_dhaka=True, incidents=[_inc()], note="ok").model_dump_json()
+ART = Article(url="u", section="bangladesh/crime", title="t", body="b",
+              published_at=datetime(2026, 10, 24, tzinfo=timezone.utc))
+
+
+def test_gemma_sends_key_and_schema_and_parses():
+    seen = []
+    analysis, meta = _gemma([_completion(GOOD)], seen).classify_with_meta(ART)
+    assert analysis.incidents[0].place_id == "mirpur11" and meta["cost_usd"] == 0
+    req = seen[0]
+    assert req.headers["authorization"] == "Bearer k"
+    body = __import__("json").loads(req.content)
+    assert body["response_format"]["type"] == "json_schema" and body["temperature"] == 0
+
+
+def test_gemma_retries_with_feedback_after_truncation():
+    seen = []
+    analysis, meta = _gemma([_completion('{"is_crime', "length"), _completion(GOOD)], seen).classify_with_meta(ART)
+    assert meta["attempts"] == 2 and meta["input_tokens"] == 200
+    retry = __import__("json").loads(seen[1].content)["messages"]
+    assert "invalid" in retry[-1]["content"]
+
+
+def test_gemma_errors():
+    from app.classifiers.base import ClassifierError
+    with pytest.raises(ClassifierError) as e:
+        _gemma([httpx.Response(401)]).classify(ART)
+    assert e.value.permanent
+    with pytest.raises(ClassifierError) as e:
+        _gemma([_completion("not json"), _completion("{}")]).classify(ART)
+    assert not e.value.permanent
+
+
+def test_review_mode_holds_incidents():
+    g = load()
+    rows = build_rows(ARTICLE, ArticleAnalysis(is_crime_report=True, in_dhaka=True, incidents=[_inc()], note=""),
+                      g, {}, "review")
+    assert rows[0]["passes"] and not rows[0]["published"] and rows[0]["review_status"] == "pending"

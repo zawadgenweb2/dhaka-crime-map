@@ -35,6 +35,8 @@ class Settings:
     # Hard cost guard: paid model calls allowed per Asia/Dhaka day (0 = unlimited)
     max_llm_calls_per_day: int = int(os.getenv("MAX_LLM_CALLS_PER_DAY", "200"))
     job_lease_minutes: int = int(os.getenv("JOB_LEASE_MINUTES", "20"))
+    # auto = publish incidents that pass the checks; review = hold them for a human reviewer (precision first)
+    publish_mode: str = os.getenv("PUBLISH_MODE", "auto")
 
     # Collector schedule (Asia/Dhaka wall-clock times)
     scrape_times: list[str] = field(default_factory=lambda: _list("SCRAPE_TIMES", "08:00,20:00"))

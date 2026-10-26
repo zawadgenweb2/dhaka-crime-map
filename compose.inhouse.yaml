@@ -1,0 +1,30 @@
+# Override for the in-house server (genweb2inhouse):
+#   docker compose -f compose.yaml -f compose.inhouse.yaml up -d --build
+# - dashboard on the LAN address only (API_BIND in .env, e.g. 192.168.1.200), HTTPS with a local certificate
+#   (deploy/tls/, created by deploy/make-lan-cert.sh) so the review token never crosses the LAN in clear text
+# - classifier on the host network so it reaches the model server on the host's loopback (127.0.0.1:8090),
+#   which stays unexposed; Postgres is published on loopback only, for that one container
+services:
+  db:
+    ports:
+      - "127.0.0.1:${DB_HOST_PORT:-55432}:5432"
+  api:
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"   # can read the 0600 TLS key owned by the server user
+    ports: !override
+      - "${API_BIND:?set API_BIND in .env}:${PORT:-8100}:8100"
+    volumes:
+      - ./deploy/tls:/tls:ro
+    environment:
+      TLS_CERT_FILE: /tls/cert.pem
+      TLS_KEY_FILE: /tls/key.pem
+      PUBLISH_MODE: ${PUBLISH_MODE:-review}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import ssl,urllib.request;urllib.request.urlopen('https://127.0.0.1:8100/api/health',context=ssl._create_unverified_context(),timeout=3)"]
+  classifier:
+    network_mode: host
+    environment:
+      DATABASE_URL: postgresql://dcm:${POSTGRES_PASSWORD}@127.0.0.1:${DB_HOST_PORT:-55432}/dcm
+      GEMMA_BASE_URL: http://127.0.0.1:8090/v1
+      GEMMA_MODEL: dhaka-gemma
+      CLASSIFY_CONCURRENCY: "1"
+      PUBLISH_MODE: ${PUBLISH_MODE:-review}

@@ -285,3 +285,102 @@ def test_api_reads_and_guards_trigger():
     assert api.post("/api/scrape", headers={"x-dcm-ui": "1", "origin": "http://hostile.example"}).status_code == 403
     assert api.post("/api/scrape", headers={"x-dcm-ui": "1", "origin": "http://testserver"}).status_code == 202
     assert api.post("/api/scrape", headers={"x-dcm-ui": "1"}).status_code == 409
+
+
+def test_review_flow(monkeypatch):
+    import dataclasses
+    import app.api as api_mod
+    import app.store as store_mod
+    monkeypatch.setattr(api_mod, "settings", dataclasses.replace(api_mod.settings, admin_token="t" * 24))
+    monkeypatch.setattr(store_mod, "settings", dataclasses.replace(store_mod.settings, publish_mode="review"))
+    collect("test", client=FakeSite())
+    Worker(classifier=FakeClassifier(), use_geocoder=False).drain()
+    inc = q1("SELECT id, published, review_status FROM incidents")
+    assert inc["review_status"] == "pending" and not inc["published"]
+    api = TestClient(api_mod.create_app())
+    assert api.get("/api/review/queue").status_code == 401
+    h = {"x-admin-token": "t" * 24, "x-reviewer": "zawad"}
+    queue = api.get("/api/review/queue", headers=h).json()
+    assert [i["id"] for i in queue["items"]] == [inc["id"]]
+    assert api.get("/api/stats", params={"start": "2026-10-01", "end": "2026-10-31"}).json()["total"] == 0
+    r = api.post(f"/api/review/incidents/{inc['id']}", headers=h, json={"action": "approve", "place_id": "badda"})
+    assert r.status_code == 200
+    row = q1("SELECT published, review_status, place_id, thana_id, reviewed_by FROM incidents")
+    assert row["published"] and row["review_status"] == "approved" and row["thana_id"] == "badda"
+    assert row["reviewed_by"] == "zawad"
+    assert api.get("/api/stats", params={"start": "2026-10-01", "end": "2026-10-31"}).json()["total"] == 1
+    api.post(f"/api/review/incidents/{inc['id']}", headers=h, json={"action": "reject"})
+    assert not q1("SELECT published FROM incidents")["published"]
+    assert api.post("/api/review/articles/1", headers=h, json={"verdict": "missed_incident"}).status_code == 200
+
+
+def _seed_incident(article_id, day, place="mirpur11", category="murder", published=True, lat=23.81, geocoded=False):
+    with db.tx() as c:
+        return c.execute("""INSERT INTO incidents (article_id, category, place_id, thana_id, lat, lng, event_date,
+                              time_of_day, published, review_status, geocoded, evidence_ok)
+                            VALUES (%s,%s,%s,'pallabi',%s,90.36,%s,'night',%s,%s,%s,true) RETURNING id""",
+                         (article_id, category, place, lat, day, published, "auto" if published else "pending",
+                          geocoded)).fetchone()["id"]
+
+
+def _seed_articles(n):
+    with db.tx() as c:
+        return [c.execute("INSERT INTO articles (url, status) VALUES (%s, 'classified') RETURNING id",
+                          (f"https://www.prothomalo.com/x/{i}",)).fetchone()["id"] for i in range(n)]
+
+
+def test_review_keeps_duplicate_chains_and_exact_points(monkeypatch):
+    import dataclasses
+    from datetime import date
+    import app.api as api_mod
+    from app.store import rebuild_groups
+    monkeypatch.setattr(api_mod, "settings", dataclasses.replace(api_mod.settings, admin_token="t" * 24))
+    a1, a2, a3 = _seed_articles(3)
+    first = _seed_incident(a1, date(2026, 10, 1))
+    second = _seed_incident(a2, date(2026, 10, 2))
+    third = _seed_incident(a3, date(2026, 10, 5), published=False, lat=23.8191, geocoded=True)
+    with db.tx() as c:
+        rebuild_groups(c, {("murder", "mirpur11")})
+    assert q1("SELECT duplicate_of FROM incidents WHERE id = %s", second)["duplicate_of"] == first
+    api = TestClient(api_mod.create_app())
+    h = {"x-admin-token": "t" * 24}
+    # approving with the unchanged place keeps the exact geocode and does not break the 1→2 Oct chain
+    assert api.post(f"/api/review/incidents/{third}", headers=h,
+                    json={"action": "approve", "place_id": "mirpur11"}).status_code == 200
+    row = q1("SELECT lat, geocoded, duplicate_of FROM incidents WHERE id = %s", third)
+    assert row["geocoded"] and row["lat"] == 23.8191 and row["duplicate_of"] is None   # 5 Oct: separate event
+    assert q1("SELECT duplicate_of FROM incidents WHERE id = %s", second)["duplicate_of"] == first
+    api.post(f"/api/review/incidents/{third}", headers=h, json={"action": "reject"})
+    assert q1("SELECT duplicate_of FROM incidents WHERE id = %s", second)["duplicate_of"] == first
+
+
+def test_failed_article_retry_and_dismiss(monkeypatch):
+    import dataclasses
+    import app.api as api_mod
+    monkeypatch.setattr(api_mod, "settings", dataclasses.replace(api_mod.settings, admin_token="t" * 24))
+    a1, a2 = _seed_articles(2)
+    with db.tx() as c:
+        c.execute("UPDATE articles SET status = 'failed' WHERE id IN (%s, %s)", (a1, a2))
+        c.execute("INSERT INTO jobs (article_id, state) VALUES (%s, 'failed')", (a1,))
+    api = TestClient(api_mod.create_app())
+    h = {"x-admin-token": "t" * 24}
+    assert api.post(f"/api/review/articles/{a1}", headers=h, json={"verdict": "retry"}).status_code == 200
+    assert q1("SELECT count(*) n FROM jobs WHERE article_id = %s AND state = 'queued' AND analysis_version = 2",
+              a1)["n"] == 1
+    assert api.post(f"/api/review/articles/{a2}", headers=h, json={"verdict": "dismiss"}).status_code == 200
+    assert q1("SELECT status FROM articles WHERE id = %s", a2)["status"] == "dismissed"
+
+
+def test_evaluation_penalizes_invented_incidents(monkeypatch, tmp_path):
+    import json
+    collect("test", client=FakeSite())
+    Worker(classifier=FakeClassifier(name="claude:fake"), use_geocoder=False).drain()   # Claude-era reference
+    invented = FakeClassifier(name="gemma:fake", incidents=[_incident(), _incident(category="theft")])
+    monkeypatch.setattr("app.evaluate.get_classifier", lambda name: invented)
+    from app.evaluate import compare
+    out = tmp_path / "r.json"
+    compare("gemma", 10, str(out))
+    r = json.loads(out.read_text())
+    assert r["incident_counts"] == {"matched": 1, "extra": 1, "missed": 0}
+    assert r["incident_precision"] == 0.5 and not r["passes_all_gates"] and len(r["disagreements"]) == 1
+    assert q1("SELECT count(*) n FROM incidents")["n"] == 1                              # eval never writes incidents

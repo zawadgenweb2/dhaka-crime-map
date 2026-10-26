@@ -83,8 +83,9 @@ services:
       CLAUDE_EFFORT: ${CLAUDE_EFFORT:-medium}
       CLASSIFY_CONCURRENCY: ${CLASSIFY_CONCURRENCY:-3}
       MAX_LLM_CALLS_PER_DAY: ${MAX_LLM_CALLS_PER_DAY:-200}
-      GEMMA_BASE_URL: ${GEMMA_BASE_URL:-http://ollama:11434/v1}
-      GEMMA_MODEL: ${GEMMA_MODEL:-gemma4:e2b}
+      GEMMA_BASE_URL: ${GEMMA_BASE_URL:-http://127.0.0.1:8090/v1}
+      GEMMA_MODEL: ${GEMMA_MODEL:-dhaka-gemma}
+      PUBLISH_MODE: ${PUBLISH_MODE:-auto}
       GEMMA_API_KEY: ${GEMMA_API_KEY:-}
       GEOCODE_ENABLED: ${GEOCODE_ENABLED:-true}
       USER_AGENT: ${USER_AGENT:-DhakaCrimeMap/0.2 (research prototype)}

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, timedelta
 
+from .config import settings
 from .gazetteer import Gazetteer, distance_km
 from .geocode import geocode
 from .schema import CATEGORIES, ArticleAnalysis, Incident
@@ -85,15 +86,19 @@ def _same_event(a: dict, b: dict) -> bool:
     return ta == tb or "unknown" in (ta, tb)
 
 
-def rebuild_groups(conn, keys: set[tuple[str, str, date]]) -> int:
-    """Recompute duplicate_of for every published incident near the given (category, place, date) keys."""
+def rebuild_groups(conn, keys: set[tuple]) -> int:
+    """Recompute duplicate_of for the whole (category, place) partition of each key.
+
+    Whole partitions, not date windows: a window can cut a chain (A <- B) and wrongly make B canonical.
+    Unpublished incidents never take part in grouping."""
     changed = 0
-    for category, place_id, day in keys:
+    for category, place_id in {(k[0], k[1]) for k in keys}:
+        conn.execute("""UPDATE incidents SET duplicate_of = NULL WHERE NOT published AND category = %s
+                        AND place_id = %s AND duplicate_of IS NOT NULL""", (category, place_id))
         rows = conn.execute(
             """SELECT id, article_id, category, place_id, event_date, time_of_day, duplicate_of FROM incidents
-               WHERE published AND category = %s AND place_id = %s AND event_date BETWEEN %s AND %s
-               ORDER BY event_date, id""",
-            (category, place_id, day - timedelta(days=3), day + timedelta(days=3))).fetchall()
+               WHERE published AND category = %s AND place_id = %s ORDER BY event_date, id""",
+            (category, place_id)).fetchall()
         canon: list[dict] = []
         for r in rows:
             target = next((c["id"] for c in canon if _same_event(c, r)), None)
@@ -107,7 +112,8 @@ def rebuild_groups(conn, keys: set[tuple[str, str, date]]) -> int:
 
 # ---- materialize -------------------------------------------------------------------------------
 def build_rows(article: dict, analysis: ArticleAnalysis, gaz: Gazetteer,
-               geocoded: dict[str, tuple[float, float] | None]) -> list[dict]:
+               geocoded: dict[str, tuple[float, float] | None], publish_mode: str | None = None) -> list[dict]:
+    publish_mode = publish_mode or settings.publish_mode
     pub_day = publication_day(article["published_at"])
     consistent = analysis.is_crime_report and analysis.in_dhaka
     rows = []
@@ -123,8 +129,10 @@ def build_rows(article: dict, analysis: ArticleAnalysis, gaz: Gazetteer,
             **loc, "category": inc.category, "headline_bn": inc.headline_bn, "headline_en": inc.headline_en,
             "location_text": inc.location_text, "incident_date": inc_date, "event_date": inc_date or pub_day,
             "time_of_day": inc.time_of_day, "victims": max(0, inc.victims), "evidence": inc.evidence,
+            # passes = automatic checks OK. Published now only in auto mode; review mode waits for a human.
             # Unlocated (city-level) incidents are still published: listed, counted, but not mapped.
-            "evidence_ok": ok, "published": ok,
+            "evidence_ok": ok, "passes": ok, "published": ok and publish_mode == "auto",
+            "review_status": ("auto" if publish_mode == "auto" else "pending") if ok else "failed",
         })
     return rows
 
@@ -142,12 +150,12 @@ def materialize(conn, article: dict, analysis_id: int | None, analysis: ArticleA
         conn.execute(
             """INSERT INTO incidents (article_id, analysis_id, category, headline_bn, headline_en, location_text,
                  place_id, thana_id, lat, lng, precision, geocoded, incident_date, event_date, time_of_day, victims,
-                 evidence, evidence_ok, published, classifier)
-               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                 evidence, evidence_ok, published, review_status, classifier)
+               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
             (article["id"], analysis_id, r["category"], r["headline_bn"], r["headline_en"], r["location_text"],
              r["place_id"], r["thana_id"], r["lat"], r["lng"], r["precision"], r["geocoded"], r["incident_date"],
              r["event_date"], r["time_of_day"], r["victims"], r["evidence"], r["evidence_ok"], r["published"],
-             classifier))
+             r["review_status"], classifier))
         if r["place_id"] and r["event_date"]:
             keys.add((r["category"], r["place_id"], r["event_date"]))
     rebuild_groups(conn, keys)

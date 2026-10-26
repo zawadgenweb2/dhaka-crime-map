@@ -1,0 +1,16 @@
+# systemd --user unit: local model via vLLM (same port/key/alias as dhaka-llm; run one or the other).
+[Unit]
+Description=Dhaka Crime Map local model (vLLM)
+After=network-online.target
+Conflicts=dhaka-llm.service
+
+[Service]
+Environment=DHAKA_VLLM_MODEL=gemma-4-E2B-it
+ExecStart=%h/dhaka-crime-map/deploy/inhouse-llm/start-vllm.sh
+Restart=on-failure
+RestartSec=20
+StartLimitIntervalSec=900
+StartLimitBurst=4
+
+[Install]
+WantedBy=default.target
