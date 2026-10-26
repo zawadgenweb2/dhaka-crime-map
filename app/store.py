@@ -115,6 +115,8 @@ def build_rows(article: dict, analysis: ArticleAnalysis, gaz: Gazetteer,
                geocoded: dict[str, tuple[float, float] | None], publish_mode: str | None = None) -> list[dict]:
     publish_mode = publish_mode or settings.publish_mode
     pub_day = publication_day(article["published_at"])
+    fetched_day = publication_day(article.get("fetched_at"))
+    upper = pub_day or fetched_day or datetime.now(DHAKA_TZ).date()   # never accept dates in the future
     consistent = analysis.is_crime_report and analysis.in_dhaka
     rows = []
     if not consistent:
@@ -123,11 +125,11 @@ def build_rows(article: dict, analysis: ArticleAnalysis, gaz: Gazetteer,
         if inc.category not in CATEGORIES:
             continue
         loc = locate(inc, gaz, geocoded)
-        inc_date = clean_incident_date(inc.incident_date, pub_day)
+        inc_date = clean_incident_date(inc.incident_date, upper)
         ok = evidence_ok(inc.evidence, article["title"] or "", article["body"] or "")
         rows.append({
             **loc, "category": inc.category, "headline_bn": inc.headline_bn, "headline_en": inc.headline_en,
-            "location_text": inc.location_text, "incident_date": inc_date, "event_date": inc_date or pub_day,
+            "location_text": inc.location_text, "incident_date": inc_date, "event_date": inc_date or pub_day or fetched_day or upper,
             "time_of_day": inc.time_of_day, "victims": max(0, inc.victims), "evidence": inc.evidence,
             # passes = automatic checks OK. Published now only in auto mode; review mode waits for a human.
             # Unlocated (city-level) incidents are still published: listed, counted, but not mapped.

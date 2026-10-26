@@ -285,3 +285,42 @@ def test_compact_prompt_shortlists_places_and_constrains_ids():
     pid = body["response_format"]["json_schema"]["schema"]["$defs"]["Incident"]["properties"]["place_id"]
     assert pid["anyOf"][0]["enum"] == ["mirpur11", "pallabi"]
     assert "mirpur11 | মিরপুর ১১" not in body["messages"][0]["content"]          # no full catalogue
+
+
+# ---- robots.txt per RFC 9309 ----------------------------------------------------------------------
+def test_robots_longest_match_beats_file_order():
+    from app.scraper import RobotsPolicy
+    # Prothom Alo's real shape: a broad Allow first, specific Disallows after it.
+    p = RobotsPolicy.parse("User-agent: *\nAllow: /\nDisallow: /story/*/element/\nDisallow: /api/auth/\n",
+                           "DhakaCrimeMap/0.2")
+    assert p.can_fetch("https://www.prothomalo.com/bangladesh/crime/abc")
+    assert not p.can_fetch("https://www.prothomalo.com/story/123/element/456")
+    assert not p.can_fetch("https://www.prothomalo.com/api/auth/login")
+    tie = RobotsPolicy.parse("User-agent: *\nDisallow: /a\nAllow: /a\n", "x")
+    assert tie.can_fetch("https://www.prothomalo.com/a")                    # equal length: Allow wins
+    own = RobotsPolicy.parse("User-agent: dhakacrimemap\nDisallow: /\n\nUser-agent: *\nAllow: /\n", "DhakaCrimeMap/0.2")
+    assert not own.can_fetch("https://www.prothomalo.com/x")                # our own group overrides '*'
+    end = RobotsPolicy.parse("User-agent: *\nDisallow: /*.xml$\n", "x")
+    assert not end.can_fetch("https://www.prothomalo.com/a.xml") and end.can_fetch("https://www.prothomalo.com/a.xml.gz")
+
+
+def test_robots_redirect_is_followed_on_site():
+    def handler(req):
+        if req.url.path == "/robots.txt":
+            return httpx.Response(301, headers={"location": "/robots-real.txt"})
+        if req.url.path == "/robots-real.txt":
+            return httpx.Response(200, text="User-agent: *\nDisallow: /private/\n")
+        return httpx.Response(200, text="ok")
+    c = _client(handler)
+    assert c._get("https://www.prothomalo.com/public") == "ok"
+    with pytest.raises(FetchBlocked):
+        c._get("https://www.prothomalo.com/private/x")
+
+
+def test_no_future_dates_even_without_publication_time():
+    from datetime import timedelta
+    g = load()
+    art = {**ARTICLE, "published_at": None, "fetched_at": datetime(2026, 10, 24, 6, 0, tzinfo=timezone.utc)}
+    rows = build_rows(art, ArticleAnalysis(is_crime_report=True, in_dhaka=True, note="",
+                                           incidents=[_inc(incident_date="2099-01-01")]), g, {}, "auto")
+    assert rows[0]["incident_date"] is None and rows[0]["event_date"] == date(2026, 10, 24)

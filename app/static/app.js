@@ -464,7 +464,12 @@
     await initMap();
     await refresh();
     if (state.meta.running) poll();
-    setInterval(loadMeta, 60000);
+    let seen = state.meta.data_version;
+    setInterval(async () => {
+      await loadMeta();
+      if (state.meta.running) poll();
+      if (state.meta.data_version !== seen) { seen = state.meta.data_version; refresh(); }
+    }, 60000);
   }
   main().catch((e) => { console.error(e); note(String(e)); });
 })();

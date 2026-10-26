@@ -83,7 +83,9 @@ def create_app() -> FastAPI:
         with db.connect() as c:
             counts = {r["status"]: r["n"] for r in c.execute("SELECT status, count(*) n FROM articles GROUP BY status")}
             queue = {r["state"]: r["n"] for r in c.execute("SELECT state, count(*) n FROM jobs GROUP BY state")}
-            span = c.execute("SELECT min(event_date) a, max(event_date) b FROM incidents WHERE published").fetchone()
+            span = c.execute("""SELECT min(event_date) a, max(event_date) b, count(*) n,
+                                       max(greatest(created_at, coalesce(reviewed_at, created_at))) t
+                                FROM incidents WHERE published""").fetchone()
             last = c.execute("SELECT * FROM runs ORDER BY id DESC LIMIT 1").fetchone()
             beats = {r["service"]: r for r in c.execute("SELECT service, seen_at, detail FROM heartbeats")}
             pending = c.execute("SELECT count(*) n FROM run_requests WHERE status IN ('pending','running')").fetchone()["n"]
@@ -105,6 +107,8 @@ def create_app() -> FastAPI:
                          for s, b in beats.items()},
             "last_run": {k: _iso(v) for k, v in last.items()} if last else None,
             "articles": counts, "data_span": {"first": _iso(span["a"]), "last": _iso(span["b"])},
+            # changes whenever an incident is published, approved, rejected or replaced
+            "data_version": f'{span["n"]}:{_iso(span["t"])}',
             "spend_today": {"calls": spend["calls"], "usd": float(spend["usd"])},
             "google_maps_api_key": settings.google_maps_api_key,
             "google_maps_map_id": settings.google_maps_map_id,

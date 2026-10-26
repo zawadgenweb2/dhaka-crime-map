@@ -36,7 +36,7 @@ def geocode(query: str) -> tuple[float, float] | None:
 
     with db.tx() as c:
         # Lock the shared lane; other workers wait here instead of calling Nominatim in parallel.
-        lane = c.execute("SELECT extract(epoch FROM now() - last_at) AS waited FROM rate_limits "
+        lane = c.execute("SELECT extract(epoch FROM clock_timestamp() - last_at) AS waited FROM rate_limits "
                          "WHERE name = %s FOR UPDATE", (LANE,)).fetchone()
         # Someone may have resolved the same query while we waited for the lock.
         hit = c.execute("SELECT lat, lng FROM geocache WHERE query = %s", (q,)).fetchone()
@@ -53,10 +53,10 @@ def geocode(query: str) -> tuple[float, float] | None:
             r.raise_for_status()
             hits = r.json()
         except (httpx.HTTPError, ValueError) as e:
-            c.execute("UPDATE rate_limits SET last_at = now() WHERE name = %s", (LANE,))
+            c.execute("UPDATE rate_limits SET last_at = clock_timestamp() WHERE name = %s", (LANE,))
             log.warning("geocode failed for %r: %s", q, e)
             return None  # not cached, so a later attempt can retry
-        c.execute("UPDATE rate_limits SET last_at = now() WHERE name = %s", (LANE,))
+        c.execute("UPDATE rate_limits SET last_at = clock_timestamp() WHERE name = %s", (LANE,))
         top = hits[0] if hits else None
         c.execute("""INSERT INTO geocache (query, lat, lng, display) VALUES (%s, %s, %s, %s)
                      ON CONFLICT (query) DO NOTHING""",

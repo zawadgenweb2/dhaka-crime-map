@@ -399,3 +399,29 @@ def test_failed_slot_is_retried_then_given_up(monkeypatch):
             c.execute("UPDATE schedule_slots SET next_try_at = now() WHERE status = 'pending' AND attempts > 0")
         assert col._run_slot() is True
     assert q1("SELECT status, attempts FROM schedule_slots WHERE attempts > 0") == {"status": "failed", "attempts": 3}
+
+
+def test_crashed_local_call_is_retried_not_uncertain():
+    collect("test", client=FakeSite())
+    w = Worker(classifier=FakeClassifier(name="gemma:fake"), use_geocoder=False)
+    job = w.claim()
+    with db.tx() as c:
+        c.execute("INSERT INTO llm_calls (job_id, backend) VALUES (%s, 'gemma')", (job["id"],))
+        c.execute("UPDATE jobs SET lease_until = now() - interval '1 minute' WHERE id = %s", (job["id"],))
+    assert w.recover_expired() == 1
+    assert q1("SELECT state FROM jobs")["state"] == "queued"            # free call: just retry
+
+
+def test_meta_data_version_changes_on_approval(monkeypatch):
+    import dataclasses
+    import app.api as api_mod
+    import app.store as store_mod
+    monkeypatch.setattr(api_mod, "settings", dataclasses.replace(api_mod.settings, admin_token="t" * 24))
+    monkeypatch.setattr(store_mod, "settings", dataclasses.replace(store_mod.settings, publish_mode="review"))
+    collect("test", client=FakeSite())
+    Worker(classifier=FakeClassifier(), use_geocoder=False).drain()
+    api = TestClient(api_mod.create_app())
+    before = api.get("/api/meta").json()["data_version"]
+    inc = q1("SELECT id FROM incidents")["id"]
+    api.post(f"/api/review/incidents/{inc}", headers={"x-admin-token": "t" * 24}, json={"action": "approve"})
+    assert api.get("/api/meta").json()["data_version"] != before

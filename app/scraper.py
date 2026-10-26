@@ -12,10 +12,9 @@ import json
 import logging
 import re
 import time
-import urllib.robotparser
 from dataclasses import dataclass, field
 from datetime import date, datetime
-from urllib.parse import urljoin, urlsplit
+from urllib.parse import unquote, urljoin, urlsplit
 from zoneinfo import ZoneInfo
 
 import httpx
@@ -158,13 +157,68 @@ class FetchBlocked(PermissionError):
     """robots.txt, host allowlist or size limit forbids this request."""
 
 
+class RobotsPolicy:
+    """robots.txt per RFC 9309: group by user-agent (else '*'), longest matching rule wins, Allow wins ties,
+    '*' and '$' supported, /robots.txt itself always allowed."""
+
+    def __init__(self, rules: list[tuple[str, bool]] | None = None, allow_all: bool = False, disallow_all: bool = False):
+        self.rules, self.allow_all, self.disallow_all = rules or [], allow_all, disallow_all
+
+    @classmethod
+    def parse(cls, text: str, user_agent: str) -> "RobotsPolicy":
+        product = user_agent.split("/", 1)[0].strip().lower()
+        groups: list[tuple[list[str], list[tuple[str, bool]]]] = []
+        agents: list[str] = []
+        rules: list[tuple[str, bool]] = []
+        for raw in text.splitlines():
+            line = raw.split("#", 1)[0].strip()
+            if ":" not in line:
+                continue
+            key, value = (x.strip() for x in line.split(":", 1))
+            key = key.lower()
+            if key == "user-agent":
+                if rules:                       # a user-agent line after rules starts a new group
+                    groups.append((agents, rules))
+                    agents, rules = [], []
+                agents.append(value.lower())
+            elif key in ("allow", "disallow") and agents:
+                if value:
+                    rules.append((value, key == "allow"))
+        if agents:
+            groups.append((agents, rules))
+        mine = [r for a, r in groups if product and product in a]
+        chosen = mine or [r for a, r in groups if "*" in a]
+        return cls([rule for rs in chosen for rule in rs])
+
+    @staticmethod
+    def _matches(pattern: str, path: str) -> bool:
+        anchored = pattern.endswith("$")
+        body = re.escape(unquote(pattern[:-1] if anchored else pattern)).replace(r"\*", ".*")
+        return re.match(body + ("$" if anchored else ""), path) is not None
+
+    def can_fetch(self, url: str) -> bool:
+        parts = urlsplit(url)
+        path = unquote(parts.path or "/") + (f"?{unquote(parts.query)}" if parts.query else "")
+        if path == "/robots.txt" or self.allow_all:
+            return True
+        if self.disallow_all:
+            return False
+        best: tuple[int, bool] | None = None
+        for pattern, allow in self.rules:
+            if self._matches(pattern, path):
+                key = (len(pattern), allow)          # longer wins; on equal length Allow (True) wins
+                if best is None or key > best:
+                    best = key
+        return True if best is None else best[1]
+
+
 class ProthomAloClient:
     def __init__(self, client: httpx.Client | None = None, delay: float | None = None):
         # Redirects are followed manually so every hop is host- and robots-checked.
         self.http = client or httpx.Client(headers={"User-Agent": settings.user_agent, "Accept-Language": "bn,en"},
                                            timeout=30, follow_redirects=False)
         self.delay = settings.request_delay if delay is None else delay
-        self._robots: urllib.robotparser.RobotFileParser | None = None
+        self._robots: RobotsPolicy | None = None
         self._last = 0.0
 
     def _download(self, url: str, limit: int) -> httpx.Response:
@@ -201,22 +255,30 @@ class ProthomAloClient:
         raise FetchBlocked(f"too many redirects: {url}")
 
     def allowed(self, url: str) -> bool:
-        """RFC 9309: 4xx robots.txt = no restrictions; 5xx or unreachable = crawl nothing (retry next run)."""
+        """RFC 9309: follow up to 5 same-site redirects; 4xx = no restrictions; 5xx, unreachable or a redirect loop
+        = crawl nothing this run (the slot is retried later)."""
         if self._robots is None:
-            rp = urllib.robotparser.RobotFileParser()
+            target = f"{BASE}/robots.txt"
+            policy = RobotsPolicy(disallow_all=True)
             try:
-                r = self._download(f"{BASE}/robots.txt", MAX_ROBOTS_BYTES)
-                if r.status_code >= 500:
-                    rp.disallow_all = True
-                elif r.status_code >= 400:
-                    rp.allow_all = True
-                else:
-                    rp.parse(r.text.splitlines())
+                for _ in range(6):
+                    if (urlsplit(target).hostname or "").lower() not in ALLOWED_HOSTS:
+                        break
+                    r = self._download(target, MAX_ROBOTS_BYTES)
+                    if r.is_redirect:
+                        target = urljoin(target, r.headers.get("location", ""))
+                        continue
+                    if 200 <= r.status_code < 300:
+                        policy = RobotsPolicy.parse(r.text, settings.user_agent)
+                    elif 400 <= r.status_code < 500:
+                        policy = RobotsPolicy(allow_all=True)
+                    break
             except (httpx.HTTPError, FetchBlocked):
-                rp.disallow_all = True
-                log.warning("robots.txt unreachable; not crawling this run")
-            self._robots = rp
-        return self._robots.can_fetch(settings.user_agent, url)
+                pass
+            if policy.disallow_all:
+                log.warning("robots.txt unavailable; not crawling this run")
+            self._robots = policy
+        return self._robots.can_fetch(url)
 
     def news_sitemap(self) -> list[Candidate]:
         return parse_news_sitemap(self._get(NEWS_SITEMAP))

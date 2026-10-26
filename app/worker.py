@@ -94,8 +94,8 @@ class Worker:
         with db.tx() as c:
             for job in c.execute("""SELECT id, article_id FROM jobs WHERE state = 'running' AND lease_until < now()
                                     FOR UPDATE SKIP LOCKED""").fetchall():
-                in_flight = c.execute("""SELECT 1 FROM llm_calls WHERE job_id = %s AND outcome = 'sent'""",
-                                      (job["id"],)).fetchone()
+                in_flight = c.execute("""SELECT 1 FROM llm_calls WHERE job_id = %s AND outcome = 'sent'
+                                         AND backend = ANY(%s)""", (job["id"], list(PAID_BACKENDS))).fetchone()
                 saved = c.execute("SELECT 1 FROM analyses WHERE job_id = %s", (job["id"],)).fetchone()
                 if in_flight and not saved:
                     c.execute("""UPDATE jobs SET state = 'uncertain', owner = NULL, updated_at = now(),
