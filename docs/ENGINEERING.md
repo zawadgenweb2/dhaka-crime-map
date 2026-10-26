@@ -89,7 +89,7 @@ One image (`Dockerfile`) for every service; the command picks the role (`python 
 | `app/store.py` | locate, date/evidence checks, publish status, duplicate grouping, exact-spot enrichment |
 | `app/classifiers/` | `base.py` prompts (full + compact), `gemma.py` in-house model client, `rules.py` offline baseline |
 | `app/gazetteer.py`, `data/dhaka_places.json` | Bangla place matching (suffixes, namesake guard) |
-| `app/api.py`, `app/static/` | REST + Swagger, dashboard, review page |
+| `app/api.py`, `app/static/` | REST + Swagger (incl. `POST /api/classify`: try a pasted article, nothing saved), dashboard, review page |
 | `app/evaluate.py`, `scripts/eval_table.py` | offline model evaluation vs the frozen 71-article reference set |
 | `deploy/inhouse-llm/` | llama.cpp build, model download, start scripts, systemd units, vLLM setup |
 | `compose.yaml`, `compose.inhouse.yaml` | services; server overrides (HTTPS, loopback DB, host-network classifier) |
@@ -114,7 +114,7 @@ $C stop classifier && $C run --rm migrate reprocess-all --yes && $C up -d   # re
 $C exec classifier python -m app stats
 $C exec db psql -U dcm -d dcm           # SQL shell
 systemctl --user status|restart dhaka-llm ; journalctl --user -u dhaka-llm -f   # model server
-$C --profile test build test && $C --profile test run --rm test   # 64 tests, separate dcm_test database
+$C --profile test build test && $C --profile test run --rm test   # 66 tests, separate dcm_test database
 deploy/backup-db.sh                     # backup now; restore: pg_restore -U dcm -d dcm --clean <file>
 ```
 
@@ -142,9 +142,23 @@ deploy/backup-db.sh                     # backup now; restore: pg_restore -U dcm
 
 ## 9. Tests and evaluation
 
-Tests: 64 (pure + the separate `dcm_test` database, never `dcm`). Evaluation reference: 71 articles labelled during the prototype phase, frozen in
+Tests: 66 (pure + the separate `dcm_test` database, never `dcm`). Evaluation reference: 71 articles labelled during the prototype phase, frozen in
 `eval_reference_*` (a strong baseline, not ground truth). E2B, compact prompt + calendar: JSON 100%, article P/R 0.86/0.88, incident P/R 0.76/0.71,
-category 0.78, thana 0.93, date 0.53, 2.4 s/article. The gates in `evaluate.GATES` are a yardstick, not a publishing switch. Gemma 4 E4B Q8 is next.
+category 0.78, thana 0.93, date 0.53, 2.4 s/article. The gates in `evaluate.GATES` are a yardstick, not a publishing switch.
+
+Model/engine benchmark, 26 Oct (71 articles, same prompt, RTX 3080 Ti; `GEMMA_STREAM=1 ... compare` measures speed; ±0.03 run-to-run):
+
+| Setup | Incident P / R | Article P / R | Time/article p50 | Prefill | Decode | GPU mem |
+|---|---|---|---|---|---|---|
+| **E2B Q8, llama.cpp (live)** | 0.80–0.83 / 0.64–0.66 | 0.87–0.90 / 0.81 | 2.4 s | ~4,400 tok/s | ~120 tok/s | 2.9 GB |
+| E4B QAT Q4_0, llama.cpp | 0.71 / 0.69 | 0.78 / 0.83 | 2.8 s | ~3,100 tok/s | ~113 tok/s | 3.5 GB |
+| E4B QAT w4a16, vLLM 0.32 | stopped (see below) | | ~13 s (long pretty JSON) | | ~120 tok/s | 11.7 of 12 GB |
+
+vLLM lessons on 12 GB (kept in `deploy/inhouse-llm/start-vllm.sh`, not in use): the w4a16 checkpoints keep the per-layer
+embeddings in bf16 (E4B 11.5 GB, E2B 8.35 GB on disk; E4B uses 10.1 GB loaded); torch.compile autotuning runs out of memory,
+eager mode decodes at ~15 tok/s, decode-only CUDA graphs (`-cc mode 0, FULL_DECODE_ONLY`) restore ~120 tok/s; xgrammar's
+unbounded whitespace makes the model loop on newlines and its no-whitespace mode breaks answers (recall 0.02), so use the
+`guidance` backend with `GEMMA_JSON_WHITESPACE=bounded`. Decision: stay on llama.cpp E2B.
 
 ## 10. Decisions
 
@@ -155,6 +169,7 @@ category 0.78, thana 0.93, date 0.53, 2.4 s/article. The gates in `evaluate.GATE
 | vLLM installed (cu129 wheel) but not serving | default PyPI wheel needs CUDA 13; speed benchmark pending |
 | Compact prompt + grammar-constrained `place_id` | thana accuracy 71% → 93–98% for the small model |
 | Auto-publish, review optional (26 Oct) | product decision: articles state crimes plainly; live map over a review backlog. Evidence check proves a quote exists, not that it supports the claim |
+| llama.cpp, not vLLM (26 Oct) | same speed for one-at-a-time requests; vLLM's QAT checkpoints need most of the 12 GB card and long JSON output |
 | Geocode after publishing | Nominatim allows 1 request / 15 s; inline geocoding would stall the GPU for hours in a backfill |
 | Driver 535 → 575, no OS upgrade | enough for current vLLM/llama.cpp; OS upgrade unsafe without console access |
 
