@@ -396,3 +396,11 @@ def test_streaming_measures_prefill_and_decode(monkeypatch):
     assert analysis.incidents[0].place_id == "mirpur11"
     assert meta["prompt_tokens"] == 2000 and meta["cached_tokens"] == 1500 and meta["ttft_s"] >= 0
     assert meta["output_tokens"] == 300
+
+
+def test_referral_hospital_is_not_dhaka_evidence():
+    from app.scraper import belongs_to_dhaka
+    g = load()
+    assert not belongs_to_dhaka("bangladesh", "চট্টগ্রামে ছুরিকাঘাত, আহত ব্যক্তিকে ঢাকা মেডিকেলে নেওয়া হয়", g)
+    assert belongs_to_dhaka("bangladesh/crime", "চট্টগ্রামে ছুরিকাঘাত, ঢাকা মেডিকেলে নেওয়া হয়", g)   # crime section: Gemma decides
+    assert belongs_to_dhaka("bangladesh", "মিরপুরে ছিনতাই, ঢাকা মেডিকেলে নেওয়া হয়", g)

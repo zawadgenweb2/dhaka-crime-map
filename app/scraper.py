@@ -23,7 +23,7 @@ from defusedxml import ElementTree as ET
 
 from .config import settings
 from .gazetteer import Gazetteer
-from .text import crime_signal
+from .text import crime_signal, normalize
 
 log = logging.getLogger(__name__)
 DHAKA_TZ = ZoneInfo("Asia/Dhaka")
@@ -120,12 +120,25 @@ def is_candidate(c: Candidate, gaz: Gazetteer) -> bool:
     return crime_signal(f"{c.title} {c.keywords}") > 0
 
 
+# Victims from anywhere are taken to Dhaka Medical: naming it says nothing about where the crime happened.
+REFERRAL_PLACES = {"dmch"}
+# Words that place a story in the capital. A bare "ঢাকা" is not enough outside the crime/capital sections
+# ("ঢাকা বিভাগ", "ঢাকায় পাঠানো হয়").
+CAPITAL_TERMS = [normalize(t) for t in ("রাজধানী", "ডিএমপি", "ঢাকা মহানগর")]
+
+
 def belongs_to_dhaka(section: str, text: str, gaz: Gazetteer) -> bool:
-    """Stage 2, after download: does the full text place it in Dhaka district? District news must name a
-    Dhaka-district place (Savar, Keraniganj, ...): a bare "ঢাকা" there is usually "ঢাকা মেডিকেলে পাঠানো হয়"."""
+    """Stage 2, after download: does the full text place it in Dhaka district?
+    Crime/capital sections: any Dhaka mention (as before). Other sections: a Dhaka-district place (not a
+    referral hospital) or, outside district news, an explicit capital term. Gemma makes the final call."""
+    if section in CRIME_SECTIONS:
+        return gaz.mentions_dhaka(text)
+    if any(p.id not in REFERRAL_PLACES for p in gaz.find_all(text)):
+        return True
     if section == "bangladesh/district":
-        return bool(gaz.find_all(text))
-    return gaz.mentions_dhaka(text)
+        return False
+    n = normalize(text)
+    return any(t in n for t in CAPITAL_TERMS)
 
 
 def parse_article(page: str, url: str) -> Article:
