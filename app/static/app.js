@@ -23,6 +23,8 @@
       covDone: "এই সময়ের {done}/{total} দিন সম্পূর্ণ প্রক্রিয়া হয়েছে", covMissing: "{n} দিন এখনো সংগ্রহ হয়নি",
       covPartial: "{n} দিন আংশিক", covProcessing: "{n} দিন Gemma পড়ছে", covCollect: "বাকি দিন সংগ্রহ করুন",
       notCollected: "সংগ্রহ হয়নি", processingDay: "Gemma পড়ছে", partialDay: "আংশিক সংগ্রহ",
+      covFailed: "{n} দিনে কিছু প্রতিবেদন ব্যর্থ", failedDay: "কিছু ব্যর্থ",
+      covTooOld: "{n} দিনের বেশি পুরোনো দিন এখান থেকে সংগ্রহ করা যায় না",
     },
     en: {
       title: "Dhaka Crime Map", runNow: "Collect now", period: "Period", from: "From", to: "To",
@@ -45,7 +47,8 @@
       covDone: "{done} of {total} days in this period fully processed", covMissing: "{n} days not collected yet",
       covPartial: "{n} days partly collected", covProcessing: "{n} days still being read by Gemma",
       covCollect: "Collect the missing days", notCollected: "not collected", processingDay: "Gemma reading",
-      partialDay: "partly collected",
+      partialDay: "partly collected", covFailed: "{n} days with failed articles", failedDay: "some failed",
+      covTooOld: "days older than {n} cannot be collected from here",
     },
   };
   const CAT_ORDER = ["murder", "assault", "robbery", "theft", "sexual_violence", "kidnapping", "drugs_arms", "fraud_extortion", "other"];
@@ -302,20 +305,31 @@
   function renderCoverage() {
     const box = $("#coverage"), c = state.coverage;
     if (!c) { box.hidden = true; return; }
-    const s = c.summary, total = c.days.length, done = s.complete + s.today;
-    if (done >= total) { box.hidden = true; return; }
+    const s = c.summary, total = c.days.length;
+    if (s.complete >= total) { box.hidden = true; return; }      // every day, today included, is complete
     const parts = [t("covDone", { done: s.complete, total })];
     if (s.not_collected) parts.push(t("covMissing", { n: s.not_collected }));
     if (s.partial) parts.push(t("covPartial", { n: s.partial }));
     if (s.processing) parts.push(t("covProcessing", { n: s.processing }));
+    if (s.failed) parts.push(t("covFailed", { n: s.failed }));
     const busy = state.meta?.collecting;
+    const tooOld = c.days_to_collect > c.max_days_back;
     fill(box, el("span", {}, parts.join(" · ")),
       c.days_to_collect > 0 && !busy ? el("button", { class: "btn", type: "button", onclick: async () => {
-        const r = await fetch(`/api/scrape?days_back=${Math.min(90, c.days_to_collect)}`, { method: "POST", headers: { "X-DCM-UI": "1" } });
+        const r = await fetch(`/api/scrape?days_back=${Math.min(c.max_days_back, c.days_to_collect)}`, { method: "POST", headers: { "X-DCM-UI": "1" } });
         note(r.status === 202 ? t("started") : r.status === 409 ? t("busy") : `${t("failed")} (${r.status})`);
         tick();
-      } }, t("covCollect")) : null);
+      } }, t("covCollect")) : null,
+      tooOld ? el("span", { class: "muted" }, t("covTooOld", { n: c.max_days_back })) : null);
     box.hidden = false;
+  }
+
+  // Coverage changes with job progress, not only with the map data: refresh it on every active poll.
+  async function refreshCoverage() {
+    try {
+      state.coverage = (await getJSON(`/api/coverage?${rangeQuery()}`)).data;
+      renderCoverage(); renderTrend();
+    } catch (e) { console.warn(e); }
   }
 
   function renderAll() {
@@ -411,12 +425,12 @@
     for (let d = new Date(start + "T00:00:00Z"); d <= new Date(end + "T00:00:00Z"); d.setUTCDate(d.getUTCDate() + 1)) days.push(d.toISOString().slice(0, 10));
     const shown = days.slice(-120);
     const status = Object.fromEntries((state.coverage?.days || []).map((d) => [d.date, d.status]));
-    const statusLabel = { not_collected: t("notCollected"), partial: t("partialDay"), processing: t("processingDay") };
+    const statusLabel = { not_collected: t("notCollected"), partial: t("partialDay"), processing: t("processingDay"), failed: t("failedDay") };
     const max = Math.max(1, ...shown.map((d) => counts[d] || 0));
     const tip = $("#tooltip");
     const box = $("#trend");
     fill(box, ...shown.map((d) => el("div", {
-      class: `b${["not_collected", "partial"].includes(status[d]) && !counts[d] ? " nc" : status[d] === "processing" ? " proc" : ""}`,
+      class: `b${["not_collected", "partial"].includes(status[d]) ? (counts[d] ? " part" : " nc") : ["processing", "failed"].includes(status[d]) ? " proc" : ""}`,
       style: `height:${((counts[d] || 0) / max) * 100}%`,
       onmouseenter: (e) => { tip.textContent = `${fmtDate(d)}: ${num(counts[d] || 0)} ${t("incidents")}${statusLabel[status[d]] ? ` · ${statusLabel[status[d]]}` : ""}`; tip.hidden = false; const r = e.target.getBoundingClientRect(); tip.style.position = "fixed"; tip.style.left = `${r.left}px`; tip.style.top = `${r.top - 44}px`; },
       onmouseleave: () => { tip.hidden = true; tip.style.position = ""; },
@@ -527,6 +541,8 @@
       ticking = true;
       try {
         await loadMeta();
+        const active = state.meta.running || (state.meta.batches || []).length;
+        if (active) refreshCoverage();
         // at most one data reload per 15 s, even while exact spots arrive one by one
         if (state.meta.data_version !== seenVersion && Date.now() - lastReload >= 15000) {
           const v = state.meta.data_version;

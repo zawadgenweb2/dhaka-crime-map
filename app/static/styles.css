@@ -230,3 +230,4 @@ input[type="date"], select {
 /* days with no data yet: striped, full height, so a gap never looks like "no crime" */
 .trend .b.nc { background: repeating-linear-gradient(135deg, var(--line) 0 3px, transparent 3px 6px); height: 100% !important; opacity: .9; }
 .trend .b.proc { opacity: .5; }
+.trend .b.part { outline: 1px dashed var(--muted); outline-offset: -1px; opacity: .75; }

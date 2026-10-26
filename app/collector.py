@@ -40,7 +40,7 @@ def discover(client, days_back: int, progress: Callable[[str], None],
     for i in range(days_back + 1):
         day = today - timedelta(days=i)
         items = client.daily_sitemap(day)
-        if by_day is not None and items:
+        if by_day is not None:
             by_day[day] = items
         for c in items:
             found.setdefault(c.url, c)
@@ -51,20 +51,21 @@ def discover(client, days_back: int, progress: Callable[[str], None],
 
 
 def record_coverage(by_day: dict, gaz: Gazetteer, run_id: int) -> None:
-    """Per day: how many articles were listed, how many pass stage 1, how many of those are still not downloaded."""
+    """Remember, per day, every URL the daily sitemap listed and whether it passed stage 1. Candidates are sticky:
+    a URL once seen as a candidate (e.g. from a titled news-sitemap entry) stays one. The day's status is computed
+    from these URLs' articles at read time (see api /api/coverage)."""
     if not by_day:
         return
-    urls = [c.url for items in by_day.values() for c in items]
     with db.tx() as c:
-        known = {r["url"] for r in c.execute("SELECT url FROM articles WHERE url = ANY(%s)", (urls,))}
         for day, items in by_day.items():
-            cands = [x for x in items if is_candidate(x, gaz)]
-            missing = sum(1 for x in cands if x.url not in known)
+            for x in items:
+                c.execute("""INSERT INTO coverage_urls (day, url, candidate) VALUES (%s, %s, %s)
+                             ON CONFLICT (day, url) DO UPDATE SET candidate = coverage_urls.candidate OR EXCLUDED.candidate""",
+                          (day, x.url, is_candidate(x, gaz)))
             c.execute("""INSERT INTO coverage_days (day, links, candidates, missing, run_id, checked_at)
-                         VALUES (%s, %s, %s, %s, %s, now())
-                         ON CONFLICT (day) DO UPDATE SET links = EXCLUDED.links, candidates = EXCLUDED.candidates,
-                           missing = EXCLUDED.missing, run_id = EXCLUDED.run_id, checked_at = now()""",
-                      (day, len(items), len(cands), missing, run_id))
+                         VALUES (%s, %s, 0, 0, %s, now())
+                         ON CONFLICT (day) DO UPDATE SET links = GREATEST(coverage_days.links, EXCLUDED.links),
+                           run_id = EXCLUDED.run_id, checked_at = now()""", (day, len(items), run_id))
         db.bump_revision(c)
 
 
@@ -83,6 +84,7 @@ def collect(trigger: str, days_back: int = 1, client=None, gaz: Gazetteer | None
                            (trigger, days_back)).fetchone()["id"]
     stats = {"discovered": 0, "fetched": 0, "queued": 0, "errors": 0}
     by_day: dict = {}
+    window_start = datetime.now(DHAKA_TZ).date() - timedelta(days=days_back)   # fixed for the whole run
     status, message = "ok", ""
     try:
         candidates = [c for c in discover(client, days_back, progress, by_day) if is_candidate(c, gaz)]
@@ -110,7 +112,6 @@ def collect(trigger: str, days_back: int = 1, client=None, gaz: Gazetteer | None
                 continue
             stats["fetched"] += 1
             art.published_at = art.published_at or cand.published_at
-            window_start = datetime.now(DHAKA_TZ).date() - timedelta(days=days_back)
             outside = bool(art.published_at) and art.published_at.astimezone(DHAKA_TZ).date() < window_start
             art.keywords = art.keywords or cand.keywords
             text = f"{art.title}\n{art.keywords}\n{art.body}"
@@ -140,8 +141,9 @@ def collect(trigger: str, days_back: int = 1, client=None, gaz: Gazetteer | None
         log.exception("collection run %s failed", run_id)
     try:
         record_coverage(by_day, gaz, run_id)
-    except Exception:
+    except Exception as e:  # never leave stale "complete" days behind a silent failure
         log.exception("coverage bookkeeping failed for run %s", run_id)
+        status, message = "failed", f"coverage bookkeeping failed: {type(e).__name__}: {e}"
     message = message or f"{stats['fetched']} fetched, {stats['queued']} queued for classification"
     with db.tx() as c:
         c.execute("""UPDATE runs SET finished_at = now(), status = %s, discovered = %s, fetched = %s, queued = %s,

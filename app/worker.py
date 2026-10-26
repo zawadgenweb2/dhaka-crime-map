@@ -85,6 +85,7 @@ class Worker:
             if state in ("failed", "uncertain"):
                 c.execute("UPDATE articles SET status = %s, error = %s WHERE id = %s",
                           (state, (error or "")[:500], job["article_id"]))
+                db.bump_revision(c)   # coverage and progress on open dashboards change too
 
     # ---- one job ---------------------------------------------------------------------------
     def process(self, job: dict) -> str:

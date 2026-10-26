@@ -233,43 +233,55 @@ def create_app() -> FastAPI:
 
     @app.get("/api/coverage")
     def coverage(start: str | None = None, end: str | None = None, days: int | None = Query(None, ge=1, le=3650)):
-        """How completely each day of a period has been processed. Per day: `complete` (every candidate article
-        downloaded and read by Gemma), `processing` (Gemma still reading), `partial` (some candidates not downloaded
-        yet), `not_collected` (that day's article list was never read), `today` (the day is not over)."""
+        """How completely each day of a period has been processed, from the articles each day's sitemap listed.
+        Per day: `complete` (every candidate article downloaded and read by Gemma or correctly filtered out),
+        `processing` (Gemma still reading), `failed` (some articles failed in Gemma), `partial` (candidates not
+        downloaded yet, or set aside), `not_collected` (that day's list was never read). `is_today`: the day is not
+        over, so "complete" means complete so far. Historical lists have no titles: in sections other than crime,
+        capital, national, district and politics, older articles are not examined (see `scope_note`)."""
         _, _, start_d, end_d = _filters(start, end, days, None, None)
         today = datetime.now(DHAKA_TZ).date()
+        end_d = min(end_d, today)                                    # no future days
         with db.connect() as c:
-            rows = {r["day"]: r for r in c.execute(
-                "SELECT day, links, candidates, missing FROM coverage_days WHERE day BETWEEN %s AND %s",
-                (start_d, end_d))}
-            pending = {r["d"]: r["n"] for r in c.execute(
-                """SELECT (a.published_at AT TIME ZONE 'Asia/Dhaka')::date d, count(*) n FROM jobs j
-                   JOIN articles a ON a.id = j.article_id
-                   WHERE j.state IN ('queued', 'running') GROUP BY 1""")}
-        out, summary = [], {"complete": 0, "processing": 0, "partial": 0, "not_collected": 0, "today": 0}
+            read = {r["day"]: r["links"] for r in c.execute(
+                "SELECT day, links FROM coverage_days WHERE day BETWEEN %s AND %s", (start_d, end_d))}
+            per = {r["day"]: r for r in c.execute(
+                """SELECT cu.day, count(*) AS candidates,
+                          count(*) FILTER (WHERE a.id IS NULL) AS missing,
+                          count(*) FILTER (WHERE a.status = 'skipped' AND (a.note = 'outside the 7-day window'
+                              OR (a.note = 'outside the window'
+                                  AND (a.published_at AT TIME ZONE 'Asia/Dhaka')::date >= %s))) AS set_aside,
+                          count(*) FILTER (WHERE a.status = 'queued') AS processing,
+                          count(*) FILTER (WHERE a.status IN ('failed', 'uncertain')) AS failed
+                   FROM coverage_urls cu LEFT JOIN articles a ON a.url = cu.url
+                   WHERE cu.candidate AND cu.day BETWEEN %s AND %s GROUP BY cu.day""", (start_d, start_d, end_d))}
+        out = []
+        summary = {"complete": 0, "processing": 0, "failed": 0, "partial": 0, "not_collected": 0}
         d = start_d
         while d <= end_d:
-            r = rows.get(d)
-            if d >= today:
-                status = "today"
-            elif r is None:
+            r = per.get(d) or {"candidates": 0, "missing": 0, "set_aside": 0, "processing": 0, "failed": 0}
+            if d not in read:
                 status = "not_collected"
-            elif r["missing"] > 0:
+            elif r["missing"] or r["set_aside"]:
                 status = "partial"
-            elif pending.get(d):
+            elif r["failed"]:
+                status = "failed"
+            elif r["processing"]:
                 status = "processing"
             else:
                 status = "complete"
             summary[status] += 1
-            out.append({"date": d.isoformat(), "status": status, "links": r["links"] if r else None,
-                        "candidates": r["candidates"] if r else None, "missing": r["missing"] if r else None,
-                        "gemma_pending": pending.get(d, 0)})
+            out.append({"date": d.isoformat(), "status": status, "is_today": d == today, "links": read.get(d),
+                        "candidates": r["candidates"], "missing": r["missing"], "set_aside": r["set_aside"],
+                        "gemma_pending": r["processing"], "failed": r["failed"]})
             d += timedelta(days=1)
         gaps = [x["date"] for x in out if x["status"] in ("not_collected", "partial")]
-        # how far back a "collect now" must reach to fill every gap in this period
+        # how far back "collect now" must reach to download every gap (set-aside articles are re-queued with it)
         days_to_collect = (today - date.fromisoformat(min(gaps))).days if gaps else 0
         return {"range": {"start": start_d.isoformat(), "end": end_d.isoformat()}, "summary": summary,
-                "days_to_collect": days_to_collect, "days": out}
+                "days_to_collect": days_to_collect, "max_days_back": 90,
+                "scope_note": "older articles in sports, business, world and similar sections are not examined",
+                "days": out}
 
     @app.get("/api/runs")
     def runs(limit: int = Query(20, ge=1, le=200)):
@@ -285,6 +297,9 @@ def create_app() -> FastAPI:
         _authorize_trigger(request, token)
         if max_articles is None and days_back > 1:
             max_articles = 5000      # a backfill must not stop at the daily cap
+        if days_back > 1:            # articles set aside earlier in this window go back to Gemma too
+            from .reprocess import requeue_set_aside
+            requeue_set_aside(days_back)
         try:
             with db.tx() as c:
                 rid = c.execute("""INSERT INTO run_requests (source, days_back, max_articles) VALUES (%s, %s, %s)

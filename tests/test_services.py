@@ -628,16 +628,22 @@ def test_coverage_marks_each_day(monkeypatch):
     collect("test", days_back=3, client=site, max_articles=1)           # cap: one of two candidates downloaded
     from app.api import create_app
     api = TestClient(create_app())
-    cov = api.get("/api/coverage", params={"days": 3}).json()
+    cov = api.get("/api/coverage", params={"days": 6}).json()
     by = {d["date"]: d for d in cov["days"]}
     assert by[yday.isoformat()]["status"] == "partial" and by[yday.isoformat()]["candidates"] == 2
-    assert by[(yday - timedelta(days=1)).isoformat()]["status"] == "not_collected"
+    assert by[(yday - timedelta(days=1)).isoformat()]["status"] == "complete"      # read, verified empty
+    assert by[(yday - timedelta(days=1)).isoformat()]["links"] == 0
+    assert by[(yday - timedelta(days=4)).isoformat()]["status"] == "not_collected"  # never read
     assert cov["days_to_collect"] >= 1
     collect("test", days_back=3, client=site, max_articles=10)          # the rest
     assert api.get("/api/coverage", params={"days": 3}).json()["summary"]["processing"] == 1
     Worker(classifier=FakeClassifier(), use_geocoder=False).drain()
     by = {d["date"]: d for d in api.get("/api/coverage", params={"days": 3}).json()["days"]}
     assert by[yday.isoformat()]["status"] == "complete" and by[yday.isoformat()]["missing"] == 0
+    with db.tx() as c:                                  # a failed article keeps its day from looking complete
+        c.execute("UPDATE articles SET status = 'failed' WHERE url = %s", (URL,))
+    by = {d["date"]: d for d in api.get("/api/coverage", params={"days": 3}).json()["days"]}
+    assert by[yday.isoformat()]["status"] == "failed"
 
 
 

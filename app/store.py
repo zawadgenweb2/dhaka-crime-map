@@ -135,8 +135,12 @@ def build_rows(article: dict, analysis: ArticleAnalysis, gaz: Gazetteer,
         quoted = evidence_ok(inc.evidence, article["title"] or "", article["body"] or "")
         # Auto-publishing also needs a located incident whose place (or its thana) the article itself names, and a
         # lead that does not put the story in another district. Gemma's in_dhaka alone is not enough.
+        # The place must be supported where the model located the crime: in its location phrase (which must itself
+        # be in the article) or in its evidence quote, not just anywhere in the article (e.g. a victim's home).
+        phrase = inc.location_text or ""
+        local = gaz.grounded_places(f"{phrase if normalize(phrase) in normalize(source) else ''} {inc.evidence or ''}")
         in_dhaka = bool(loc["place_id"]) and (loc["place_id"] in grounded or loc["thana_id"] in grounded) \
-            and not elsewhere
+            and (loc["place_id"] in local or loc["thana_id"] in local) and not elsewhere
         ok = quoted and in_dhaka
         rows.append({
             **loc, "category": inc.category, "headline_bn": inc.headline_bn, "headline_en": inc.headline_en,

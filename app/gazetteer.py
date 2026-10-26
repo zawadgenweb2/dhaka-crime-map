@@ -26,10 +26,11 @@ _GENITIVE = [normalize(x) for x in ("ের", "এর", "য়ের", "র")]
 
 
 def _other_district(word: str) -> bool:
-    for suffix in _GENITIVE:
-        if word.endswith(suffix) and word[: -len(suffix)] in OTHER_DISTRICTS:
-            return True
-    return word in OTHER_DISTRICTS
+    """Another district's name, bare or with a case ending: চট্টগ্রাম, চট্টগ্রামের, চট্টগ্রামে, ফেনীতে, ..."""
+    if word in OTHER_DISTRICTS:
+        return True
+    return any(suffix and word.endswith(suffix) and word[: -len(suffix)] in OTHER_DISTRICTS
+               for suffix in _GENITIVE + sorted(SUFFIXES, key=len, reverse=True))
 
 
 # Words that can sit between a district and a place: "চট্টগ্রাম নগরের চকবাজারে", "কুষ্টিয়া সদর উপজেলার মিরপুরে"

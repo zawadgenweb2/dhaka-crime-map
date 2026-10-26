@@ -437,3 +437,18 @@ def test_no_dhaka_place_means_no_shortlist():
     far = Article(url="u", section="bangladesh", title="চট্টগ্রামে ছিনতাই", body="চট্টগ্রাম নগরের বিবিরহাটে ছিনতাই, ঢাকা মেডিকেলে নেওয়া হয়",
                   published_at=None)
     assert candidate_places(far) == []
+
+
+
+def test_victims_home_is_not_the_crime_location():
+    g = load()
+    assert g.lead_in_other_district("চট্টগ্রামে ছিনতাই হয়েছে। আহত ব্যক্তির বাড়ি মিরপুরে।")
+    art = {**ARTICLE, "title": "ছিনতাই", "body": "চট্টগ্রামে ছিনতাই হয়েছে। আহত ব্যক্তির বাড়ি মিরপুরে।"}
+    inc = _inc(place_id="mirpur", location_text="মিরপুরে", evidence="চট্টগ্রামে ছিনতাই হয়েছে")
+    assert not build_rows(art, ArticleAnalysis(is_crime_report=True, in_dhaka=True, incidents=[inc], note=""),
+                          g, {}, "auto")[0]["published"]
+    # place named elsewhere in the article but not where the model located the crime
+    art2 = {**ARTICLE, "body": "রাজধানীতে ছিনতাই হয়েছে। আহত ব্যক্তির বাড়ি মিরপুরে। পরে তাঁকে হাসপাতালে নেওয়া হয়।"}
+    inc2 = _inc(place_id="mirpur", location_text="রাজধানীতে", evidence="রাজধানীতে ছিনতাই হয়েছে")
+    assert not build_rows(art2, ArticleAnalysis(is_crime_report=True, in_dhaka=True, incidents=[inc2], note=""),
+                          g, {}, "auto")[0]["published"]

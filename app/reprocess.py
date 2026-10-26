@@ -68,4 +68,32 @@ def requeue_set_aside(days: int) -> dict:
                       (a["id"], a["analysis_version"], settings.classifier, run_id))
         c.execute("UPDATE runs SET discovered = %s, fetched = %s, queued = %s WHERE id = %s",
                   (len(arts), len(arts), len(arts), run_id))
-    return {"run_id": run_id, "articles_queued": len(arts)}
+        if not arts:
+            c.execute("DELETE FROM runs WHERE id = %s", (run_id,))   # nothing to do: leave no empty batch behind
+        db.bump_revision(c)
+    return {"run_id": run_id if arts else None, "articles_queued": len(arts)}
+
+
+def rematerialize() -> dict:
+    """Re-apply today's checks (place grounding, dates, duplicates) to every article's saved Gemma answer.
+    No model calls. Only the article's current analysis version is used."""
+    from .gazetteer import load as load_gazetteer
+    from .schema import ArticleAnalysis
+    from .store import materialize
+    gaz = load_gazetteer()
+    n = rows = 0
+    with db.connect() as c:
+        todo = c.execute("""SELECT a.id AS article_id, x.id AS analysis_id, x.backend, x.model, x.result
+                            FROM articles a
+                            JOIN jobs j ON j.article_id = a.id AND j.analysis_version = a.analysis_version
+                            JOIN LATERAL (SELECT * FROM analyses y WHERE y.job_id = j.id ORDER BY y.id DESC LIMIT 1) x ON true
+                            WHERE a.status = 'classified' AND x.backend = 'gemma' AND NOT x.legacy""").fetchall()
+    for t in todo:
+        with db.tx() as c:
+            art = c.execute("SELECT * FROM articles WHERE id = %s FOR UPDATE", (t["article_id"],)).fetchone()
+            if art["status"] != "classified":
+                continue
+            rows += materialize(c, art, t["analysis_id"], ArticleAnalysis.model_validate(t["result"]),
+                                f"{t['backend']}:{t['model']}", gaz)
+            n += 1
+    return {"articles": n, "incidents_published_or_held": rows}
