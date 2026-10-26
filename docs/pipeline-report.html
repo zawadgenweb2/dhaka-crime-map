@@ -75,7 +75,7 @@ code { font: 7.8pt "DejaVu Sans Mono", Menlo, monospace; background: #f1f2ee; pa
 <tr><td>2</td><td>Pre-filter, before download</td><td>Crime &amp; capital sections always; any other section if the <b>title or keywords contain a crime word</b>; videos, galleries, sister sites never</td><td>~10% downloaded</td></tr>
 <tr><td>3</td><td>Pre-filter, full text</td><td>Needs a crime word and a <b>Dhaka-district place</b> in the text (namesakes like "কুষ্টিয়ার মিরপুর" and "sent to Dhaka Medical" do not count)</td><td>~20–30 articles/day to Gemma</td></tr>
 <tr><td>4</td><td>Classify</td><td>One Gemma call per article: full text + the Dhaka places it mentions + an 8-day Bangla calendar; answer forced into a JSON schema</td><td>incidents, ~3 s/article</td></tr>
-<tr><td>5</td><td>Check &amp; locate</td><td>Quote must be verbatim in the article; place must be named where the crime is described; first sentence must not put it in another district; no future dates</td><td>published or held</td></tr>
+<tr><td>5</td><td>Check &amp; locate</td><td>Quote must be verbatim in the article; place must be one the article names; first sentence, quote sentence and location phrase must not put it in another district; no future dates</td><td>published or held</td></tr>
 <tr><td>6</td><td>Group duplicates</td><td>Same category + place, dates ±1 day, compatible time of day</td><td>one point per event</td></tr>
 <tr><td>7</td><td>Exact spot</td><td>Street/landmark geocoded via OpenStreetMap (1 request/15 s), kept only within 2.5 km of the place</td><td>refined points</td></tr>
 <tr><td>8</td><td>Serve</td><td>REST API + dashboard; the page updates itself when data changes; per-day coverage shows how complete a period is</td><td>live map</td></tr>
@@ -107,23 +107,27 @@ code { font: 7.8pt "DejaVu Sans Mono", Menlo, monospace; background: #f1f2ee; pa
 </div>
 </section>
 
-<section>
-<h2>5. Current status (26 Oct, 15:25 Dhaka)</h2>
+<section class="page">
+<h2>5. Current status (26 Oct, 16:00 Dhaka)</h2>
 <div class="kpis">
-<div class="kpi"><b>213</b><span>incidents on the map</span></div>
-<div class="kpi"><b>169</b><span>in the last 30 days</span></div>
-<div class="kpi"><b>360</b><span>articles read by Gemma</span></div>
-<div class="kpi"><b>14 MB</b><span>database size</span></div>
-<div class="kpi"><b>75</b><span>automated tests passing</span></div>
+<div class="kpi"><b>285</b><span>incidents on the map</span></div>
+<div class="kpi"><b>198</b><span>in the last 30 days</span></div>
+<div class="kpi"><b>620</b><span>articles read by Gemma</span></div>
+<div class="kpi"><b>24 MB</b><span>database size</span></div>
+<div class="kpi"><b>76</b><span>automated tests passing</span></div>
 </div>
-<p>The <b>30-day backfill is running</b> (about 1,900 more articles to download at 1 per second; Gemma keeps pace). Last 30 days so far: assault 34, murder 30, drugs/weapons 30, theft 26, fraud/extortion 25, kidnapping 13. Most incidents: Shah Ali 13, Mirpur 10, Adabor 10, Cantonment 9, Mohammadpur 8. All earlier prototype (Claude) output was removed from the map; it is kept only as a frozen test set.</p>
+<p>The <b>30-day backfill is complete</b> (27 Sep – 26 Oct): 2,800 articles checked, 620 read by Gemma, 0 failures.
+Coverage: 28 days complete; 2 days each miss one page that has no article text (a style/fashion page). All incidents
+were re-checked with the final location rules from Gemma's saved answers (no new model calls); 47 extracted incidents
+are held back (quote not in the article, no Dhaka place, or another district). Prototype (Claude) output was removed
+from the map and is kept only as a frozen test set. Page 3 summarises what the data shows.</p>
 
 <h2>6. Safeguards</h2>
 <div class="grid">
 <ul>
 <li><b>Only in-house Gemma output is served</b>; every endpoint checks provenance.</li>
 <li><b>Evidence:</b> each incident carries a quote that must appear word for word in the article.</li>
-<li><b>Location grounding:</b> the place must be named where the crime is described; another district in the lead blocks it.</li>
+<li><b>Location grounding:</b> the model may only pick Dhaka places the article names; another district in the first sentence, the quote's sentence or the location phrase blocks publishing ("sent to Dhaka Medical" does not count as Dhaka).</li>
 <li><b>Reliability:</b> every model call is recorded before it is sent and every answer saved, so re-checking needs no new model calls; an older job can never overwrite newer output.</li>
 </ul>
 <ul>
@@ -150,6 +154,68 @@ code { font: 7.8pt "DejaVu Sans Mono", Menlo, monospace; background: #f1f2ee; pa
 <li>Points without a named street sit at the neighbourhood or thana centre. Browser shows "Not secure" (self-signed LAN certificate) until Tailscale HTTPS is enabled.</li>
 </ul>
 
+</section>
+<section>
+<h1 style="font-size:15pt">Dhaka crime, last 30 days — what the pipeline found</h1>
+<p class="sub">27 September – 26 October 2026 · Prothom Alo, Dhaka district · 198 incidents after duplicate grouping · extracted by Gemma, not human-verified</p>
+
+<div class="kpis">
+<div class="kpi"><b>198</b><span>reported incidents</span></div>
+<div class="kpi"><b>~6.6</b><span>per day on average</span></div>
+<div class="kpi"><b>39%</b><span>at night (21:00–05:00)</span></div>
+<div class="kpi"><b>Shah Ali</b><span>most incidents (14)</span></div>
+<div class="kpi"><b>28 / 30</b><span>days fully covered</span></div>
+</div>
+
+<div class="grid">
+<div>
+<h2>Crime types</h2>
+<table><tr><td>Assault & clashes</td><td class="n">43</td><td style="width:45%"><div style="height:7pt;width:100%;background:#136a72;border-radius:2pt"></div></td></tr><tr><td>Murder</td><td class="n">39</td><td style="width:45%"><div style="height:7pt;width:91%;background:#136a72;border-radius:2pt"></div></td></tr><tr><td>Drugs & weapons</td><td class="n">29</td><td style="width:45%"><div style="height:7pt;width:67%;background:#136a72;border-radius:2pt"></div></td></tr><tr><td>Theft & burglary</td><td class="n">29</td><td style="width:45%"><div style="height:7pt;width:67%;background:#136a72;border-radius:2pt"></div></td></tr><tr><td>Fraud & extortion</td><td class="n">26</td><td style="width:45%"><div style="height:7pt;width:60%;background:#136a72;border-radius:2pt"></div></td></tr><tr><td>Kidnapping</td><td class="n">17</td><td style="width:45%"><div style="height:7pt;width:40%;background:#136a72;border-radius:2pt"></div></td></tr><tr><td>Other</td><td class="n">7</td><td style="width:45%"><div style="height:7pt;width:16%;background:#136a72;border-radius:2pt"></div></td></tr><tr><td>Sexual violence</td><td class="n">6</td><td style="width:45%"><div style="height:7pt;width:14%;background:#136a72;border-radius:2pt"></div></td></tr><tr><td>Mugging & robbery</td><td class="n">2</td><td style="width:45%"><div style="height:7pt;width:5%;background:#136a72;border-radius:2pt"></div></td></tr></table>
+<h2>Time of day</h2>
+<table>
+<tr><th>When</th><th class="n">Incidents</th><th class="n">Share</th></tr>
+<tr><td>Night (21:00–05:00)</td><td class="n">78</td><td class="n">39%</td></tr>
+<tr><td>Afternoon (12:00–17:00)</td><td class="n">54</td><td class="n">27%</td></tr>
+<tr><td>Morning (05:00–12:00)</td><td class="n">25</td><td class="n">13%</td></tr>
+<tr><td>Evening (17:00–21:00)</td><td class="n">18</td><td class="n">9%</td></tr>
+<tr><td>Not stated</td><td class="n">23</td><td class="n">12%</td></tr>
+</table>
+</div>
+<div>
+<h2>Hotspots (thana)</h2>
+<table>
+<tr><th>Thana</th><th class="n">Incidents</th><th>Main types</th></tr>
+<tr><td>Shah Ali</td><td class="n">14</td><td>assault 7, theft 4 — mostly the Raddha health-centre attack</td></tr>
+<tr><td>Mirpur</td><td class="n">12</td><td>assault 3, theft 3, extortion 2, murder 2</td></tr>
+<tr><td>Mohammadpur</td><td class="n">12</td><td>kidnapping 5, theft 4</td></tr>
+<tr><td>Cantonment</td><td class="n">10</td><td>theft 5, assault 4 — mostly the New Guinea Properties attack</td></tr>
+<tr><td>Gulshan</td><td class="n">10</td><td>drugs/weapons 3, mixed</td></tr>
+<tr><td>Adabor</td><td class="n">10</td><td>extortion 3, mixed</td></tr>
+<tr><td>Darus Salam</td><td class="n">8</td><td>extortion 3, murder 2</td></tr>
+<tr><td>Vatara</td><td class="n">6</td><td>drugs/weapons 4, murder 2</td></tr>
+</table>
+<h2>Incidents per day</h2>
+<svg viewBox="0 0 330 78" width="100%" role="img" aria-label="Daily incident counts, 27 September to 26 October; highest early in the period"><rect x="1.0" y="10.0" width="9.0" height="54.0" rx="1.5" fill="#136a72"/><rect x="12.0" y="29.3" width="9.0" height="34.7" rx="1.5" fill="#136a72"/><rect x="23.0" y="48.6" width="9.0" height="15.4" rx="1.5" fill="#136a72"/><rect x="34.0" y="40.9" width="9.0" height="23.1" rx="1.5" fill="#136a72"/><rect x="45.0" y="17.7" width="9.0" height="46.3" rx="1.5" fill="#136a72"/><rect x="56.0" y="44.7" width="9.0" height="19.3" rx="1.5" fill="#136a72"/><rect x="67.0" y="17.7" width="9.0" height="46.3" rx="1.5" fill="#136a72"/><rect x="78.0" y="33.1" width="9.0" height="30.9" rx="1.5" fill="#136a72"/><rect x="89.0" y="25.4" width="9.0" height="38.6" rx="1.5" fill="#136a72"/><rect x="100.0" y="17.7" width="9.0" height="46.3" rx="1.5" fill="#136a72"/><rect x="111.0" y="37.0" width="9.0" height="27.0" rx="1.5" fill="#136a72"/><rect x="122.0" y="52.4" width="9.0" height="11.6" rx="1.5" fill="#136a72"/><rect x="133.0" y="48.6" width="9.0" height="15.4" rx="1.5" fill="#136a72"/><rect x="144.0" y="29.3" width="9.0" height="34.7" rx="1.5" fill="#136a72"/><rect x="155.0" y="48.6" width="9.0" height="15.4" rx="1.5" fill="#136a72"/><rect x="166.0" y="48.6" width="9.0" height="15.4" rx="1.5" fill="#136a72"/><rect x="177.0" y="37.0" width="9.0" height="27.0" rx="1.5" fill="#136a72"/><rect x="188.0" y="44.7" width="9.0" height="19.3" rx="1.5" fill="#136a72"/><rect x="199.0" y="37.0" width="9.0" height="27.0" rx="1.5" fill="#136a72"/><rect x="210.0" y="48.6" width="9.0" height="15.4" rx="1.5" fill="#136a72"/><rect x="221.0" y="25.4" width="9.0" height="38.6" rx="1.5" fill="#136a72"/><rect x="232.0" y="40.9" width="9.0" height="23.1" rx="1.5" fill="#136a72"/><rect x="243.0" y="40.9" width="9.0" height="23.1" rx="1.5" fill="#136a72"/><rect x="254.0" y="48.6" width="9.0" height="15.4" rx="1.5" fill="#136a72"/><rect x="265.0" y="52.4" width="9.0" height="11.6" rx="1.5" fill="#136a72"/><rect x="276.0" y="48.6" width="9.0" height="15.4" rx="1.5" fill="#136a72"/><rect x="287.0" y="40.9" width="9.0" height="23.1" rx="1.5" fill="#136a72"/><rect x="298.0" y="40.9" width="9.0" height="23.1" rx="1.5" fill="#136a72"/><rect x="309.0" y="37.0" width="9.0" height="27.0" rx="1.5" fill="#136a72"/><rect x="320.0" y="64.0" width="9.0" height="0.0" rx="1.5" fill="#136a72"/><text x="1" y="76" font-size="8" fill="#5b6470">27 Sep</text><text x="165.0" y="76" font-size="8" fill="#5b6470" text-anchor="middle">11 Oct</text><text x="329" y="76" font-size="8" fill="#5b6470" text-anchor="end">26 Oct</text><text x="1" y="9" font-size="8" fill="#5b6470">14</text></svg>
+<p class="note">Weekly: 62, 53, 41, 35, then 7 in the final partial week. Today (26 Oct) has no events yet: articles about it appear later.</p>
+</div>
+</div>
+
+<h2>Notable events</h2>
+<ul>
+<li><b>Raddha MCH-FP health centre, Mirpur/Shah Ali (late Sept):</b> a crowd demolished and looted a mother-and-child health centre; reported in many follow-up articles, so it appears several times under assault, theft and other.</li>
+<li><b>New Guinea Properties / ECB Chattar, Cantonment (26 Sept):</b> armed attack and vandalism at a housing project and a content creator's studio, with arrests and bail hearings through October.</li>
+<li><b>Killings in October:</b> a Youth Women League leader in Keraniganj, a housewife in Nakhalpara (husband arrested), a security guard in Bashundhara, a businessman in Vatara, a body under Rampura Bridge, a father stabbed by his son in Demra.</li>
+<li><b>Garment workers and police clash, Uttara (17 Oct)</b>, dozens injured; <b>drug raids</b> in Gendaria and Vatara.</li>
+</ul>
+
+<h2>How to read these numbers</h2>
+<ul>
+<li><b>Reported, not recorded crime:</b> one newspaper's coverage; big stories are reported more often than ordinary crime.</li>
+<li><b>Counts are inflated by follow-ups:</b> court hearings, arrests and bail stories about one event can each add an incident when the model assigns a different type or place (Raddha, New Guinea). A manual check of 12 "murder" items found about 7 new killings in the period; the rest were court orders, threats or older cases.</li>
+<li><b>The falling trend is mostly an artefact:</b> recent events have had fewer follow-up stories so far, and events are dated by when they happened.</li>
+<li><b>Victim numbers are unreliable</b> (the model sometimes counts the attacking crowd) and are not reported here.</li>
+<li><b>Location precision:</b> 128 incidents at thana level, 39 at neighbourhood level, 31 at an exact spot.</li>
+</ul>
 </section>
 </body>
 </html>
