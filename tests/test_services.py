@@ -659,3 +659,13 @@ def test_backfill_window_skips_old_articles(monkeypatch):
     from app.reprocess import requeue_set_aside
     assert requeue_set_aside(29)["articles_queued"] == 0                 # 40 days old: still outside
     assert requeue_set_aside(45)["articles_queued"] == 1
+
+
+def test_page_without_article_text_is_examined_not_missing():
+    class NoText(FakeSite):
+        def article(self, url):
+            raise ValueError("no JSON-LD article body")
+    r = collect("test", client=NoText())
+    assert r["errors"] == 0 and r["queued"] == 0
+    row = q1("SELECT status, note FROM articles")
+    assert row["status"] == "skipped" and row["note"].startswith("no article text")

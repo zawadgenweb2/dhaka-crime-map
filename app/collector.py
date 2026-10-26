@@ -106,7 +106,13 @@ def collect(trigger: str, days_back: int = 1, client=None, gaz: Gazetteer | None
                 db.heartbeat("collector", {"run_id": run_id, "fetched": stats["fetched"], "of": len(new)})
             try:
                 art = client.article(cand.url)
-            except Exception as e:
+            except ValueError as e:   # the page downloaded but has no article text (gallery, style page)
+                with db.tx() as c:
+                    c.execute("""INSERT INTO articles (url, section, status, note) VALUES (%s, %s, 'skipped', %s)
+                                 ON CONFLICT (url) DO NOTHING""", (cand.url, cand.section, f"no article text: {e}"[:200]))
+                progress(f"no article text {cand.url}: {e}")
+                continue
+            except Exception as e:    # network or server problem: try again next run
                 stats["errors"] += 1
                 progress(f"fetch failed {cand.url}: {e}")
                 continue
