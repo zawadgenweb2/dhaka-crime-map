@@ -101,6 +101,14 @@
     return [d.lng + Math.cos(a) * r, d.lat + Math.sin(a) * r];
   }
 
+  // Square-root compression: a spot with n incidents counts sqrt(n) (14 -> ~3.7). The busiest spot stays the
+  // darkest, but a single incident is no longer invisible next to it.
+  function heatWeights(pts) {
+    const key = (p) => `${p.lat.toFixed(3)},${p.lng.toFixed(3)}`;
+    const n = {};
+    for (const p of pts) n[key(p)] = (n[key(p)] || 0) + 1;
+    return new Map(pts.map((p) => [p.id, 1 / Math.sqrt(n[key(p)])]));
+  }
   // Blobs grow as you zoom in (half as fast as the map), so hotspots stay visible instead of shrinking to dots.
   const heatRadius = (zoom) => Math.max(40, Math.min(170, 55 * 2 ** ((zoom - 11.5) * 0.5)));
 
@@ -109,9 +117,11 @@
     const out = [];
     if (state.mode !== "points") {
       const zoom = engine?.zoom ? engine.zoom() : 12;
-      // Each incident counts 1; colours follow the view, so the area with the most incidents is always the darkest.
+      // Colours follow the view: the area with the most incidents is always the darkest.
+      const w = heatWeights(pts);
       out.push(new deck.HeatmapLayer({
-        id: "heat", data: pts, getPosition: (d) => [d.lng, d.lat], getWeight: 1,
+        id: "heat", data: pts, getPosition: (d) => [d.lng, d.lat], getWeight: (d) => w.get(d.id),
+        updateTriggers: { getWeight: pts.length },
         radiusPixels: heatRadius(zoom), intensity: 1, threshold: 0.05, colorRange: HEAT, aggregation: "SUM",
       }));
     }
