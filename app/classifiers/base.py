@@ -87,8 +87,16 @@ def user_message(article: Article) -> str:
 
 
 # ---- compact prompt for small local models ------------------------------------------------------
-_COMPACT_CATALOGUE = ("Place candidates are given per article in the user message (`place_candidates`): only places "
-                      "this article mentions, plus their parent thanas. Use only those ids for place_id, or null.")
+_COMPACT_CATALOGUE = (
+    "Place candidates are given per article in the user message (`place_candidates`): only places this article "
+    "mentions, plus their parent thanas. Use only those ids for place_id, or null.\n\n"
+    "Dates: never calculate dates yourself. `recent_dates` lists the publication day and the 7 days before it with "
+    "their Bangla weekday names. 'আজ' = the day marked today, 'গতকাল' = the day marked yesterday, a weekday name "
+    "(e.g. শনিবার) = the most recent listed day with that name. If the event is older or unclear, use null.\n\n"
+    "Category rules: murder only if someone was killed; a shooting, stabbing or beating where nobody died is assault "
+    "(attempted murder = assault); taking property by force or threat on the spot = robbery; taking it secretly = "
+    "theft; demanding money by threats = fraud_extortion; drug or weapon seizures and arrests = drugs_arms. "
+    "Statements, meetings, court schedules, policy, staged videos and natural deaths are not incidents.")
 _WEEKDAYS_BN = ["সোমবার", "মঙ্গলবার", "বুধবার", "বৃহস্পতিবার", "শুক্রবার", "শনিবার", "রবিবার"]
 
 
@@ -117,6 +125,10 @@ def compact_user_message(article: Article, candidates: list) -> str:
         "publication_date_asia_dhaka": pub.date().isoformat() if pub else "unknown",
         "publication_weekday": f"{pub.strftime('%A')} / {_WEEKDAYS_BN[pub.weekday()]}" if pub else "unknown",
         "yesterday_গতকাল": (pub.date() - timedelta(days=1)).isoformat() if pub else "unknown",
+        "recent_dates": [
+            f"{(pub.date() - timedelta(days=i)).isoformat()} | {_WEEKDAYS_BN[(pub.weekday() - i) % 7]}"
+            + (" | today/আজ" if i == 0 else " | yesterday/গতকাল" if i == 1 else "")
+            for i in range(8)] if pub else [],
         "place_candidates": [f"{p.id} | {p.name_bn} | {p.name_en} | {p.kind} | thana: {p.parent or p.id}"
                              for p in candidates],
         "section": article.section, "keywords": article.keywords,

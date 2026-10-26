@@ -279,6 +279,8 @@ def test_compact_prompt_shortlists_places_and_constrains_ids():
     body = __import__("json").loads(seen[0].content)
     user = __import__("json").loads(body["messages"][1]["content"])
     assert user["publication_date_asia_dhaka"] == "2026-10-25" and user["yesterday_গতকাল"] == "2026-10-24"
+    assert user["recent_dates"][0] == "2026-10-25 | রবিবার | today/আজ"
+    assert user["recent_dates"][1] == "2026-10-24 | শনিবার | yesterday/গতকাল" and len(user["recent_dates"]) == 8
     assert [c.split(" | ")[0] for c in user["place_candidates"]] == ["mirpur11", "pallabi"]
     pid = body["response_format"]["json_schema"]["schema"]["$defs"]["Incident"]["properties"]["place_id"]
     assert pid["anyOf"][0]["enum"] == ["mirpur11", "pallabi"]
