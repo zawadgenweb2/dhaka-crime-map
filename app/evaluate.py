@@ -1,8 +1,9 @@
 """Offline evaluation: run a candidate classifier on articles that already have reference results.
 
-The reference set is the 71 articles labelled during the prototype phase (stored as backend 'claude'; no Claude
-API is used any more). It is a strong baseline, not ground truth: a Bangla reviewer should check disagreements.
-Nothing here writes to `incidents`; answers go to `eval_results` under a run label.
+The reference set is the 71 articles labelled during the prototype phase, frozen by migration 005 into
+eval_reference_articles / eval_reference_incidents (no Claude API is used any more, and no endpoint serves these
+tables). It is a strong baseline, not ground truth. Nothing here writes to `incidents`; answers go to
+`eval_results` under a run label. The gates are a quality yardstick; they do not block publishing.
 """
 from __future__ import annotations
 
@@ -27,9 +28,8 @@ GATES = {"valid_json": 0.98, "article_precision": 0.98, "article_recall": 0.90,
 
 
 def _reference(c, article_id: int) -> list[dict]:
-    return c.execute("""SELECT category, place_id, thana_id, incident_date, time_of_day FROM incidents
-                        WHERE article_id = %s AND (published OR review_status = 'approved')
-                        AND review_status <> 'rejected'""", (article_id,)).fetchall()
+    return c.execute("""SELECT category, place_id, thana_id, incident_date, time_of_day FROM eval_reference_incidents
+                        WHERE article_id = %s ORDER BY id""", (article_id,)).fetchall()
 
 
 def _match(ref: list[dict], pred: list[dict]) -> list[tuple[dict, dict]]:
@@ -50,9 +50,8 @@ def compare(other: str, limit: int = 1000, out: str | None = None) -> int:
     gaz = load_gazetteer()
     label = f"{clf.name}@{datetime.now().strftime('%Y%m%d-%H%M%S')}"
     with db.connect() as c:
-        # Frozen reference set: the prototype-phase labels (historical backend 'claude'); local output never becomes reference.
-        arts = c.execute("""SELECT a.* FROM articles a WHERE a.status = 'classified' AND EXISTS
-                              (SELECT 1 FROM analyses x WHERE x.article_id = a.id AND x.backend = 'claude')
+        # Frozen reference cohort (migration 005), independent of the articles' current status or incidents.
+        arts = c.execute("""SELECT a.* FROM articles a JOIN eval_reference_articles r ON r.article_id = a.id
                             ORDER BY a.published_at DESC NULLS LAST LIMIT %s""", (limit,)).fetchall()
     print(f"evaluating {clf.name} on {len(arts)} reference articles (run {label})")
     tp = fp = fn = tn = valid = 0

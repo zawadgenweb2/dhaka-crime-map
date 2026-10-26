@@ -3,13 +3,14 @@
 Services (one per container):
   api                     dashboard + read API on HOST:PORT
   collector               the only scheduler: scrapes at SCRAPE_TIMES, queues articles
-  classifier              claims queued articles and classifies them (CLASSIFIER=gemma|rules)
+  classifier              claims queued articles and classifies them with the in-house Gemma model
   migrate [--import-sqlite PATH]   apply schema migrations; optionally import the v0.1 SQLite data once
 
 Admin:
-  collect-now [--days N]  ask the running collector to scrape now (inserts a run request)
+  collect-now [--days N] [--max M]   ask the running collector to scrape now; --days 90 --max 3000 = backfill
+  reprocess-all --yes     re-run every collected article through Gemma (replaces all current incidents)
   rebuild-duplicates      regroup duplicate reports with the current rule (no model calls)
-  compare --with gemma    run the model on the frozen reference articles and report agreement
+  compare --with gemma    run the model on the frozen reference articles and report agreement (offline only)
   stats                   counts in the terminal
 """
 from __future__ import annotations
@@ -31,9 +32,11 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("classifier")
     m = sub.add_parser("migrate"); m.add_argument("--import-sqlite", metavar="PATH")
     cn = sub.add_parser("collect-now"); cn.add_argument("--days", type=int, default=1)
+    cn.add_argument("--max", type=int, default=None, help="article cap for this run (default MAX_ARTICLES_PER_RUN)")
+    rp = sub.add_parser("reprocess-all"); rp.add_argument("--yes", action="store_true")
     sub.add_parser("rebuild-duplicates")
     cp = sub.add_parser("compare"); cp.add_argument("--with", dest="other", default="gemma")
-    cp.add_argument("--limit", type=int, default=65); cp.add_argument("--out", default=None)
+    cp.add_argument("--limit", type=int, default=1000); cp.add_argument("--out", default=None)
     sub.add_parser("stats")
     args = ap.parse_args(argv)
 
@@ -61,9 +64,15 @@ def main(argv: list[str] | None = None) -> int:
             print("imported:", import_sqlite(args.import_sqlite))
     elif args.cmd == "collect-now":
         with db.tx() as c:
-            rid = c.execute("INSERT INTO run_requests (source, days_back) VALUES ('cli', %s) RETURNING id",
-                            (args.days,)).fetchone()["id"]
+            rid = c.execute("""INSERT INTO run_requests (source, days_back, max_articles) VALUES ('cli', %s, %s)
+                               RETURNING id""", (args.days, args.max)).fetchone()["id"]
         print(f"queued run request {rid}; the collector picks it up within ~20 s")
+    elif args.cmd == "reprocess-all":
+        if not args.yes:
+            print("re-runs every collected article through Gemma and replaces all incidents; add --yes")
+            return 2
+        from .reprocess import reprocess_all
+        print(reprocess_all())
     elif args.cmd == "rebuild-duplicates":
         from .store import MATERIALIZE_LOCK, rebuild_groups
         with db.tx() as c:
@@ -73,6 +82,7 @@ def main(argv: list[str] | None = None) -> int:
                 "WHERE published AND place_id IS NOT NULL AND event_date IS NOT NULL")}
             c.execute("UPDATE incidents SET duplicate_of = NULL WHERE NOT published")
             print(f"regrouped; {rebuild_groups(c, keys)} links changed")
+            db.bump_revision(c)
     elif args.cmd == "compare":
         from .evaluate import compare
         return compare(args.other, args.limit, args.out)

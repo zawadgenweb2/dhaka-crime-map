@@ -16,7 +16,10 @@
       published: "প্রকাশ", killedInjured: "হতাহত {n}", noKey: "Google Maps কী সেট করা নেই; বিকল্প মানচিত্র দেখানো হচ্ছে।",
       keyFailed: "Google Maps কী কাজ করছে না; বিকল্প মানচিত্র দেখানো হচ্ছে।", started: "সংগ্রহ শুরু হয়েছে",
       busy: "একটি সংগ্রহ ইতিমধ্যে চলছে", failed: "শুরু করা যায়নি", days: "দিন", year: "বছর",
-      sourceNote: "সূত্র: প্রথম আলো · শ্রেণিবিন্যাস: AI · প্রতিবেদিত ঘটনা, সব অপরাধ নয়",
+      sourceNote: "সূত্র: প্রথম আলো · শ্রেণিবিন্যাস: Gemma (নিজস্ব সার্ভার) · প্রতিবেদিত ঘটনা, সব অপরাধ নয়",
+      gemmaProgress: "Gemma পড়ছে: {done}/{total}টি প্রতিবেদন", fetching: "প্রতিবেদন সংগ্রহ: {done}/{total}",
+      spotsWaiting: "নির্দিষ্ট স্থান খোঁজা বাকি {n}টি", truncated: "অনেক ঘটনা; প্রথম {n}টি দেখানো হচ্ছে",
+      showing: "{n}/{total}", offline: "সার্ভারে পৌঁছানো যাচ্ছে না; পুরোনো তথ্য দেখানো হচ্ছে", updated: "হালনাগাদ",
     },
     en: {
       title: "Dhaka Crime Map", runNow: "Collect now", period: "Period", from: "From", to: "To",
@@ -32,7 +35,10 @@
       noKey: "No Google Maps key configured; showing the fallback map.",
       keyFailed: "Google Maps key was rejected; showing the fallback map.", started: "Collection started",
       busy: "A collection run is already in progress", failed: "Could not start", days: "days", year: "year",
-      sourceNote: "Source: Prothom Alo · classified by AI · reported incidents, not all crime",
+      sourceNote: "Source: Prothom Alo · classified by Gemma (in-house server) · reported incidents, not all crime",
+      gemmaProgress: "Gemma reading: {done}/{total} articles", fetching: "Collecting articles: {done}/{total}",
+      spotsWaiting: "{n} exact spots still being looked up", truncated: "Many incidents; showing the first {n}",
+      showing: "{n} of {total}", offline: "Server unreachable; showing the last data", updated: "updated",
     },
   };
   const CAT_ORDER = ["murder", "assault", "robbery", "theft", "sexual_violence", "kidnapping", "drugs_arms", "fraud_extortion", "other"];
@@ -245,20 +251,35 @@
     return p.toString();
   }
 
+  const getJSON = async (url) => {
+    const r = await fetch(url);
+    if (!r.ok) throw new Error(`${url}: HTTP ${r.status}`);
+    return { data: await r.json(), headers: r.headers };
+  };
+
+  // Each refresh gets a number; an older response that arrives late never overwrites a newer one.
+  let refreshSeq = 0;
   async function refresh(opts = {}) {
+    const seq = ++refreshSeq;
     const q = query();
-    const [inc, stats] = await Promise.all([fetch(`/api/incidents?${q}`).then((r) => r.json()), fetch(`/api/stats?${q}`).then((r) => r.json())]);
-    // Category counts for chips ignore the category filter itself
-    const qc = new URLSearchParams(q); qc.delete("categories");
-    const all = qc.toString() === q ? stats : await fetch(`/api/stats?${qc}`).then((r) => r.json());
-    state.incidents = inc; state.stats = stats; state.catCounts = all.by_category;
-    if (state.selected && !inc.some((i) => i.id === state.selected.id)) state.selected = null;
+    const qc = new URLSearchParams(q); qc.delete("categories");  // chip counts ignore the category filter itself
+    const [inc, stats, all] = await Promise.all([getJSON(`/api/incidents?${q}`), getJSON(`/api/stats?${q}`),
+      qc.toString() === q ? null : getJSON(`/api/stats?${qc}`)]);
+    if (seq !== refreshSeq) return false;
+    state.incidents = inc.data; state.stats = stats.data; state.catCounts = (all || stats).data.by_category;
+    state.truncated = inc.headers.get("X-Truncated") === "true";
+    state.totalCount = +(inc.headers.get("X-Total-Count") || inc.data.length);
+    // keep the open card, but show the freshly fetched version of it
+    if (state.selected) state.selected = inc.data.find((i) => i.id === state.selected.id) || null;
     renderAll();
+    if (state.truncated) note(t("truncated", { n: inc.data.length }));
     if (opts.fit) fitToResults(opts.fallback);
+    return true;
   }
 
   async function loadMeta() {
-    state.meta = await fetch("/api/meta").then((r) => r.json());
+    state.meta = (await getJSON("/api/meta")).data;
+    state.offline = false;
     renderStatus();
   }
 
@@ -271,11 +292,20 @@
   function renderStatus() {
     const m = state.meta;
     const parts = [];
-    if (m.running) parts.push(t("running"));
-    else parts.push(`${t("lastRun")}: ${m.last_run ? fmtTime(m.last_run.finished_at || m.last_run.started_at) : t("never")}`);
+    if (state.offline) parts.push(t("offline"));
+    // Progress of every active batch (a collection run or a reprocess), counted in articles
+    const b = (m.batches || []).reduce((a, x) => ({
+      jobs: a.jobs + x.jobs, processed: a.processed + x.processed,
+      fetch: a.fetch + (x.status === "running" ? Math.max(0, (x.discovered || 0) - (x.fetched || 0)) : 0),
+      fetched: a.fetched + (x.status === "running" ? x.fetched || 0 : 0), discovered: a.discovered + (x.status === "running" ? x.discovered || 0 : 0),
+    }), { jobs: 0, processed: 0, fetch: 0, fetched: 0, discovered: 0 });
+    if (b.fetch) parts.push(t("fetching", { done: b.fetched, total: b.discovered }));
+    if (b.jobs && b.processed < b.jobs) parts.push(t("gemmaProgress", { done: b.processed, total: b.jobs }));
+    else if (m.running) parts.push(t("running"));
+    if (!m.running && !b.jobs) parts.push(`${t("lastRun")}: ${m.last_run ? fmtTime(m.last_run.finished_at || m.last_run.started_at) : t("never")}`);
+    if (m.exact_spots_waiting) parts.push(t("spotsWaiting", { n: m.exact_spots_waiting }));
     if (m.next_run) parts.push(`${t("nextRun")}: ${fmtTime(m.next_run)}`);
-    const model = (m.model || "").replace(/^gemma:/, "") === "dhaka-gemma" ? "Gemma 4 (in-house)" : m.model;
-    parts.push(`${t("model")}: ${model}`);
+    parts.push(`${t("model")}: ${m.model_label || m.model}`);
     $("#status-line").textContent = parts.join(" · ");
     $("#run-btn").disabled = m.running;
   }
@@ -362,7 +392,8 @@
 
   function renderFeed() {
     const list = state.incidents.slice(0, 400);
-    $("#feed-count").textContent = num(state.incidents.length);
+    $("#feed-count").textContent = list.length < (state.totalCount || state.incidents.length)
+      ? t("showing", { n: list.length, total: state.totalCount || state.incidents.length }) : num(state.incidents.length);
     fill($("#feed"), ...(list.length ? list.map((i) => el("li", {}, el("button", {
       type: "button", class: `item${state.selected?.id === i.id ? " on" : ""}`, onclick: () => select(i, true),
     },
@@ -444,17 +475,33 @@
     $("#run-btn").addEventListener("click", async () => {
       const r = await fetch("/api/scrape", { method: "POST", headers: { "X-DCM-UI": "1" } });
       note(r.status === 202 ? t("started") : r.status === 409 ? t("busy") : `${t("failed")} (${r.status})`);
-      await loadMeta(); poll();
+      tick();
     });
   }
 
-  let polling = null;
-  function poll() {
-    if (polling) return;
-    polling = setInterval(async () => {
-      await loadMeta();
-      if (!state.meta.running) { clearInterval(polling); polling = null; refresh(); }
-    }, 5000);
+  /* ---------- live updates ----------
+     One loop: read /api/meta every 5 s while anything is being collected, classified or geocoded, every 30 s
+     otherwise. When data_version (a database counter bumped with every visible change) moves, reload the data;
+     the new version counts as seen only after that reload succeeded. */
+  let seenVersion = null, ticking = false, timer = null, lastReload = 0;
+  async function tick() {
+    clearTimeout(timer);
+    if (!ticking) {
+      ticking = true;
+      try {
+        await loadMeta();
+        // at most one data reload per 15 s, even while exact spots arrive one by one
+        if (state.meta.data_version !== seenVersion && Date.now() - lastReload >= 15000) {
+          const v = state.meta.data_version;
+          lastReload = Date.now();
+          if (await refresh()) seenVersion = v;
+        }
+      } catch (e) {
+        console.warn(e); state.offline = true; if (state.meta) renderStatus();
+      } finally { ticking = false; }
+    }
+    const busy = state.meta && (state.meta.running || state.meta.exact_spots_waiting || (state.meta.batches || []).length);
+    timer = setTimeout(tick, busy ? 5000 : 30000);
   }
 
   async function main() {
@@ -463,13 +510,9 @@
     applyI18n(); wire();
     await initMap();
     await refresh();
-    if (state.meta.running) poll();
-    let seen = state.meta.data_version;
-    setInterval(async () => {
-      await loadMeta();
-      if (state.meta.running) poll();
-      if (state.meta.data_version !== seen) { seen = state.meta.data_version; refresh(); }
-    }, 60000);
+    seenVersion = state.meta.data_version;
+    tick();
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) tick(); });
   }
   main().catch((e) => { console.error(e); note(String(e)); });
 })();

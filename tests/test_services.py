@@ -230,6 +230,8 @@ def test_sqlite_import_preserves_results_without_queueing(tmp_path):
     assert counts["classified"] == 2 and counts["canonical"] == 1
     assert q1("SELECT duplicate_of FROM incidents WHERE id = 8")["duplicate_of"] == 7
     assert Worker(classifier=FakeClassifier()).drain() == {}            # nothing re-sent to a model
+    from app.api import create_app
+    assert TestClient(create_app()).get("/api/incidents", params={"days": 3650}).json() == []  # never served
     with pytest.raises(RuntimeError):
         import_sqlite(str(p))                                           # refuses to run twice
     with db.tx() as c:                                                  # new ids continue after imported ones
@@ -287,12 +289,16 @@ def test_review_flow(monkeypatch):
     assert api.post("/api/review/articles/1", headers=h, json={"verdict": "missed_incident"}).status_code == 200
 
 
-def _seed_incident(article_id, day, place="mirpur11", category="murder", published=True, lat=23.81, geocoded=False):
+def _seed_incident(article_id, day, place="mirpur11", category="murder", published=True, lat=23.81, geocoded=False,
+                   backend="gemma"):
+    """An incident with a saved analysis of the given backend (only 'gemma' rows are ever served)."""
     with db.tx() as c:
-        return c.execute("""INSERT INTO incidents (article_id, category, place_id, thana_id, lat, lng, event_date,
-                              time_of_day, published, review_status, geocoded, evidence_ok)
-                            VALUES (%s,%s,%s,'pallabi',%s,90.36,%s,'night',%s,%s,%s,true) RETURNING id""",
-                         (article_id, category, place, lat, day, published, "auto" if published else "pending",
+        aid = c.execute("""INSERT INTO analyses (article_id, backend, model, result) VALUES (%s, %s, 'fake', '{}')
+                           RETURNING id""", (article_id, backend)).fetchone()["id"]
+        return c.execute("""INSERT INTO incidents (article_id, analysis_id, category, place_id, thana_id, lat, lng,
+                              event_date, time_of_day, published, review_status, geocoded, evidence_ok)
+                            VALUES (%s,%s,%s,%s,'pallabi',%s,90.36,%s,'night',%s,%s,%s,true) RETURNING id""",
+                         (article_id, aid, category, place, lat, day, published, "auto" if published else "pending",
                           geocoded)).fetchone()["id"]
 
 
@@ -340,6 +346,7 @@ def test_failed_article_retry_and_dismiss(monkeypatch):
     assert api.post(f"/api/review/articles/{a1}", headers=h, json={"verdict": "retry"}).status_code == 200
     assert q1("SELECT count(*) n FROM jobs WHERE article_id = %s AND state = 'queued' AND analysis_version = 2",
               a1)["n"] == 1
+    assert q1("SELECT analysis_version FROM articles WHERE id = %s", a1)["analysis_version"] == 2
     assert api.post(f"/api/review/articles/{a2}", headers=h, json={"verdict": "dismiss"}).status_code == 200
     assert q1("SELECT status FROM articles WHERE id = %s", a2)["status"] == "dismissed"
 
@@ -347,7 +354,11 @@ def test_failed_article_retry_and_dismiss(monkeypatch):
 def test_evaluation_penalizes_invented_incidents(monkeypatch, tmp_path):
     import json
     collect("test", client=FakeSite())
-    Worker(classifier=FakeClassifier(name="claude:fake"), use_geocoder=False).drain()   # Claude-era reference
+    art = q1("SELECT id FROM articles")["id"]
+    with db.tx() as c:                                         # the frozen reference (migration 005 tables)
+        c.execute("INSERT INTO eval_reference_articles (article_id, source) VALUES (%s, 'test')", (art,))
+        c.execute("""INSERT INTO eval_reference_incidents (article_id, category, place_id, thana_id, incident_date,
+                     time_of_day) VALUES (%s, 'drugs_arms', 'mirpur11', 'pallabi', '2026-10-24', 'afternoon')""", (art,))
     invented = FakeClassifier(name="gemma:fake", incidents=[_incident(), _incident(category="theft")])
     monkeypatch.setattr("app.evaluate.get_classifier", lambda name: invented)
     from app.evaluate import compare
@@ -356,7 +367,7 @@ def test_evaluation_penalizes_invented_incidents(monkeypatch, tmp_path):
     r = json.loads(out.read_text())
     assert r["incident_counts"] == {"matched": 1, "extra": 1, "missed": 0}
     assert r["incident_precision"] == 0.5 and not r["passes_all_gates"] and len(r["disagreements"]) == 1
-    assert q1("SELECT count(*) n FROM incidents")["n"] == 1                              # eval never writes incidents
+    assert q1("SELECT count(*) n FROM incidents")["n"] == 0                              # eval never writes incidents
 
 
 def test_failed_slot_is_retried_then_given_up(monkeypatch):
@@ -425,3 +436,121 @@ def test_api_fixes_from_endpoint_review(monkeypatch):
     assert api.post(f"/api/review/articles/{queued}", headers=h, json={"verdict": "dismiss"}).status_code == 200
     assert q1("SELECT state FROM jobs WHERE article_id = %s", queued)["state"] == "cancelled"
     assert Worker(classifier=FakeClassifier()).drain() == {}
+
+
+# ---- Gemma-only live data (migration 005) -------------------------------------------------------
+def _api():
+    from app.api import create_app
+    return TestClient(create_app())
+
+
+def test_only_gemma_incidents_are_served():
+    a1, a2, a3 = _seed_articles(3)
+    from datetime import date
+    keep = _seed_incident(a1, date(2026, 10, 20), place="mirpur11")
+    _seed_incident(a2, date(2026, 10, 20), place="badda", backend="claude")
+    with db.tx() as c:                                                  # an imported row without any analysis
+        c.execute("""INSERT INTO incidents (article_id, category, place_id, event_date, published, evidence_ok)
+                     VALUES (%s, 'theft', 'gulshan', '2026-10-20', true, true)""", (a3,))
+    api = _api()
+    p = {"start": "2026-10-01", "end": "2026-10-31"}
+    assert [i["id"] for i in api.get("/api/incidents", params=p).json()] == [keep]
+    assert api.get("/api/stats", params=p).json()["total"] == 1
+    assert api.get("/api/meta").json()["incident_count"] == 1
+
+
+def test_reprocess_all_replaces_old_output_with_gemma():
+    collect("test", client=FakeSite())
+    Worker(classifier=FakeClassifier(name="claude:fake"), use_geocoder=False).drain()   # prototype-era output
+    api = _api()
+    p = {"start": "2026-10-01", "end": "2026-10-31"}
+    assert api.get("/api/incidents", params=p).json() == []                         # stored, but never served
+    from app.reprocess import reprocess_all
+    r = reprocess_all()
+    assert r["articles_queued"] == 1 and r["non_gemma_incidents_removed"] == 1
+    assert q1("SELECT count(*) n FROM incidents")["n"] == 0
+    job = q1("SELECT analysis_version, run_id, state FROM jobs WHERE state = 'queued'")
+    assert job["analysis_version"] == 2 and job["run_id"] == r["run_id"]
+    assert [b["jobs"] for b in api.get("/api/meta").json()["batches"]] == [1]
+    clf = FakeClassifier()
+    assert Worker(classifier=clf, use_geocoder=False).drain() == {"done": 1} and clf.calls == 1  # fresh call
+    assert len(api.get("/api/incidents", params=p).json()) == 1
+    assert q1("SELECT classifier FROM incidents")["classifier"] == "gemma:fake"
+
+
+def test_older_version_job_cannot_overwrite_newer_output():
+    collect("test", client=FakeSite())
+    w = Worker(classifier=FakeClassifier(), use_geocoder=False)
+    job = w.claim()
+    with db.tx() as c:                                                  # a newer version was requested meanwhile
+        c.execute("UPDATE articles SET analysis_version = 2")
+    assert w.process(job) == "superseded"
+    assert q1("SELECT count(*) n FROM incidents")["n"] == 0
+
+
+def test_saved_answer_from_another_model_is_not_reused():
+    collect("test", client=FakeSite())
+    job = Worker(classifier=FakeClassifier()).claim()
+    with db.tx() as c:
+        c.execute("""INSERT INTO analyses (article_id, job_id, backend, model, result)
+                     VALUES (%s, %s, 'claude', 'x', '{}')""", (job["article_id"], job["id"]))
+    assert Worker(classifier=FakeClassifier()).process(job) == "failed"
+    assert q1("SELECT count(*) n FROM incidents")["n"] == 0
+
+
+def test_exact_spot_geocoding_after_publication(monkeypatch):
+    collect("test", client=FakeSite(urls=(URL, URL + "b")))
+    answers = iter([[_incident(geocode_query="Mirpur 11 metro station, Dhaka")],
+                    [_incident(geocode_query="Somewhere far, Dhaka", place_id="badda", location_text="বাড্ডা")]])
+
+    class Seq(FakeClassifier):
+        def classify_with_meta(self, article):
+            self.incidents = next(answers)
+            return super().classify_with_meta(article)
+    Worker(classifier=Seq(), use_geocoder=False).drain()
+    assert q1("SELECT count(*) n FROM incidents WHERE geocode_state = 'todo' AND published")["n"] == 2
+    import app.store as store_mod
+    hits = {"Mirpur 11 metro station, Dhaka": (23.8191, 90.3653), "Somewhere far, Dhaka": (22.33, 91.83)}
+    monkeypatch.setattr(store_mod, "geocode", lambda q: hits[q])
+    from app.gazetteer import load
+    rev = q1("SELECT rev FROM data_revision")["rev"]
+    assert sorted([store_mod.enrich_next(load()), store_mod.enrich_next(load())]) == ["done", "far"]
+    assert store_mod.enrich_next(load()) is None
+    near = q1("SELECT lat, geocoded, precision FROM incidents WHERE geocode_state = 'done'")
+    assert near["geocoded"] and near["lat"] == 23.8191 and near["precision"] == "exact"
+    assert q1("SELECT geocoded FROM incidents WHERE geocode_state = 'far'")["geocoded"] is False
+    assert q1("SELECT rev FROM data_revision")["rev"] == rev + 1               # the map refreshes once
+
+
+def test_dismiss_hides_incidents_and_failed_ones_cannot_be_approved(monkeypatch):
+    import dataclasses
+    import app.api as api_mod
+    monkeypatch.setattr(api_mod, "settings", dataclasses.replace(api_mod.settings, admin_token="t" * 24))
+    collect("test", client=FakeSite(urls=(URL, URL + "b")))
+    answers = iter([[_incident()], [_incident(evidence="this sentence is not in the article")]])
+
+    class Seq(FakeClassifier):
+        def classify_with_meta(self, article):
+            self.incidents = next(answers)
+            return super().classify_with_meta(article)
+    Worker(classifier=Seq(), use_geocoder=False).drain()
+    api = TestClient(api_mod.create_app())
+    h = {"x-admin-token": "t" * 24}
+    failed = q1("SELECT id FROM incidents WHERE review_status = 'failed'")["id"]
+    assert api.post(f"/api/review/incidents/{failed}", headers=h, json={"action": "approve"}).status_code == 409
+    good = q1("SELECT id, article_id FROM incidents WHERE published")
+    before = api.get("/api/meta").json()["data_version"]
+    assert api.post(f"/api/review/articles/{good['article_id']}", headers=h,
+                    json={"verdict": "dismiss"}).status_code == 200
+    assert api.get("/api/incidents", params={"start": "2026-10-01", "end": "2026-10-31"}).json() == []
+    assert api.get("/api/meta").json()["data_version"] != before
+
+
+def test_backfill_request_cap_and_batch_membership(monkeypatch):
+    monkeypatch.setattr("app.collector.ProthomAloClient", lambda: FakeSite(urls=(URL, URL + "b")))
+    with db.tx() as c:
+        c.execute("INSERT INTO run_requests (source, days_back, max_articles) VALUES ('cli', 90, 1)")
+    Collector()._run_request()
+    run = q1("SELECT id, days_back, discovered FROM runs")
+    assert run["days_back"] == 90 and run["discovered"] == 1
+    assert q1("SELECT run_id FROM jobs")["run_id"] == run["id"]

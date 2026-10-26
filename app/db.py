@@ -55,3 +55,14 @@ def heartbeat(service: str, detail: dict | None = None) -> None:
         c.execute("""INSERT INTO heartbeats (service, seen_at, detail) VALUES (%s, now(), %s)
                      ON CONFLICT (service) DO UPDATE SET seen_at = now(), detail = EXCLUDED.detail""",
                   (service, Jsonb(detail or {})))
+
+
+def bump_revision(conn) -> None:
+    """Mark that the data the map shows changed. Call inside the transaction that made the change."""
+    conn.execute("UPDATE data_revision SET rev = rev + 1, changed_at = now()")
+
+
+# The only incidents any endpoint serves: produced by an in-house Gemma analysis of the same article.
+# (Claude-era rows, imported rows and rule-based test output never qualify.) Use with alias `i`.
+GEMMA_PROVENANCE = """EXISTS (SELECT 1 FROM analyses x WHERE x.id = i.analysis_id AND x.article_id = i.article_id
+                              AND x.backend = 'gemma' AND NOT x.legacy)"""

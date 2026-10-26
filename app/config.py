@@ -29,9 +29,11 @@ class Settings:
     classifier: str = os.getenv("CLASSIFIER", "gemma")
     gemma_base_url: str = os.getenv("GEMMA_BASE_URL", "http://127.0.0.1:11434/v1")
     gemma_model: str = os.getenv("GEMMA_MODEL", "gemma4:e2b")
+    model_label: str = os.getenv("MODEL_LABEL", "Gemma 4 E2B (in-house)")   # shown on the dashboard
     classify_concurrency: int = int(os.getenv("CLASSIFY_CONCURRENCY", "3"))
     job_lease_minutes: int = int(os.getenv("JOB_LEASE_MINUTES", "20"))
-    # auto = publish incidents that pass the checks; review = hold them for a human reviewer (precision first)
+    # auto = publish incidents that pass the automatic checks (default; /review is for optional corrections)
+    # review = hold every incident until a human approves it
     publish_mode: str = os.getenv("PUBLISH_MODE", "auto")
 
     # Collector schedule (Asia/Dhaka wall-clock times)

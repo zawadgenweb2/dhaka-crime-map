@@ -1,7 +1,11 @@
 """Classifier service: claims queued articles, calls the model once, saves the answer, then maps incidents.
 
-Safety rules (from the Codex council review). The model is the in-house Gemma server; there are no paid calls.
-- A job is claimed with a lease (FOR UPDATE SKIP LOCKED); no two workers process the same article.
+Safety rules (from the Codex council reviews). The model is the in-house Gemma server; there are no paid calls.
+- A job is claimed with a lease (FOR UPDATE SKIP LOCKED); no two workers process the same job.
+- Only the article's current analysis version may write incidents (articles.analysis_version), so an older
+  job finishing late can never replace newer output; a dismissed article is never re-published.
+- A saved answer is reused only if it came from the same model family and is not legacy data.
+- Exact-spot geocoding runs in its own thread after publication, so the 15 s Nominatim lane never stalls the GPU.
 - Every model call is recorded in llm_calls *before* it is sent (audit trail, at most max_dispatches per job).
 - The model's answer is saved (analyses) immediately; materializing incidents can be retried from it
   without another model call.
@@ -23,7 +27,7 @@ from .config import settings
 from .gazetteer import Gazetteer, load as load_gazetteer
 from .schema import ArticleAnalysis
 from .scraper import Article
-from .store import materialize, resolve_locations
+from .store import enrich_next, materialize
 
 log = logging.getLogger(__name__)
 MAX_MATERIALIZE_ATTEMPTS = 3
@@ -40,7 +44,7 @@ class Worker:
                  use_geocoder: bool = True, owner: str | None = None):
         self._classifier = classifier
         self.gaz = gaz or load_gazetteer()
-        self.use_geocoder = use_geocoder
+        self.use_geocoder = use_geocoder  # run the exact-spot geocoding thread in serve()
         self.owner = owner or f"{socket.gethostname()}:{os.getpid()}"
         self.stop = threading.Event()
         self.paused_until = 0.0
@@ -86,14 +90,21 @@ class Worker:
     def process(self, job: dict) -> str:
         with db.connect() as c:
             article = c.execute("SELECT * FROM articles WHERE id = %s", (job["article_id"],)).fetchone()
-            saved = c.execute("""SELECT id, result FROM analyses WHERE job_id = %s ORDER BY id DESC LIMIT 1""",
-                              (job["id"],)).fetchone()
+            saved = c.execute("""SELECT id, result, backend, model, legacy FROM analyses WHERE job_id = %s
+                                 ORDER BY id DESC LIMIT 1""", (job["id"],)).fetchone()
         if article is None:
             self._release(job, "failed", "article missing")
             return "failed"
+        if article["status"] == "dismissed" or job["analysis_version"] != article["analysis_version"]:
+            self._release(job, "superseded", "article dismissed or a newer analysis version exists")
+            return "superseded"
+        backend = self.classifier.name.split(":", 1)[0]
+        if saved is not None and (saved["legacy"] or saved["backend"] != backend):
+            self._release(job, "failed", f"saved answer is from {saved['backend']}, not {backend}; not reused")
+            return "failed"
 
         if saved is None:
-            backend = self.classifier.name.split(":", 1)[0]
+            label = self.classifier.name
             if job["dispatches"] >= job["max_dispatches"]:
                 self._release(job, "failed", job["last_error"] or "model call limit reached")
                 return "failed"
@@ -133,23 +144,31 @@ class Worker:
         else:
             analysis_id = saved["id"]
             analysis = ArticleAnalysis.model_validate(saved["result"])
+            label = f"{saved['backend']}:{saved['model']}" if saved["model"] else saved["backend"]
 
-        return self._materialize(job, article, analysis_id, analysis)
+        return self._materialize(job, article, analysis_id, analysis, label)
 
     def _call_failed(self, call_id: int, error: str):
         with db.tx() as c:
             c.execute("UPDATE llm_calls SET outcome = 'error', error = %s, finished_at = now() WHERE id = %s",
                       (error[:500], call_id))
 
-    def _materialize(self, job: dict, article: dict, analysis_id: int, analysis: ArticleAnalysis) -> str:
+    def _materialize(self, job: dict, article: dict, analysis_id: int, analysis: ArticleAnalysis,
+                     label: str) -> str:
         try:
-            geocoded = resolve_locations(analysis, self.gaz, self.use_geocoder)  # network, outside any transaction
             with db.tx() as c:
-                owned = c.execute("SELECT 1 FROM jobs WHERE id = %s AND generation = %s FOR UPDATE",
-                                  (job["id"], job["generation"])).fetchone()
+                owned = c.execute("""SELECT 1 FROM jobs WHERE id = %s AND generation = %s AND state = 'running'
+                                     AND owner = %s FOR UPDATE""",
+                                  (job["id"], job["generation"], self.owner)).fetchone()
                 if not owned:
                     return "lost"
-                materialize(c, article, analysis_id, analysis, self.classifier.name, self.gaz, geocoded)
+                current = c.execute("SELECT status, analysis_version FROM articles WHERE id = %s FOR UPDATE",
+                                    (article["id"],)).fetchone()
+                if current["status"] == "dismissed" or current["analysis_version"] != job["analysis_version"]:
+                    c.execute("""UPDATE jobs SET state = 'superseded', owner = NULL, updated_at = now()
+                                 WHERE id = %s""", (job["id"],))
+                    return "superseded"
+                materialize(c, article, analysis_id, analysis, label, self.gaz)
                 c.execute("""UPDATE jobs SET state = 'done', owner = NULL, last_error = NULL, updated_at = now()
                              WHERE id = %s""", (job["id"],))
             return "done"
@@ -195,12 +214,30 @@ class Worker:
                 log.exception("worker iteration failed")
                 self.stop.wait(10)
 
+    def _geocode_loop(self):
+        """Exact spots for published incidents, one at a time through the shared Nominatim lane."""
+        while not self.stop.is_set():
+            try:
+                state = enrich_next(self.gaz)
+                if state is None:
+                    self.stop.wait(20)
+                elif state == "error":
+                    self.stop.wait(60)
+            except Exception:
+                log.exception("geocode enrichment failed")
+                self.stop.wait(60)
+
     def serve(self):
+        if not self.classifier.name.startswith("gemma"):
+            # The rules classifier exists for tests and offline comparison only; it never feeds the live map.
+            raise SystemExit(f"the live classifier must be the in-house Gemma model, not {self.classifier.name}")
         signal.signal(signal.SIGTERM, lambda *_: self.stop.set())
         log.info("classifier worker %s using %s, %d threads", self.owner, self.classifier.name,
                  settings.classify_concurrency)
         threads = [threading.Thread(target=self._loop, name=f"classify-{i}", daemon=True)
                    for i in range(max(1, settings.classify_concurrency))]
+        if self.use_geocoder and settings.geocode_enabled:
+            threads.append(threading.Thread(target=self._geocode_loop, name="geocode", daemon=True))
         for t in threads:
             t.start()
         last_recovery = 0.0

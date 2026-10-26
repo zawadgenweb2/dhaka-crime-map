@@ -38,12 +38,16 @@ Keraniganj, Dohar and Nawabganj upazilas. Gazipur/Tongi, Narayanganj, Munshiganj
 every other district are OUT of scope even though they are in Dhaka division.
 
 What counts as an incident: a specific criminal event at an identifiable place - murder, assault or violent \
-clash, mugging/robbery/dacoity, theft/burglary, rape or sexual harassment, kidnapping, drug or weapon \
-seizure/arrest (located where the arrest or seizure happened), fraud, extortion, or other crimes.
+clash, mugging/robbery/dacoity, theft/burglary, rape or sexual harassment, kidnapping, a seizure of drugs or \
+weapons (located where it was seized), fraud, extortion, or other crimes.
 Not incidents: road accidents, fires, suicides, natural deaths, policy statements, statistics, opinion, \
 and general warnings without a concrete event. A court hearing or arrest about an earlier crime counts as that \
 earlier crime only if the article says where it happened; give the original date if known.
-One entry per distinct event. A round-up article can produce several entries. Never invent details.
+One entry per distinct event: one connected criminal episode against the same victim(s) is ONE incident, even if \
+it involved several acts (e.g. lured, held, beaten and asked for ransom = one incident). Use the category of the \
+main crime and the place and date where it happened, not where police later stopped, rescued or arrested anyone. \
+Arrests, rescues, police raids, case filing and court steps that follow a crime are never separate incidents. \
+A round-up article about different crimes can produce several entries. Never invent details.
 
 Categories (use the key): {categories}
 
@@ -95,7 +99,7 @@ _COMPACT_CATALOGUE = (
     "(e.g. শনিবার) = the most recent listed day with that name. If the event is older or unclear, use null.\n\n"
     "Category rules: murder only if someone was killed; a shooting, stabbing or beating where nobody died is assault "
     "(attempted murder = assault); taking property by force or threat on the spot = robbery; taking it secretly = "
-    "theft; demanding money by threats = fraud_extortion; drug or weapon seizures and arrests = drugs_arms. "
+    "theft; demanding money by threats = fraud_extortion; drugs_arms only when drugs or weapons were seized (an arrest for another crime is not drugs_arms). Holding someone to extort money is one incident: kidnapping if the victim was abducted or confined, otherwise fraud_extortion. "
     "Statements, meetings, court schedules, policy, staged videos and natural deaths are not incidents.")
 _WEEKDAYS_BN = ["সোমবার", "মঙ্গলবার", "বুধবার", "বৃহস্পতিবার", "শুক্রবার", "শনিবার", "রবিবার"]
 

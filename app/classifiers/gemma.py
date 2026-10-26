@@ -13,6 +13,7 @@ import httpx
 from pydantic import ValidationError
 
 from ..config import settings
+from ..gazetteer import load as load_gazetteer
 from ..schema import ArticleAnalysis
 from ..scraper import Article
 from .base import (Classifier, ClassifierError, candidate_places, compact_system_prompt, compact_user_message,
@@ -22,7 +23,7 @@ SCHEMA_NOTE = (
     "\n\nAnswer with one JSON object only, matching the provided JSON schema exactly. "
     "Field meanings: victims = number of people killed or injured (0 if none or unknown); "
     "incident_date = YYYY-MM-DD or null when the article does not let you work it out; "
-    "place_id must be an id from the catalogue above or null; evidence must be copied character-for-character "
+    "place_id must be one of the allowed ids or null; evidence must be copied character-for-character "
     "from the article body.")
 
 
@@ -43,10 +44,20 @@ class GemmaClassifier(Classifier):
         schema = ArticleAnalysis.model_json_schema()
         props = schema["$defs"]["Incident"]["properties"]
         props["victims"]["minimum"] = 0
-        if candidate_ids:
-            props["place_id"] = {"anyOf": [{"type": "string", "enum": candidate_ids}, {"type": "null"}],
+        if candidate_ids is not None:  # [] = no candidates: null only (never "any string")
+            allowed = [{"type": "string", "enum": candidate_ids}] if candidate_ids else []
+            props["place_id"] = {"anyOf": allowed + [{"type": "null"}],
                                  "description": props["place_id"].get("description", "")}
         return schema
+
+    @staticmethod
+    def _keep_allowed_places(analysis: ArticleAnalysis, allowed: set[str]) -> ArticleAnalysis:
+        """The grammar should already restrict place_id; this check makes it a guarantee. An id outside the
+        allowed set becomes null, and the location phrase is matched locally instead (store.locate)."""
+        for inc in analysis.incidents:
+            if inc.place_id is not None and inc.place_id not in allowed:
+                inc.place_id = None
+        return analysis
 
     def classify(self, article: Article) -> ArticleAnalysis:
         return self.classify_with_meta(article)[0]
@@ -54,10 +65,12 @@ class GemmaClassifier(Classifier):
     def classify_with_meta(self, article: Article) -> tuple[ArticleAnalysis, dict]:
         if self.prompt_mode == "compact":
             candidates = candidate_places(article)
+            allowed = {p.id for p in candidates}
             messages = [{"role": "system", "content": compact_system_prompt() + SCHEMA_NOTE},
                         {"role": "user", "content": compact_user_message(article, candidates)}]
             schema = self._schema([p.id for p in candidates])
         else:
+            allowed = {p.id for p in load_gazetteer().places}
             messages = [{"role": "system", "content": system_prompt() + SCHEMA_NOTE},
                         {"role": "user", "content": user_message(article)}]
             schema = self._schema(None)
@@ -92,7 +105,8 @@ class GemmaClassifier(Classifier):
                 last_error = "output was cut off (finish_reason=length)"
             else:
                 try:
-                    analysis = ArticleAnalysis.model_validate(json.loads(content))
+                    analysis = self._keep_allowed_places(
+                        ArticleAnalysis.model_validate(json.loads(content)), allowed)
                     meta = {"model": data.get("model") or self.model, **usage, "cost_usd": 0,
                             "latency_s": round(time.monotonic() - started, 2), "attempts": attempt + 1}
                     return analysis, meta

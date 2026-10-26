@@ -26,6 +26,12 @@ def _cached(q: str):
         return c.execute("SELECT lat, lng FROM geocache WHERE query = %s", (q,)).fetchone()
 
 
+def is_cached(query: str) -> bool:
+    """True if Nominatim already answered this query (a hit or a definite miss)."""
+    q = " ".join((query or "").split())[:200]
+    return bool(q) and _cached(q) is not None
+
+
 def geocode(query: str) -> tuple[float, float] | None:
     q = " ".join((query or "").split())[:200]
     if not q or not settings.geocode_enabled:

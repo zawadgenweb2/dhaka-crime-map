@@ -37,8 +37,12 @@ def _filters(start: str | None, end: str | None, days: int | None, categories: s
         raise HTTPException(400, "dates must be YYYY-MM-DD")
     if not (MIN_DATE <= start_d <= end_d <= MAX_DATE):
         raise HTTPException(400, "date range must be ordered and within 2000-01-01..2100-01-01")
-    where = ["i.published", "i.duplicate_of IS NULL", "i.event_date BETWEEN %s AND %s"]
-    params: list = [start_d, end_d]
+    # A duplicate is hidden only if the report it points to is itself in the period, so an event never
+    # vanishes from a period because its first report fell just outside it.
+    where = ["i.published", db.GEMMA_PROVENANCE, "i.event_date BETWEEN %s AND %s",
+             """(i.duplicate_of IS NULL OR NOT EXISTS (SELECT 1 FROM incidents c WHERE c.id = i.duplicate_of
+                 AND c.published AND c.event_date BETWEEN %s AND %s))"""]
+    params: list = [start_d, end_d, start_d, end_d]
     if categories:
         cats = [c for c in categories.split(",") if c]
         unknown = [c for c in cats if c not in CATEGORIES]
@@ -90,9 +94,21 @@ def create_app() -> FastAPI:
         with db.connect() as c:
             counts = {r["status"]: r["n"] for r in c.execute("SELECT status, count(*) n FROM articles GROUP BY status")}
             queue = {r["state"]: r["n"] for r in c.execute("SELECT state, count(*) n FROM jobs GROUP BY state")}
-            span = c.execute("""SELECT min(event_date) a, max(event_date) b, count(*) n,
-                                       max(greatest(created_at, coalesce(reviewed_at, created_at))) t
-                                FROM incidents WHERE published""").fetchone()
+            span = c.execute(f"""SELECT min(event_date) a, max(event_date) b, count(*) n
+                                 FROM incidents i WHERE published AND {db.GEMMA_PROVENANCE}""").fetchone()
+            rev = c.execute("SELECT rev, changed_at FROM data_revision").fetchone()
+            batches = c.execute("""
+                SELECT r.id, r.trigger, r.status, r.days_back, r.candidates, r.discovered, r.fetched, r.started_at,
+                       count(j.id) AS jobs,
+                       count(j.id) FILTER (WHERE j.state IN ('done', 'failed', 'uncertain', 'superseded',
+                                                             'cancelled')) AS processed,
+                       count(j.id) FILTER (WHERE j.state = 'failed') AS failed,
+                       count(j.id) FILTER (WHERE j.state = 'running') AS in_progress
+                FROM runs r LEFT JOIN jobs j ON j.run_id = r.id
+                WHERE r.status = 'running' OR EXISTS (SELECT 1 FROM jobs q WHERE q.run_id = r.id
+                                                      AND q.state IN ('queued', 'running'))
+                GROUP BY r.id ORDER BY r.id""").fetchall()
+            spots = c.execute("SELECT count(*) n FROM incidents WHERE geocode_state = 'todo'").fetchone()["n"]
             last = c.execute("SELECT * FROM runs ORDER BY id DESC LIMIT 1").fetchone()
             beats = {r["service"]: r for r in c.execute("SELECT service, seen_at, detail FROM heartbeats")}
             pending = c.execute("SELECT count(*) n FROM run_requests WHERE status IN ('pending','running')").fetchone()["n"]
@@ -113,8 +129,12 @@ def create_app() -> FastAPI:
                          for s, b in beats.items()},
             "last_run": {k: _iso(v) for k, v in last.items()} if last else None,
             "articles": counts, "data_span": {"first": _iso(span["a"]), "last": _iso(span["b"])},
-            # changes whenever an incident is published, approved, rejected or replaced
-            "data_version": f'{span["n"]}:{_iso(span["t"])}',
+            # data_revision: bumped in the same transaction as every change the map can see
+            "data_version": str(rev["rev"]), "data_changed_at": _iso(rev["changed_at"]), "incident_count": span["n"],
+            "publish_mode": settings.publish_mode, "model_label": settings.model_label,
+            # active batches (a collection run or a reprocess) and their Gemma progress, in articles
+            "batches": [{k: _iso(v) for k, v in b.items()} for b in batches],
+            "exact_spots_waiting": spots,
             "model_calls_today": calls,
             "google_maps_api_key": settings.google_maps_api_key,
             "google_maps_map_id": settings.google_maps_map_id,
@@ -123,8 +143,8 @@ def create_app() -> FastAPI:
     @app.get("/api/incidents")
     def incidents(response: Response, start: str | None = None, end: str | None = None,
                   days: int | None = Query(None, ge=1, le=3650), categories: str | None = None,
-                  thana: str | None = None, limit: int = Query(3000, ge=1, le=10000)):
-        """Published, non-duplicate incidents. X-Total-Count / X-Truncated tell clients when `limit` cut the list."""
+                  thana: str | None = None, limit: int = Query(10000, ge=1, le=20000)):
+        """Published, non-duplicate Gemma incidents. X-Total-Count / X-Truncated tell clients when `limit` cut it."""
         where, params, _, _ = _filters(start, end, days, categories, thana)
         with db.connect() as c:
             total = c.execute(f"SELECT count(*) n FROM incidents i WHERE {where}", params).fetchone()["n"]
@@ -134,7 +154,7 @@ def create_app() -> FastAPI:
                 f"""SELECT i.id, i.category, i.headline_bn, i.headline_en, i.location_text, i.place_id, i.thana_id,
                            i.lat, i.lng, i.precision, i.geocoded, i.incident_date, i.event_date, i.time_of_day,
                            i.victims, i.evidence, i.evidence_ok, a.url, a.title, a.published_at,
-                           (SELECT count(*) FROM incidents d WHERE d.duplicate_of = i.id) AS more_reports
+                           (SELECT count(*) FROM incidents d WHERE d.duplicate_of = i.id AND d.published) AS more_reports
                     FROM incidents i JOIN articles a ON a.id = i.article_id
                     WHERE {where} ORDER BY i.event_date DESC, i.id DESC LIMIT %s""", (*params, limit)).fetchall()
         gaz = load_gazetteer()
@@ -214,12 +234,12 @@ def create_app() -> FastAPI:
         gaz = load_gazetteer()
         with db.connect() as c:
             rows = c.execute(
-                """SELECT i.*, a.url, a.title, a.body, a.published_at, a.classifier AS article_classifier
-                   FROM incidents i JOIN articles a ON a.id = i.article_id
-                   WHERE i.review_status = %s ORDER BY i.event_date DESC NULLS LAST, i.id DESC LIMIT %s""",
-                (status, limit)).fetchall()
+                f"""SELECT i.*, a.url, a.title, a.body, a.published_at, a.classifier AS article_classifier
+                    FROM incidents i JOIN articles a ON a.id = i.article_id
+                    WHERE i.review_status = %s AND {db.GEMMA_PROVENANCE}
+                    ORDER BY i.event_date DESC NULLS LAST, i.id DESC LIMIT %s""", (status, limit)).fetchall()
             counts = {r["review_status"]: r["n"] for r in
-                      c.execute("SELECT review_status, count(*) n FROM incidents GROUP BY 1")}
+                      c.execute(f"SELECT review_status, count(*) n FROM incidents i WHERE {db.GEMMA_PROVENANCE} GROUP BY 1")}
             stuck = c.execute("""SELECT a.id, a.url, a.title, a.status, j.last_error FROM articles a
                                  LEFT JOIN jobs j ON j.article_id = a.id
                                  WHERE a.status IN ('uncertain','failed') ORDER BY a.id DESC LIMIT 50""").fetchall()
@@ -248,16 +268,19 @@ def create_app() -> FastAPI:
         from .store import MATERIALIZE_LOCK, rebuild_groups
         with db.tx() as c:
             c.execute("SELECT pg_advisory_xact_lock(%s)", (MATERIALIZE_LOCK,))
-            old = c.execute("SELECT category, place_id, event_date FROM incidents WHERE id = %s FOR UPDATE",
-                            (incident_id,)).fetchone()
+            old = c.execute(f"""SELECT category, place_id, event_date, evidence_ok FROM incidents i
+                                 WHERE id = %s AND {db.GEMMA_PROVENANCE} FOR UPDATE""", (incident_id,)).fetchone()
             if not old:
                 raise HTTPException(404, "incident not found")
+            if action == "approve" and not old["evidence_ok"]:
+                # failed the automatic checks: its quote is not in the article, so it is never shown
+                raise HTTPException(409, "this incident failed the evidence check and cannot be published")
             if category:
                 c.execute("UPDATE incidents SET category = %s WHERE id = %s", (category, incident_id))
             if place and place.id != old["place_id"]:  # keep exact geocodes unless the place really changes
                 thana = gaz.thana_of(place)
                 c.execute("""UPDATE incidents SET place_id = %s, thana_id = %s, lat = %s, lng = %s, geocoded = false,
-                             precision = %s WHERE id = %s""",
+                             geocode_state = 'none', precision = %s WHERE id = %s""",
                           (place.id, thana.id, place.lat, place.lng,
                            {"landmark": "exact", "area": "neighbourhood"}.get(place.kind, "thana"), incident_id))
             c.execute("""UPDATE incidents SET review_status = %s, published = %s, reviewed_by = %s, reviewed_at = now(),
@@ -271,6 +294,7 @@ def create_app() -> FastAPI:
             keys = {(r["category"], r["place_id"], r["event_date"]) for r in (old, new)
                     if r["place_id"] and r["event_date"]}
             rebuild_groups(c, keys)
+            db.bump_revision(c)
         return {"ok": True}
 
     @app.post("/api/review/articles/{article_id}")
@@ -295,12 +319,25 @@ def create_app() -> FastAPI:
                                     (article_id,)).fetchone()["v"]
                 c.execute("INSERT INTO jobs (article_id, analysis_version, backend) VALUES (%s, %s, %s)",
                           (article_id, version, settings.classifier))
-                c.execute("UPDATE articles SET status = 'queued', error = NULL WHERE id = %s", (article_id,))
+                c.execute("UPDATE articles SET status = 'queued', error = NULL, analysis_version = %s WHERE id = %s",
+                          (version, article_id))
             elif verdict == "dismiss":
+                # Hide the article's incidents now; a worker still running on it cannot re-publish
+                # (it checks the article status before writing).
+                from .store import MATERIALIZE_LOCK, rebuild_groups
+                c.execute("SELECT pg_advisory_xact_lock(%s)", (MATERIALIZE_LOCK,))
                 c.execute("UPDATE articles SET status = 'dismissed' WHERE id = %s", (article_id,))
-                # cancel waiting work so a dismissed article is not classified later
                 c.execute("""UPDATE jobs SET state = 'cancelled', updated_at = now()
                              WHERE article_id = %s AND state = 'queued'""", (article_id,))
+                hidden = c.execute("""UPDATE incidents SET published = false, review_status = 'rejected',
+                                      reviewed_by = %s, reviewed_at = now(), duplicate_of = NULL
+                                      WHERE article_id = %s RETURNING id, category, place_id, event_date""",
+                                   (who, article_id)).fetchall()
+                ids = [r["id"] for r in hidden]
+                c.execute("UPDATE incidents SET duplicate_of = NULL WHERE duplicate_of = ANY(%s)", (ids,))
+                rebuild_groups(c, {(r["category"], r["place_id"], r["event_date"]) for r in hidden
+                                   if r["place_id"] and r["event_date"]})
+                db.bump_revision(c)
         return {"ok": True}
 
     return app

@@ -1,4 +1,4 @@
-"""Keyword baseline. No network, no model: used for tests, demos and as a sanity check."""
+"""Keyword baseline. No network, no model: used for tests and offline comparison only, never for the live map."""
 from __future__ import annotations
 
 import re

@@ -324,3 +324,44 @@ def test_no_future_dates_even_without_publication_time():
     rows = build_rows(art, ArticleAnalysis(is_crime_report=True, in_dhaka=True, note="",
                                            incidents=[_inc(incident_date="2099-01-01")]), g, {}, "auto")
     assert rows[0]["incident_date"] is None and rows[0]["event_date"] == date(2026, 10, 24)
+
+
+# ---- Gemma-only live data -----------------------------------------------------------------------
+def test_place_outside_the_shortlist_is_dropped():
+    art = Article(url="u", section="bangladesh/crime", title="মিরপুর ১১-তে ছিনতাই", keywords="",
+                  body="রাজধানীর মিরপুর ১১ নম্বরে রাতে ছিনতাই হয়েছে।",
+                  published_at=datetime(2026, 10, 24, 19, 0, tzinfo=timezone.utc))
+    off = ArticleAnalysis(is_crime_report=True, in_dhaka=True, note="",
+                          incidents=[_inc(place_id="shahali"), _inc(place_id="pallabi")]).model_dump_json()
+    got = _gemma([_completion(off)]).classify(art)
+    assert [i.place_id for i in got.incidents] == [None, "pallabi"]       # not in the shortlist -> null
+
+
+def test_identical_incidents_collapse_but_distinct_ones_stay():
+    g = load()
+    same = ArticleAnalysis(is_crime_report=True, in_dhaka=True, note="", incidents=[_inc(), _inc(), _inc(category="theft")])
+    rows = build_rows(ARTICLE, same, g, {}, "auto")
+    assert [r["category"] for r in rows] == ["drugs_arms", "theft"]
+
+
+def test_location_fallback_needs_the_phrase_in_the_article():
+    g = load()
+    made_up = ArticleAnalysis(is_crime_report=True, in_dhaka=True, note="",
+                              incidents=[_inc(place_id=None, location_text="গুলশান ২ নম্বরে")])
+    real = ArticleAnalysis(is_crime_report=True, in_dhaka=True, note="",
+                           incidents=[_inc(place_id=None, location_text="মিরপুর ১১ নম্বর মেট্রোরেল স্টেশনের নিচে")])
+    assert build_rows(ARTICLE, made_up, g, {}, "auto")[0]["place_id"] is None
+    assert build_rows(ARTICLE, real, g, {}, "auto")[0]["place_id"] == "mirpur11"
+
+
+def test_geocoding_is_queued_not_done_inline():
+    g = load()
+    rows = build_rows(ARTICLE, ArticleAnalysis(is_crime_report=True, in_dhaka=True, note="",
+                                               incidents=[_inc(geocode_query="Mirpur 11 metro, Dhaka")]), g, {}, "auto")
+    assert rows[0]["geocode_state"] == "todo" and rows[0]["published"] and not rows[0]["geocoded"]
+
+
+def test_prompt_counts_one_episode_once():
+    from app.classifiers.base import compact_system_prompt
+    p = compact_system_prompt()
+    assert "ONE incident" in p and "never separate incidents" in p and "drugs_arms only when" in p

@@ -47,7 +47,8 @@ def collect(trigger: str, days_back: int = 1, client=None, gaz: Gazetteer | None
     client = client or ProthomAloClient()
     gaz = gaz or load_gazetteer()
     with db.tx() as c:
-        run_id = c.execute("INSERT INTO runs (trigger) VALUES (%s) RETURNING id", (trigger,)).fetchone()["id"]
+        run_id = c.execute("INSERT INTO runs (trigger, days_back) VALUES (%s, %s) RETURNING id",
+                           (trigger, days_back)).fetchone()["id"]
     stats = {"discovered": 0, "fetched": 0, "queued": 0, "errors": 0}
     status, message = "ok", ""
     try:
@@ -58,8 +59,16 @@ def collect(trigger: str, days_back: int = 1, client=None, gaz: Gazetteer | None
                      key=lambda c: c.published_at.timestamp() if c.published_at else 0, reverse=True)
         new = new[: max_articles or settings.max_articles_per_run]
         stats["discovered"] = len(new)
+        with db.tx() as c:
+            c.execute("UPDATE runs SET discovered = %s, candidates = %s WHERE id = %s",
+                      (len(new), len(candidates), run_id))
         progress(f"run {run_id}: {len(candidates)} candidate links, {len(new)} new")
-        for cand in new:
+        for n, cand in enumerate(new, 1):
+            if n % 10 == 0:  # progress is visible on the dashboard while a long backfill runs
+                with db.tx() as c:
+                    c.execute("UPDATE runs SET fetched = %s, queued = %s, errors = %s WHERE id = %s",
+                              (stats["fetched"], stats["queued"], stats["errors"], run_id))
+                db.heartbeat("collector", {"run_id": run_id, "fetched": stats["fetched"], "of": len(new)})
             try:
                 art = client.article(cand.url)
             except Exception as e:
@@ -79,9 +88,9 @@ def collect(trigger: str, days_back: int = 1, client=None, gaz: Gazetteer | None
                      "queued" if relevant else "skipped", None if relevant else "pre-filter: no Dhaka crime signal"),
                 ).fetchone()
                 if row and relevant:
-                    c.execute("""INSERT INTO jobs (article_id, backend) VALUES (%s, %s)
+                    c.execute("""INSERT INTO jobs (article_id, backend, run_id) VALUES (%s, %s, %s)
                                  ON CONFLICT (article_id, analysis_version) DO NOTHING""",
-                              (row["id"], settings.classifier))
+                              (row["id"], settings.classifier, run_id))
                     stats["queued"] += 1
     except Exception as e:
         status, message = "failed", f"{type(e).__name__}: {e}"
@@ -145,12 +154,12 @@ class Collector:
 
     def _run_request(self):
         with db.tx() as c:
-            req = c.execute("""SELECT id, days_back FROM run_requests WHERE status = 'pending'
+            req = c.execute("""SELECT id, days_back, max_articles FROM run_requests WHERE status = 'pending'
                                ORDER BY id LIMIT 1""").fetchone()
             if not req:
                 return False
             c.execute("UPDATE run_requests SET status = 'running' WHERE id = %s", (req["id"],))
-        result = collect("manual", days_back=req["days_back"])
+        result = collect("manual", days_back=req["days_back"], max_articles=req["max_articles"])
         with db.tx() as c:
             c.execute("UPDATE run_requests SET status = %s, run_id = %s WHERE id = %s",
                       ("done" if result["status"] == "ok" else "failed", result["run_id"], req["id"]))
