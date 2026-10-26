@@ -110,7 +110,7 @@
     return new Map(pts.map((p) => [p.id, 1 / Math.sqrt(n[key(p)])]));
   }
   // Blobs grow as you zoom in (half as fast as the map), so hotspots stay visible instead of shrinking to dots.
-  const heatRadius = (zoom) => Math.max(40, Math.min(170, 55 * 2 ** ((zoom - 11.5) * 0.5)));
+  const heatRadius = (zoom) => Math.max(60, Math.min(180, 80 * 2 ** ((zoom - 11.5) * 0.4)));
 
   function layers() {
     const pts = state.incidents.filter((i) => i.lat != null);
@@ -604,6 +604,11 @@
   async function main() {
     applyTheme(); setTab("map");
     const hd = +new URLSearchParams(location.hash.slice(1)).get("d");
+    const hm = new URLSearchParams(location.hash.slice(1)).get("m");
+    if (["heat", "points", "both"].includes(hm)) {
+      state.mode = hm;
+      document.querySelectorAll("#mode button").forEach((x) => x.classList.toggle("on", x.dataset.mode === hm));
+    }
     if ([7, 30, 90, 365].includes(hd)) {
       state.days = hd;
       document.querySelectorAll("#period button").forEach((x) => x.classList.toggle("on", +x.dataset.days === hd));
