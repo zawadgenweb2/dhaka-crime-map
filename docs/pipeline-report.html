@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Dhaka Crime Map — Pipeline Report</title>
+<style>
+@font-face { font-family: "Noto Sans Bengali"; src: url("file:///home/genweb2-zawad/crime-heat-map/dhaka-crime-map/app/static/fonts/noto-sans-bengali-bengali-wght-normal.woff2") format("woff2"); }
+@page { size: A4; margin: 12mm 13mm 11mm 13mm; }
+:root { --ink:#16191d; --muted:#5b6470; --line:#d9ddd6; --rail:#136a72; --soft:#eef3f2; --warn:#a15c07; }
+* { box-sizing: border-box; }
+body { margin:0; font: 8.9pt/1.38 "Helvetica Neue", Arial, "Noto Sans Bengali", sans-serif; color: var(--ink); }
+h1 { font-size: 17pt; margin: 0; letter-spacing: -.01em; }
+.sub { color: var(--muted); margin: 2pt 0 7pt; padding-bottom: 5pt; border-bottom: 2px solid var(--rail); }
+h2 { font-size: 10.6pt; color: var(--rail); margin: 8pt 0 3pt; break-after: avoid; }
+p { margin: 0 0 3pt; }
+ul { margin: 0 0 3pt; padding-left: 12pt; } li { margin: 0 0 1.5pt; }
+table { width: 100%; border-collapse: collapse; margin: 2pt 0 4pt; font-size: 8pt; }
+th, td { text-align: left; vertical-align: top; padding: 2.2pt 4pt; border-bottom: .6pt solid var(--line); }
+th { font-size: 7.3pt; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); border-bottom: 1pt solid var(--ink); }
+td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12pt; }
+.kpis { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5pt; margin: 3pt 0 4pt; }
+.kpi { background: var(--soft); border-radius: 4pt; padding: 4pt 6pt; }
+.kpi b { display: block; font-size: 12.5pt; } .kpi span { color: var(--muted); font-size: 7.4pt; }
+figure { margin: 2pt 0 2pt; } figcaption { color: var(--muted); font-size: 7.4pt; }
+svg text { font-family: "Helvetica Neue", Arial, sans-serif; }
+.note { color: var(--muted); font-size: 7.6pt; }
+.warn { color: var(--warn); }
+.page { break-after: page; }
+code { font: 7.8pt "DejaVu Sans Mono", Menlo, monospace; background: #f1f2ee; padding: 0 2pt; border-radius: 2pt; }
+</style>
+</head>
+<body>
+
+<section class="page">
+<h1>Dhaka Crime Map — Pipeline Report</h1>
+<p class="sub">26 October 2026 · in-house deployment on <b>genweb2inhouse</b> (192.168.1.200) · repository github.com/zawadgenweb2/dhaka-crime-map · status: <b>live</b></p>
+
+<h2>1. What it does</h2>
+<ul>
+<li>Collects crime news from <b>Prothom Alo</b> (Bangla) twice a day (08:00 and 20:00 Asia/Dhaka), plus on-demand backfills of past days.</li>
+<li>An <b>in-house language model (Gemma 4 E2B)</b> reads each likely crime article and extracts incidents: crime type, place in Dhaka district, date, time of day, victims and a verbatim supporting quote.</li>
+<li>Incidents that pass automatic checks appear on a bilingual (Bangla/English) <b>live heat map</b> with filters, hotspots and a news feed; every point links to its source article. No external AI service is used.</li>
+</ul>
+
+<h2>2. Architecture</h2>
+<figure>
+<svg viewBox="0 0 720 150" width="100%" role="img" aria-label="Collector downloads articles into Postgres; the classifier sends each to the Gemma model server and writes incidents; the API serves the dashboard.">
+ <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#5b6470"/></marker></defs>
+ <g font-size="10.5" fill="#16191d">
+  <rect x="4" y="8" width="112" height="40" rx="5" fill="#fff" stroke="#9aa3ad"/><text x="60" y="25" text-anchor="middle">prothomalo.com</text><text x="60" y="39" text-anchor="middle" fill="#5b6470" font-size="9">sitemaps, articles</text>
+  <rect x="160" y="8" width="120" height="40" rx="5" fill="#eef3f2" stroke="#136a72"/><text x="220" y="25" text-anchor="middle" font-weight="700">collector</text><text x="220" y="39" text-anchor="middle" fill="#5b6470" font-size="9">scheduler + pre-filter</text>
+  <rect x="320" y="56" width="120" height="40" rx="5" fill="#eef3f2" stroke="#136a72"/><text x="380" y="73" text-anchor="middle" font-weight="700">PostgreSQL 17</text><text x="380" y="87" text-anchor="middle" fill="#5b6470" font-size="9">data, job queue, locks</text>
+  <rect x="160" y="104" width="120" height="40" rx="5" fill="#eef3f2" stroke="#136a72"/><text x="220" y="121" text-anchor="middle" font-weight="700">classifier</text><text x="220" y="135" text-anchor="middle" fill="#5b6470" font-size="9">checks, places, geocoding</text>
+  <rect x="4" y="104" width="112" height="40" rx="5" fill="#fff" stroke="#9aa3ad"/><text x="60" y="121" text-anchor="middle">Gemma 4 E2B</text><text x="60" y="135" text-anchor="middle" fill="#5b6470" font-size="9">llama.cpp · GPU · local</text>
+  <rect x="480" y="56" width="104" height="40" rx="5" fill="#eef3f2" stroke="#136a72"/><text x="532" y="73" text-anchor="middle" font-weight="700">api</text><text x="532" y="87" text-anchor="middle" fill="#5b6470" font-size="9">FastAPI · HTTPS</text>
+  <rect x="616" y="56" width="100" height="40" rx="5" fill="#fff" stroke="#9aa3ad"/><text x="666" y="73" text-anchor="middle">browsers</text><text x="666" y="87" text-anchor="middle" fill="#5b6470" font-size="9">map · Swagger</text>
+ </g>
+ <g stroke="#5b6470" stroke-width="1.2" fill="none" marker-end="url(#a)">
+  <path d="M160 28 H118"/><path d="M280 34 C 320 34, 340 40, 352 56"/><path d="M352 96 C 340 112, 310 124, 282 124"/>
+  <path d="M160 124 H118"/><path d="M440 76 H478"/><path d="M584 76 H614"/>
+ </g>
+ <g font-size="8.5" fill="#5b6470">
+  <text x="139" y="22" text-anchor="middle">1 req/s</text><text x="318" y="30">articles + jobs</text><text x="300" y="138">claims jobs</text>
+  <text x="139" y="100" text-anchor="middle">1 call per article</text><text x="459" y="70" text-anchor="middle">reads</text><text x="600" y="70" text-anchor="middle">LAN</text>
+ </g>
+</svg>
+<figcaption>Five Docker services (db, migrate, api, collector, classifier) plus one systemd model server, all on one in-house GPU server (RTX 3080 Ti, 12 GB). Postgres is the database, job queue and lock service; the database exists only on this server.</figcaption>
+</figure>
+
+<h2>3. Pipeline, step by step</h2>
+<table>
+<tr><th>#</th><th>Step</th><th>How</th><th>Result</th></tr>
+<tr><td>1</td><td>Discover</td><td>Prothom Alo news sitemap (last 48 h, with titles) + one daily sitemap per day; robots.txt honoured; 1 request/s</td><td>~300 articles/day listed</td></tr>
+<tr><td>2</td><td>Pre-filter, before download</td><td>Crime &amp; capital sections always; any other section if the <b>title or keywords contain a crime word</b>; videos, galleries, sister sites never</td><td>~10% downloaded</td></tr>
+<tr><td>3</td><td>Pre-filter, full text</td><td>Needs a crime word and a <b>Dhaka-district place</b> in the text (namesakes like "কুষ্টিয়ার মিরপুর" and "sent to Dhaka Medical" do not count)</td><td>~20–30 articles/day to Gemma</td></tr>
+<tr><td>4</td><td>Classify</td><td>One Gemma call per article: full text + the Dhaka places it mentions + an 8-day Bangla calendar; answer forced into a JSON schema</td><td>incidents, ~3 s/article</td></tr>
+<tr><td>5</td><td>Check &amp; locate</td><td>Quote must be verbatim in the article; place must be named where the crime is described; first sentence must not put it in another district; no future dates</td><td>published or held</td></tr>
+<tr><td>6</td><td>Group duplicates</td><td>Same category + place, dates ±1 day, compatible time of day</td><td>one point per event</td></tr>
+<tr><td>7</td><td>Exact spot</td><td>Street/landmark geocoded via OpenStreetMap (1 request/15 s), kept only within 2.5 km of the place</td><td>refined points</td></tr>
+<tr><td>8</td><td>Serve</td><td>REST API + dashboard; the page updates itself when data changes; per-day coverage shows how complete a period is</td><td>live map</td></tr>
+</table>
+
+<h2>4. Model and quality</h2>
+<div class="grid">
+<div>
+<p><b>Gemma 4 E2B</b> (Q8 GGUF) on <b>llama.cpp</b>, CUDA, loopback only with an API key, always loaded (2.9 GB GPU memory). Measured on 71 reference articles labelled in the prototype phase:</p>
+<table>
+<tr><th>Measure</th><th class="n">Result</th></tr>
+<tr><td>Valid structured answers</td><td class="n">100%</td></tr>
+<tr><td>Article: crime in Dhaka? precision / recall</td><td class="n">0.87–0.90 / 0.81</td></tr>
+<tr><td>Incidents: precision / recall</td><td class="n">0.80–0.83 / 0.64–0.66</td></tr>
+<tr><td>Thana / place / category / date correct</td><td class="n">0.93 / 0.86 / 0.76 / 0.55–0.63</td></tr>
+<tr><td>Time per article (median)</td><td class="n">2.4 s</td></tr>
+</table>
+</div>
+<div>
+<p><b>Engine/model benchmark</b> (same articles and prompt):</p>
+<table>
+<tr><th>Setup</th><th class="n">Incident P / R</th><th class="n">Decode</th><th class="n">GPU mem</th></tr>
+<tr><td><b>E2B, llama.cpp</b> (chosen)</td><td class="n">0.80–0.83 / 0.65</td><td class="n">120 tok/s</td><td class="n">2.9 GB</td></tr>
+<tr><td>E4B (QAT Q4), llama.cpp</td><td class="n">0.71 / 0.69</td><td class="n">113 tok/s</td><td class="n">3.5 GB</td></tr>
+<tr><td>E4B (QAT w4a16), vLLM</td><td class="n">stopped</td><td class="n">~120 tok/s</td><td class="n">11.7 of 12</td></tr>
+</table>
+<p class="note">vLLM gave no speed gain for one-at-a-time requests and needed nearly the whole card; the larger E4B invented more incidents. Prefill ≈ 4,400 tok/s; first token ≈ 0.14 s.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2>5. Current status (26 Oct, 15:25 Dhaka)</h2>
+<div class="kpis">
+<div class="kpi"><b>213</b><span>incidents on the map</span></div>
+<div class="kpi"><b>169</b><span>in the last 30 days</span></div>
+<div class="kpi"><b>360</b><span>articles read by Gemma</span></div>
+<div class="kpi"><b>14 MB</b><span>database size</span></div>
+<div class="kpi"><b>75</b><span>automated tests passing</span></div>
+</div>
+<p>The <b>30-day backfill is running</b> (about 1,900 more articles to download at 1 per second; Gemma keeps pace). Last 30 days so far: assault 34, murder 30, drugs/weapons 30, theft 26, fraud/extortion 25, kidnapping 13. Most incidents: Shah Ali 13, Mirpur 10, Adabor 10, Cantonment 9, Mohammadpur 8. All earlier prototype (Claude) output was removed from the map; it is kept only as a frozen test set.</p>
+
+<h2>6. Safeguards</h2>
+<div class="grid">
+<ul>
+<li><b>Only in-house Gemma output is served</b>; every endpoint checks provenance.</li>
+<li><b>Evidence:</b> each incident carries a quote that must appear word for word in the article.</li>
+<li><b>Location grounding:</b> the place must be named where the crime is described; another district in the lead blocks it.</li>
+<li><b>Reliability:</b> every model call is recorded before it is sent and every answer saved, so re-checking needs no new model calls; an older job can never overwrite newer output.</li>
+</ul>
+<ul>
+<li><b>Coverage honesty:</b> each day is marked complete, processing, partial, failed or not collected; the map warns when a period is incomplete.</li>
+<li><b>Politeness:</b> robots.txt, 1 request/s to the publisher, OpenStreetMap ≤ 4/min.</li>
+<li><b>Security:</b> LAN-only HTTPS; admin token for actions that change data or use the GPU; secrets never in git.</li>
+<li><b>Backups:</b> nightly database dump, 14 days kept.</li>
+</ul>
+</div>
+
+<h2>7. Interfaces</h2>
+<table>
+<tr><th>Read (open on the LAN)</th><th>Admin (token)</th></tr>
+<tr><td><code>/api/incidents</code>, <code>/api/stats</code> (filters: days or dates, crime type, thana) · <code>/api/coverage</code> per-day completeness · <code>/api/meta</code> status and progress · <code>/api/runs</code> history</td>
+<td><code>POST /api/scrape</code> collect now (up to 90 days) · <code>POST /api/classify</code> try any pasted article, nothing saved · review: fix category/place, reject, retry, dismiss an article</td></tr>
+</table>
+<p class="note">Dashboard https://192.168.1.200:8100 · Swagger https://192.168.1.200:8100/docs · API guide with real responses: docs/API.md · engineering handbook: docs/ENGINEERING.md.</p>
+
+<h2>8. Known limits</h2>
+<ul>
+<li>One newspaper; these are <b>reported</b> incidents, not all crime. Results are published without human review, so some errors reach the map (incident precision ≈ 0.8).</li>
+<li>The model still sometimes splits one event into several incidents (e.g. extortion + kidnapping + assault for one case); dates are the weakest field.</li>
+<li>Older days: Prothom Alo's daily lists have no titles, so past sports/business/world articles are not examined (a 48-hour audit found no Dhaka crime among them).</li>
+<li>Points without a named street sit at the neighbourhood or thana centre. Browser shows "Not secure" (self-signed LAN certificate) until Tailscale HTTPS is enabled.</li>
+</ul>
+
+<h2>9. Next steps</h2>
+<table>
+<tr><th>Item</th><th>Why</th><th>Effort</th></tr>
+<tr><td>Prompt and rule work against over-splitting and dates</td><td>largest remaining accuracy gap</td><td>days</td></tr>
+<tr><td>Second newspaper (Samakal) with per-source provenance</td><td>more coverage, cross-checking</td><td>1–2 weeks</td></tr>
+<tr><td>Any district on demand (national gazetteer ready)</td><td>user request</td><td>2–3 weeks</td></tr>
+<tr><td>Parallel model slots (3–4 at once)</td><td>~2× throughput for large backfills</td><td>hours</td></tr>
+<tr><td>Tailscale HTTPS, long admin token, then public release review</td><td>remove browser warning; go public safely</td><td>hours + admin</td></tr>
+</table>
+</section>
+</body>
+</html>
