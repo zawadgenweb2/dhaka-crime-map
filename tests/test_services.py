@@ -619,6 +619,11 @@ def test_coverage_marks_each_day(monkeypatch):
                 return []
             return [Candidate(u, "bangladesh/crime", published_at=when) for u in self.urls] + \
                    [Candidate("https://www.prothomalo.com/sports/cricket/zz", "sports/cricket", published_at=when)]
+
+        def article(self, url):
+            art = super().article(url)
+            art.published_at = when
+            return art
     site = DailySite(urls=(URL, URL + "b"))
     collect("test", days_back=3, client=site, max_articles=1)           # cap: one of two candidates downloaded
     from app.api import create_app
