@@ -16,7 +16,7 @@ from . import db
 from .config import settings
 from .gazetteer import Gazetteer, load as load_gazetteer
 from .scheduler import next_run, previous_slot
-from .scraper import DHAKA_TZ, Candidate, ProthomAloClient, is_candidate
+from .scraper import CRIME_SECTIONS, DHAKA_TZ, Candidate, ProthomAloClient, belongs_to_dhaka, is_candidate
 from .text import crime_signal
 
 log = logging.getLogger(__name__)
@@ -79,13 +79,19 @@ def collect(trigger: str, days_back: int = 1, client=None, gaz: Gazetteer | None
             art.published_at = art.published_at or cand.published_at
             art.keywords = art.keywords or cand.keywords
             text = f"{art.title}\n{art.keywords}\n{art.body}"
-            relevant = crime_signal(text) > 0 and gaz.mentions_dhaka(text)
+            # Stage 2 (full text). Entries that came without a title (daily sitemaps) get the title rule now.
+            title_ok = bool(cand.title) or cand.section in CRIME_SECTIONS or crime_signal(f"{art.title} {art.keywords}") > 0
+            in_dhaka = belongs_to_dhaka(cand.section, text, gaz)
+            relevant = title_ok and crime_signal(text) > 0 and in_dhaka
+            why = None if relevant else ("pre-filter: no crime word in the title" if not title_ok
+                                         else "pre-filter: no Dhaka district place in the text" if not in_dhaka
+                                         else "pre-filter: no crime word in the text")
             with db.tx() as c:
                 row = c.execute(
                     """INSERT INTO articles (url, section, title, keywords, body, published_at, status, note)
                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (url) DO NOTHING RETURNING id""",
                     (cand.url, art.section, art.title, art.keywords, art.body, art.published_at,
-                     "queued" if relevant else "skipped", None if relevant else "pre-filter: no Dhaka crime signal"),
+                     "queued" if relevant else "skipped", why),
                 ).fetchone()
                 if row and relevant:
                     c.execute("""INSERT INTO jobs (article_id, backend, run_id) VALUES (%s, %s, %s)

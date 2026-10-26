@@ -34,10 +34,10 @@ NS = {"s": "http://www.sitemaps.org/schemas/sitemap/0.9", "n": "http://www.googl
 
 # Sections that are almost always crime or Dhaka news
 CRIME_SECTIONS = {"bangladesh/crime", "bangladesh/capital"}
-# Sections never worth classifying
-SKIP_PREFIXES = ("video/", "photo/", "opinion/", "sports/", "entertainment/", "lifestyle/", "chakri/",
-                 "religion/", "education/", "technology/", "onnoalo/", "world/", "business/", "amp/",
-                 "feature/", "special-supplement/", "topic/", "author/")
+# Not articles (no text to read)
+NON_ARTICLE_PREFIXES = ("video/", "photo/", "amp/", "topic/", "author/")
+# Daily sitemaps list URLs without titles. In these sections the title is read after download (backfills).
+TITLE_AFTER_DOWNLOAD = {"bangladesh", "bangladesh/district", "politics"}
 MAX_BYTES = 8 * 1024 * 1024
 
 
@@ -102,18 +102,30 @@ def parse_daily_sitemap(xml: str) -> list[Candidate]:
 
 
 def is_candidate(c: Candidate, gaz: Gazetteer) -> bool:
-    """Cheap pre-filter: which sitemap entries are worth downloading."""
-    if c.section.startswith(SKIP_PREFIXES) or c.section in {"video", "photo"}:
+    """Stage 1, before download: is this sitemap entry worth downloading?
+
+    - crime and capital sections: always
+    - any other section (sports, business, district, ...): when the title or keywords contain a crime word.
+      Dhaka is NOT required in the title; the full text decides that after download (belongs_to_dhaka).
+    - no title known (daily-sitemap entry): only in TITLE_AFTER_DOWNLOAD sections; the title is checked after download
+    - videos, photo galleries and Prothom Alo's sister sites (other hosts): never"""
+    if (urlsplit(c.url).hostname or "").lower() not in ALLOWED_HOSTS:
+        return False
+    if c.section.startswith(NON_ARTICLE_PREFIXES) or c.section in {"video", "photo"}:
         return False
     if c.section in CRIME_SECTIONS:
         return True
     if not c.title and not c.keywords:
-        return False  # daily sitemap entry outside the crime/capital sections
-    meta = f"{c.title} {c.keywords}"
-    if c.section == "bangladesh/district":
-        # District news: only Dhaka-district places (Savar, Keraniganj, ...) count, not "ঢাকা বিভাগ"
-        return crime_signal(meta) > 0 and bool(gaz.find_all(meta))
-    return crime_signal(meta) > 0 and gaz.mentions_dhaka(meta)
+        return c.section in TITLE_AFTER_DOWNLOAD
+    return crime_signal(f"{c.title} {c.keywords}") > 0
+
+
+def belongs_to_dhaka(section: str, text: str, gaz: Gazetteer) -> bool:
+    """Stage 2, after download: does the full text place it in Dhaka district? District news must name a
+    Dhaka-district place (Savar, Keraniganj, ...): a bare "ঢাকা" there is usually "ঢাকা মেডিকেলে পাঠানো হয়"."""
+    if section == "bangladesh/district":
+        return bool(gaz.find_all(text))
+    return gaz.mentions_dhaka(text)
 
 
 def parse_article(page: str, url: str) -> Article:

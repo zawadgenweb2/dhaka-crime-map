@@ -81,9 +81,24 @@ def test_news_sitemap_and_prefilter():
     items = parse_news_sitemap(NEWS_XML)
     assert [c.section for c in items] == ["bangladesh/crime", "sports/cricket"]
     g = load()
-    assert is_candidate(items[0], g) and not is_candidate(items[1], g)
-    assert not is_candidate(Candidate("u", "bangladesh/district", "টঙ্গীতে শিশুকে নিপীড়ন", "গাজীপুর, টঙ্গী"), g)
-    assert is_candidate(Candidate("u", "bangladesh/district", "সাভারে ছিনতাই", "সাভার, ঢাকা বিভাগ"), g)
+    assert is_candidate(items[0], g) and not is_candidate(items[1], g)       # sports, no crime word in the title
+    P = "https://www.prothomalo.com/"
+    # a crime word in the title is enough, in any section; Dhaka is checked in the full text afterwards
+    assert is_candidate(Candidate(P + "bangladesh/district/a", "bangladesh/district", "স্ত্রীকে গলা টিপে হত্যা", ""), g)
+    assert is_candidate(Candidate(P + "sports/cricket/b", "sports/cricket", "ক্রিকেটার গ্রেপ্তার", ""), g)
+    assert not is_candidate(Candidate(P + "video/c", "video", "হত্যা", ""), g)
+    assert not is_candidate(Candidate("https://www.kishoralo.com/x/y", "https:", "হত্যা", ""), g)   # sister site
+    assert is_candidate(Candidate(P + "bangladesh/district/d", "bangladesh/district"), g)    # no title yet: read it
+    assert not is_candidate(Candidate(P + "sports/cricket/e", "sports/cricket"), g)
+
+
+def test_full_text_decides_dhaka():
+    from app.scraper import belongs_to_dhaka
+    g = load()
+    assert belongs_to_dhaka("bangladesh/district", "কেরানীগঞ্জে স্ত্রীকে হত্যার মামলায় রায়", g)
+    assert not belongs_to_dhaka("bangladesh/district", "চট্টগ্রাম নগরের বিবিরহাটে ছিনতাই, ঢাকা মেডিকেলে নেওয়া হয়", g)
+    assert not belongs_to_dhaka("bangladesh/district", "টঙ্গীতে শিশুকে নিপীড়ন, গাজীপুর", g)
+    assert belongs_to_dhaka("bangladesh", "রাজধানীতে ছিনতাই", g)
 
 
 def _client(handler):
