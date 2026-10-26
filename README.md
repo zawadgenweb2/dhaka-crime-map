@@ -11,8 +11,8 @@ where in **Dhaka district** it happened, and shows the result as a heat map with
   (robots.txt,        └─────┬──────┘  never calls a model; singleton via Postgres advisory lock
    1 req/s, ≤8 MB)          │ jobs (queue)
                       ┌─────▼──────┐  claim job with lease (FOR UPDATE SKIP LOCKED)
- in-house Gemma    ◄─┤ classifier │  record call → call model once → save full answer → geocode → incidents
- model server         └─────┬──────┘  daily budget; crash after sending ⇒ 'uncertain', never re-sent
+ in-house Gemma    ◄─┤ classifier │  record call → call model once → save full answer → incidents (published)
+ model server         └─────┬──────┘  2nd thread: exact-spot geocoding afterwards
                             │
  OSM Nominatim ◄────────────┤ shared geocoding lane: ≤ 4 requests/minute across all containers
                       ┌─────▼──────┐
@@ -65,9 +65,10 @@ docker compose logs -f collector classifier
 3. **Classify.** The model reads the full Bangla article and returns structured JSON (`app/schema.py`): whether it
    is a crime report inside Dhaka district, and per incident the category, verbatim location phrase, a place id
    from the catalogue, date, time of day, victims and a verbatim evidence quote.
-4. **Validate and locate.** Unknown place ids are re-matched locally; exact spots are geocoded and kept only within
-   2.5 km of the chosen place; dates after publication or before 2000 are dropped; an incident is **published**
-   only if its evidence quote is in the article and the article was judged a Dhaka crime report.
+4. **Validate and locate.** A place id outside the article's shortlist is dropped and the location phrase is matched
+   locally (only if that phrase is in the article); dates after publication or before 2000 are dropped; an incident is
+   **published at once** if its evidence quote is in the article and the article was judged a Dhaka crime report.
+   Exact spots are geocoded afterwards (Nominatim, 1 request / 15 s) and kept only within 2.5 km of the place.
 5. **Group duplicates.** Reports are the same event only with the same category, the same specific place, dates
    within a day and compatible time of day (so Mirpur 11 and Mirpur 12 stay separate).
 
@@ -77,8 +78,9 @@ right after another district's name ("কুষ্টিয়ার মির�
 ## Model
 
 The only model is **Gemma 4** served from the in-house GPU server (`genweb2inhouse`) by llama.cpp on 127.0.0.1:8090
-(OpenAI-compatible API with an API key); no external AI API is used. `CLASSIFIER=rules` is an offline keyword baseline
-for tests. Every model call is recorded in `llm_calls` and every answer saved in `analyses`. Model setup, evaluation and
+(OpenAI-compatible API with an API key); no external AI API is used. The map and API serve only incidents from a
+Gemma analysis; prototype-phase labels are kept solely as a frozen offline-evaluation reference. `rules` is a keyword
+baseline for tests and offline comparison; the live classifier refuses to start with it. Every model call is recorded in `llm_calls` and every answer saved in `analyses`. Model setup, evaluation and
 switching are described in `docs/ENGINEERING.md`.
 
 ## Map
