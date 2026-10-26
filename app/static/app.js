@@ -52,7 +52,9 @@
     },
   };
   const CAT_ORDER = ["murder", "assault", "robbery", "theft", "sexual_violence", "kidnapping", "drugs_arms", "fraud_extortion", "other"];
-  const HEAT = [[253, 224, 217], [249, 180, 163], [242, 132, 108], [227, 73, 72], [184, 40, 42], [127, 20, 22]];
+  // Transparent at the edge, deep red where incidents pile up: no hard-edged discs.
+  const HEAT = [[254, 229, 217, 0], [253, 208, 190, 90], [252, 174, 145, 140], [251, 136, 104, 175], [244, 96, 72, 205],
+    [222, 45, 38, 225], [180, 20, 30, 240], [127, 10, 18, 250]];
   const DHAKA = { lat: 23.785, lng: 90.395 };
 
   const $ = (s) => document.querySelector(s);
@@ -103,7 +105,7 @@
   function heatScale(pts) {
     const n = {};
     for (const p of pts) { const k = `${p.lat.toFixed(3)},${p.lng.toFixed(3)}`; n[k] = (n[k] || 0) + 1; }
-    return Math.max(3, Math.max(0, ...Object.values(n)) * 0.8);
+    return Math.max(2, Math.max(0, ...Object.values(n)));
   }
   // Blobs grow as you zoom in (half as fast as the map), so hotspots stay visible instead of shrinking to dots.
   const heatRadius = (zoom) => Math.max(30, Math.min(150, 42 * 2 ** ((zoom - 11.5) * 0.55)));
@@ -598,6 +600,11 @@
 
   async function main() {
     applyTheme(); setTab("map");
+    const hd = +new URLSearchParams(location.hash.slice(1)).get("d");
+    if ([7, 30, 90, 365].includes(hd)) {
+      state.days = hd;
+      document.querySelectorAll("#period button").forEach((x) => x.classList.toggle("on", +x.dataset.days === hd));
+    }
     await loadMeta();
     applyI18n(); wire();
     await initMap();
