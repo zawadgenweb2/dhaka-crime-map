@@ -231,3 +231,13 @@ input[type="date"], select {
 .trend .b.nc { background: repeating-linear-gradient(135deg, var(--line) 0 3px, transparent 3px 6px); height: 100% !important; opacity: .9; }
 .trend .b.proc { opacity: .5; }
 .trend .b.part { outline: 1px dashed var(--muted); outline-offset: -1px; opacity: .75; }
+
+/* zoom buttons */
+.zoomctl { position: absolute; right: 12px; top: 72px; z-index: 6; display: grid; background: var(--surface);
+  border-radius: 10px; box-shadow: var(--shadow); overflow: hidden; }
+.zoomctl button { width: 36px; height: 36px; border: 0; background: transparent; color: var(--ink); font-size: 20px;
+  line-height: 1; cursor: pointer; }
+.zoomctl button + button { border-top: 1px solid var(--line); }
+.zoomctl button:hover { background: var(--surface-2); }
+.zoomctl button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+#zoom-reset { font-size: 16px; }

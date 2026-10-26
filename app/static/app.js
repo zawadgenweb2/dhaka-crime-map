@@ -98,13 +98,26 @@
     return [d.lng + Math.cos(a) * r, d.lat + Math.sin(a) * r];
   }
 
+  // Heat scale: "how many incidents pile up in one place", fixed for the current data so the colours mean the
+  // same thing at every zoom (deck.gl's automatic scale is re-computed per view, which made the heat fade out).
+  function heatScale(pts) {
+    const n = {};
+    for (const p of pts) { const k = `${p.lat.toFixed(3)},${p.lng.toFixed(3)}`; n[k] = (n[k] || 0) + 1; }
+    return Math.max(3, Math.max(0, ...Object.values(n)) * 0.8);
+  }
+  // Blobs grow as you zoom in (half as fast as the map), so hotspots stay visible instead of shrinking to dots.
+  const heatRadius = (zoom) => Math.max(30, Math.min(150, 42 * 2 ** ((zoom - 11.5) * 0.55)));
+
   function layers() {
     const pts = state.incidents.filter((i) => i.lat != null);
     const out = [];
     if (state.mode !== "points") {
+      const zoom = engine?.zoom ? engine.zoom() : 12;
       out.push(new deck.HeatmapLayer({
-        id: "heat", data: pts, getPosition: (d) => [d.lng, d.lat], getWeight: (d) => 1 + Math.min(d.victims || 0, 5) * 0.25,
-        radiusPixels: 48, intensity: 1.1, threshold: 0.05, colorRange: HEAT, aggregation: "SUM",
+        id: "heat", data: pts, getPosition: (d) => [d.lng, d.lat], getWeight: 1,
+        radiusPixels: heatRadius(zoom), intensity: 1, threshold: 0.03, colorRange: HEAT, aggregation: "SUM",
+        colorDomain: [0, heatScale(pts)], debounceTimeout: 0,
+        updateTriggers: { radiusPixels: Math.round(zoom * 2) },
       }));
     }
     if (state.mode !== "heat") {
@@ -160,7 +173,8 @@
     await loadGoogle(key);
     const { Map } = await google.maps.importLibrary("maps");
     const opts = {
-      center: DHAKA, zoom: 12, minZoom: 9, mapTypeControl: false, streetViewControl: false, fullscreenControl: false,
+      center: startView().center, zoom: startView().zoom, minZoom: 9, maxZoom: 18, mapTypeControl: false,
+      streetViewControl: false, fullscreenControl: false, zoomControl: false,
       clickableIcons: false, gestureHandling: "greedy", backgroundColor: isDark() ? "#1a1a19" : "#f2f1ed",
     };
     if (mapId) { opts.mapId = mapId; opts.colorScheme = isDark() ? "DARK" : "LIGHT"; } else { opts.styles = isDark() ? MAP_STYLE_DARK : MAP_STYLE_LIGHT; }
@@ -168,9 +182,14 @@
     const overlay = new deck.GoogleMapsOverlay({ interleaved: Boolean(mapId), layers: [] });
     overlay.setMap(map);
     map.addListener("click", () => {});
+    let lastZoom = map.getZoom();
+    map.addListener("zoom_changed", () => { if (Math.abs(map.getZoom() - lastZoom) >= 0.5) { lastZoom = map.getZoom(); engine?.render(); } });
     return {
       name: "google",
       render() { overlay.setProps({ layers: layers() }); },
+      zoom() { return map.getZoom() || 12; },
+      zoomBy(dz) { map.setZoom(Math.max(9, Math.min(18, (map.getZoom() || 12) + dz))); },
+      reset() { map.panTo(DHAKA); map.setZoom(12); },
       flyTo(lat, lng, zoom) { map.panTo({ lat, lng }); if (zoom) map.setZoom(zoom); },
       fitTo(b) {
         if (b.single) { this.flyTo(b.lat, b.lng, 15); return; }
@@ -194,11 +213,17 @@
         });
       },
     });
-    let view = { longitude: DHAKA.lng, latitude: DHAKA.lat, zoom: 11.2, pitch: 0, bearing: 0 };
+    const sv = startView();
+    let view = { longitude: sv.center.lng, latitude: sv.center.lat, zoom: sv.zoom, pitch: 0, bearing: 0, minZoom: 9, maxZoom: 18 };
+    let heatZoom = Math.round(view.zoom * 2);
     const d = new deck.Deck({
       parent: $("#map"), initialViewState: view, controller: true, layers: [],
-      onViewStateChange: ({ viewState }) => { view = viewState; },
+      onViewStateChange: ({ viewState }) => {
+        view = viewState;
+        if (Math.round(view.zoom * 2) !== heatZoom) { heatZoom = Math.round(view.zoom * 2); engine?.render(); }
+      },
     });
+    const goTo = (v) => d.setProps({ initialViewState: { ...view, ...v, transitionDuration: 300, transitionInterpolator: new deck.FlyToInterpolator() } });
     const attribution = el("div", { class: "muted", style: "position:absolute;right:6px;bottom:4px;z-index:4;font-size:11px;background:var(--surface);padding:0 6px;border-radius:4px" },
       "© OpenStreetMap contributors");
     $("#map").append(attribution);
@@ -206,6 +231,9 @@
     return {
       name: "tiles",
       render() { d.setProps({ layers: [baseLayer, ...layers()] }); },
+      zoom() { return view.zoom; },
+      zoomBy(dz) { goTo({ zoom: Math.max(9, Math.min(18, view.zoom + dz)) }); },
+      reset() { goTo({ latitude: DHAKA.lat, longitude: DHAKA.lng, zoom: 11.2 }); },
       flyTo(lat, lng, zoom) {
         d.setProps({ initialViewState: { ...view, latitude: lat, longitude: lng, zoom: zoom || view.zoom, transitionDuration: 700, transitionInterpolator: new deck.FlyToInterpolator() } });
       },
@@ -219,6 +247,14 @@
       theme() { baseLayer = base(); this.render(); },
       destroy() { d.finalize(); fill($("#map"), ); },
     };
+  }
+
+  // Optional start view from the address: #z=15&ll=23.80,90.35 (shareable views; also used for testing)
+  function startView() {
+    const h = new URLSearchParams(location.hash.slice(1));
+    const z = parseFloat(h.get("z")), ll = (h.get("ll") || "").split(",").map(Number);
+    return { zoom: z >= 9 && z <= 18 ? z : 11.2,
+             center: ll.length === 2 && ll.every((x) => Number.isFinite(x)) ? { lat: ll[0], lng: ll[1] } : DHAKA };
   }
 
   function note(msg) { const n = $("#map-note"); n.textContent = msg; n.hidden = !msg; if (msg) setTimeout(() => (n.hidden = true), 9000); }
@@ -517,6 +553,9 @@
       state.mode = b.dataset.mode; document.querySelectorAll("#mode button").forEach((x) => x.classList.toggle("on", x === b));
       renderLegend(); engine?.render();
     }));
+    $("#zoom-in").addEventListener("click", () => engine?.zoomBy(1));
+    $("#zoom-out").addEventListener("click", () => engine?.zoomBy(-1));
+    $("#zoom-reset").addEventListener("click", () => engine?.reset());
     $("#lang-btn").addEventListener("click", () => { state.lang = state.lang === "bn" ? "en" : "bn"; store.set("dcm.lang", state.lang); applyI18n(); renderAll(); });
     $("#theme-btn").addEventListener("click", () => {
       state.theme = isDark() ? "light" : "dark"; store.set("dcm.theme", state.theme); applyTheme(); engine?.theme(); renderAll();
