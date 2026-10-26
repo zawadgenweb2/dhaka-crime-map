@@ -52,9 +52,9 @@
     },
   };
   const CAT_ORDER = ["murder", "assault", "robbery", "theft", "sexual_violence", "kidnapping", "drugs_arms", "fraud_extortion", "other"];
-  // Transparent at the edge, deep red where incidents pile up: no hard-edged discs.
-  const HEAT = [[254, 229, 217, 0], [253, 208, 190, 90], [252, 174, 145, 140], [251, 136, 104, 175], [244, 96, 72, 205],
-    [222, 45, 38, 225], [180, 20, 30, 240], [127, 10, 18, 250]];
+  // Light pink where there are few incidents, deep red where there are many (the busiest area is the darkest).
+  const HEAT = [[254, 224, 210, 0], [253, 200, 175, 135], [252, 160, 130, 175], [249, 120, 90, 200], [235, 75, 55, 218],
+    [205, 35, 35, 232], [160, 15, 25, 244], [110, 5, 15, 252]];
   const DHAKA = { lat: 23.785, lng: 90.395 };
 
   const $ = (s) => document.querySelector(s);
@@ -100,27 +100,18 @@
     return [d.lng + Math.cos(a) * r, d.lat + Math.sin(a) * r];
   }
 
-  // Many incidents at one spot (e.g. 14 follow-up reports of one event at a thana centre) would make every other
-  // area invisible next to them; each incident counts 1/sqrt(n) where n share its spot, so the pile counts sqrt(n).
-  function heatWeights(pts) {
-    const key = (p) => `${p.lat.toFixed(3)},${p.lng.toFixed(3)}`;
-    const n = {};
-    for (const p of pts) n[key(p)] = (n[key(p)] || 0) + 1;
-    return new Map(pts.map((p) => [p.id, 1 / Math.sqrt(n[key(p)])]));
-  }
   // Blobs grow as you zoom in (half as fast as the map), so hotspots stay visible instead of shrinking to dots.
-  const heatRadius = (zoom) => Math.max(30, Math.min(150, 42 * 2 ** ((zoom - 11.5) * 0.55)));
+  const heatRadius = (zoom) => Math.max(40, Math.min(170, 55 * 2 ** ((zoom - 11.5) * 0.5)));
 
   function layers() {
     const pts = state.incidents.filter((i) => i.lat != null);
     const out = [];
     if (state.mode !== "points") {
       const zoom = engine?.zoom ? engine.zoom() : 12;
-      const w = heatWeights(pts);
+      // Each incident counts 1; colours follow the view, so the area with the most incidents is always the darkest.
       out.push(new deck.HeatmapLayer({
-        id: "heat", data: pts, getPosition: (d) => [d.lng, d.lat], getWeight: (d) => w.get(d.id),
-        radiusPixels: heatRadius(zoom), intensity: 1.2, threshold: 0.02, colorRange: HEAT, aggregation: "SUM",
-        updateTriggers: { getWeight: state.incidents.length },
+        id: "heat", data: pts, getPosition: (d) => [d.lng, d.lat], getWeight: 1,
+        radiusPixels: heatRadius(zoom), intensity: 1, threshold: 0.03, colorRange: HEAT, aggregation: "SUM",
       }));
     }
     if (state.mode !== "heat") {
