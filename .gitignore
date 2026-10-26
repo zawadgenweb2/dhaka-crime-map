@@ -25,3 +25,7 @@ data/*.sqlite*
 *.swp
 .DS_Store
 deploy/tls/
+
+# Database dumps and evaluation output contain real data: never commit them
+*.dump
+data/eval/
