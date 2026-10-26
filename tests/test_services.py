@@ -556,3 +556,35 @@ def test_backfill_request_cap_and_batch_membership(monkeypatch):
     run = q1("SELECT id, days_back, discovered FROM runs")
     assert run["days_back"] == 90 and run["discovered"] == 1
     assert q1("SELECT run_id FROM jobs")["run_id"] == run["id"]
+
+
+def test_try_an_article_answers_without_saving(monkeypatch):
+    import dataclasses
+    import threading
+    import time
+    import app.api as api_mod
+    monkeypatch.setattr(api_mod, "settings", dataclasses.replace(api_mod.settings, admin_token="t" * 24))
+    api = TestClient(api_mod.create_app())
+    body = {"title": "পিস্তলসহ গ্রেপ্তার", "published_at": "2026-10-24T20:00:00+06:00",
+            "body": "রাজধানীর মিরপুর ১১ নম্বর মেট্রোরেল স্টেশনের নিচে পিস্তলসহ একজনকে গ্রেপ্তার করা হয়েছে।"}
+    assert api.post("/api/classify", json=body).status_code == 401           # uses the GPU: token required
+    w, stop = Worker(classifier=FakeClassifier(), use_geocoder=False), threading.Event()
+
+    def loop():
+        while not stop.is_set():
+            if not w.run_preview():
+                time.sleep(0.05)
+    t = threading.Thread(target=loop, daemon=True)
+    t.start()
+    try:
+        r = api.post("/api/classify", json=body, params={"wait": 10}, headers={"x-admin-token": "t" * 24})
+    finally:
+        stop.set()
+    assert r.status_code == 200, r.text
+    out = r.json()
+    assert out["status"] == "done" and out["saved"] is False and "mirpur11" in out["place_candidates_sent"]
+    inc = out["after_checks"][0]
+    assert inc["place_id"] == "mirpur11" and inc["thana"].endswith("Pallabi") and inc["evidence_in_article"]
+    assert inc["would_be_published"] and out["gemma_answer"]["incidents"][0]["category"] == "drugs_arms"
+    assert q1("SELECT count(*) n FROM articles")["n"] == 0 and q1("SELECT count(*) n FROM incidents")["n"] == 0
+    assert api.get(f"/api/classify/{out['id']}", headers={"x-admin-token": "t" * 24}).json()["status"] == "done"

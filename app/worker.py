@@ -27,7 +27,7 @@ from .config import settings
 from .gazetteer import Gazetteer, load as load_gazetteer
 from .schema import ArticleAnalysis
 from .scraper import Article
-from .store import enrich_next, materialize
+from .store import build_rows, enrich_next, materialize
 
 log = logging.getLogger(__name__)
 MAX_MATERIALIZE_ATTEMPTS = 3
@@ -185,6 +185,25 @@ class Worker:
                           0 if done else 2)
             return "failed" if done else "retry"
 
+    # ---- "try an article" previews (POST /api/classify) -------------------------------------
+    def run_preview(self) -> bool:
+        """Answer one pasted article. Nothing is written to articles, analyses or incidents."""
+        with db.tx() as c:
+            p = c.execute("""UPDATE previews SET status = 'running', started_at = now()
+                             WHERE id = (SELECT id FROM previews WHERE status = 'queued' ORDER BY id
+                                         FOR UPDATE SKIP LOCKED LIMIT 1)
+                             RETURNING id, input""").fetchone()
+        if p is None:
+            return False
+        try:
+            result, status, error = preview_result(self.classifier, p["input"], self.gaz), "done", None
+        except Exception as e:
+            result, status, error = None, "failed", f"{type(e).__name__}: {e}"[:500]
+        with db.tx() as c:
+            c.execute("UPDATE previews SET status = %s, result = %s, error = %s, finished_at = now() WHERE id = %s",
+                      (status, Jsonb(result) if result is not None else None, error, p["id"]))
+        return True
+
     # ---- service loop ------------------------------------------------------------------------
     def run_once(self) -> str | None:
         job = self.claim()
@@ -208,8 +227,10 @@ class Worker:
                 self.stop.wait(15)
                 continue
             try:
+                if self.run_preview():      # someone is waiting in Swagger: answer first
+                    continue
                 if self.run_once() is None:
-                    self.stop.wait(5)
+                    self.stop.wait(2)
             except Exception:
                 log.exception("worker iteration failed")
                 self.stop.wait(10)
@@ -246,6 +267,11 @@ class Worker:
                 try:
                     if n := self.recover_expired():
                         log.warning("recovered %d expired jobs", n)
+                    with db.tx() as c:  # previews: give up on stuck ones, keep a week of history
+                        c.execute("""UPDATE previews SET status = 'failed', error = 'worker stopped',
+                                     finished_at = now() WHERE status = 'running'
+                                     AND started_at < now() - interval '10 minutes'""")
+                        c.execute("DELETE FROM previews WHERE created_at < now() - interval '7 days'")
                     with db.connect() as c:
                         q = {r["state"]: r["n"] for r in
                              c.execute("SELECT state, count(*) AS n FROM jobs GROUP BY state")}
@@ -256,3 +282,37 @@ class Worker:
             self.stop.wait(5)
         for t in threads:
             t.join(timeout=30)
+
+
+def preview_result(classifier: Classifier, inp: dict, gaz: Gazetteer) -> dict:
+    """What the pipeline would do with one pasted article: Gemma's raw answer, then the same automatic checks."""
+    from datetime import datetime
+    from .classifiers.base import candidate_places
+    from .scraper import DHAKA_TZ
+    pub = datetime.fromisoformat(inp["published_at"]) if inp.get("published_at") else datetime.now(DHAKA_TZ)
+    if pub.tzinfo is None:
+        pub = pub.replace(tzinfo=DHAKA_TZ)
+    art = Article(url=inp.get("url") or "preview", section=inp.get("section") or "", title=inp["title"],
+                  body=inp["body"], published_at=pub, keywords=inp.get("keywords") or "")
+    started = time.monotonic()
+    analysis, meta = classifier.classify_with_meta(art)
+    row = {"id": 0, "title": art.title, "body": art.body, "keywords": art.keywords, "published_at": pub,
+           "fetched_at": pub}
+    checked = []
+    for r in build_rows(row, analysis, gaz, {}, settings.publish_mode):
+        place, thana = gaz.get(r["place_id"]), gaz.get(r["thana_id"])
+        checked.append({
+            "category": r["category"], "headline_en": r["headline_en"], "location_text": r["location_text"],
+            "place_id": r["place_id"], "place": f"{place.name_bn} / {place.name_en}" if place else None,
+            "thana": f"{thana.name_bn} / {thana.name_en}" if thana else None, "lat": r["lat"], "lng": r["lng"],
+            "precision": r["precision"], "incident_date": r["incident_date"].isoformat() if r["incident_date"] else None,
+            "time_of_day": r["time_of_day"], "victims": r["victims"], "evidence_in_article": r["evidence_ok"],
+            "would_be_published": r["published"], "exact_spot_lookup": r["geocode_query"]})
+    return {
+        "classifier": classifier.name, "model": meta.get("model"), "seconds": round(time.monotonic() - started, 2),
+        "tokens": {"input": meta.get("input_tokens"), "output": meta.get("output_tokens")},
+        "place_candidates_sent": [p.id for p in candidate_places(art)],
+        "gemma_answer": analysis.model_dump(),
+        "after_checks": checked,
+        "saved": False,
+    }

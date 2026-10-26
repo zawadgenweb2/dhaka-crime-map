@@ -3,13 +3,16 @@ from __future__ import annotations
 
 import hmac
 import logging
+import time
 from datetime import date, datetime, timedelta, timezone
 from urllib.parse import urlsplit
 
 import psycopg
 from fastapi import FastAPI, HTTPException, Query, Request, Response, Security
 from fastapi.security import APIKeyHeader
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
+from psycopg.types.json import Jsonb
+from pydantic import BaseModel, Field
 from fastapi.staticfiles import StaticFiles
 
 from . import db
@@ -25,6 +28,22 @@ MIN_DATE, MAX_DATE = date(2000, 1, 1), date(2100, 1, 1)
 UI_HEADER = "x-dcm-ui"
 # Declared in OpenAPI so Swagger's "Authorize" button can send it.
 ADMIN_KEY = APIKeyHeader(name="X-Admin-Token", auto_error=False, description="Team admin token (from the server .env)")
+
+
+class ArticleIn(BaseModel):
+    """A Prothom Alo-style article to try. Nothing is saved."""
+    title: str = Field(min_length=1, max_length=500, examples=["ব্যবসায়ীকে আটকে ১০ লাখ টাকা চাঁদা দাবি, গ্রেপ্তার ৬"])
+    body: str = Field(min_length=20, max_length=30000,
+                      examples=["রাজধানীর মোহাম্মদপুরের চন্দ্রিমা মডেল টাউনের একটি বাসায় এক ব্যবসায়ীকে আটকে রেখে ১০ লাখ টাকা "
+                                "চাঁদা দাবির অভিযোগে ছয়জনকে গ্রেপ্তার করেছে পুলিশ। গত শুক্রবার রাতে এ ঘটনা ঘটে।"])
+    published_at: datetime | None = Field(None, description="When it was published; default now (Asia/Dhaka). "
+                                                             "Used to resolve 'গতকাল', weekday names, etc.")
+    section: str = Field("bangladesh/crime", max_length=100)
+    keywords: str = Field("", max_length=1000)
+    url: str | None = Field(None, max_length=500, description="Optional, for your own reference")
+
+
+MAX_WAITING_PREVIEWS = 5
 
 
 def _filters(start: str | None, end: str | None, days: int | None, categories: str | None,
@@ -251,6 +270,44 @@ def create_app() -> FastAPI:
         return {"counts": counts, "items": items, "stuck_articles": stuck,
                 "places": [{"id": p.id, "name_bn": p.name_bn, "name_en": p.name_en} for p in gaz.places],
                 "categories": [{"key": k, **v} for k, v in CATEGORIES.items()]}
+
+    # ---- try an article (admin token: it uses the GPU) ----------------------------------------
+    @app.post("/api/classify", tags=["try"], summary="Try an article: Gemma's answer and the automatic checks")
+    def classify_preview(item: ArticleIn, request: Request, wait: int = Query(120, ge=5, le=300),
+                         token: str | None = Security(ADMIN_KEY)):
+        """Paste a title and body; returns the place shortlist sent to Gemma, Gemma's raw JSON answer, and each
+        incident after the same automatic checks the pipeline uses (place, thana, date, evidence quote, whether it
+        would be published). **Nothing is saved.** If the model takes longer than `wait` seconds, the answer is 202
+        with an id to fetch from `GET /api/classify/{id}`."""
+        who = _reviewer(request, token)
+        with db.tx() as c:
+            waiting = c.execute("SELECT count(*) n FROM previews WHERE status IN ('queued','running')").fetchone()["n"]
+            if waiting >= MAX_WAITING_PREVIEWS:
+                raise HTTPException(429, "too many previews waiting; try again in a minute")
+            pid = c.execute("INSERT INTO previews (input, requested_by) VALUES (%s, %s) RETURNING id",
+                            (Jsonb(item.model_dump(mode="json")), who)).fetchone()["id"]
+        deadline = time.monotonic() + wait
+        while time.monotonic() < deadline:
+            time.sleep(0.5)
+            out = _preview(pid)
+            if out["status"] in ("done", "failed"):
+                if out["status"] == "failed":
+                    raise HTTPException(502, f"model call failed: {out['error']}")
+                return out
+        return JSONResponse(_preview(pid), status_code=202)
+
+    @app.get("/api/classify/{preview_id}", tags=["try"], summary="Result of an earlier try")
+    def classify_preview_result(preview_id: int, request: Request, token: str | None = Security(ADMIN_KEY)):
+        _reviewer(request, token)
+        return _preview(preview_id)
+
+    def _preview(pid: int) -> dict:
+        with db.connect() as c:
+            row = c.execute("SELECT id, status, result, error, created_at, finished_at FROM previews WHERE id = %s",
+                            (pid,)).fetchone()
+        if row is None:
+            raise HTTPException(404, "preview not found")
+        return {"id": row["id"], "status": row["status"], "error": row["error"], **(row["result"] or {})}
 
     @app.post("/api/review/incidents/{incident_id}")
     def review_incident(incident_id: int, request: Request, payload: dict, token: str | None = Security(ADMIN_KEY)):
