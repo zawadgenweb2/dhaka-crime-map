@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hmac
+import json
 import logging
 import time
 from datetime import date, datetime, timedelta, timezone
@@ -10,7 +11,8 @@ from urllib.parse import urlsplit
 import psycopg
 from fastapi import FastAPI, HTTPException, Query, Request, Response, Security
 from fastapi.security import APIKeyHeader
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.openapi.docs import get_swagger_ui_html
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from psycopg.types.json import Jsonb
 from pydantic import BaseModel, Field
 from fastapi.staticfiles import StaticFiles
@@ -94,8 +96,20 @@ def _iso(v):
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="Dhaka Crime Map", version="0.2.0")
+    app = FastAPI(title="Dhaka Crime Map", version="0.2.0", docs_url=None)
     app.mount("/static", StaticFiles(directory=STATIC), name="static")
+
+    @app.get("/docs", include_in_schema=False)
+    def swagger():
+        """Swagger UI. The token, once entered, survives page reloads; with SWAGGER_PREAUTHORIZE it is pre-filled."""
+        page = get_swagger_ui_html(openapi_url=app.openapi_url, title="Dhaka Crime Map — API",
+                                   swagger_ui_parameters={"persistAuthorization": True})
+        if not (settings.swagger_preauthorize and settings.admin_token):
+            return page
+        script = ("<script>const dcmAuth = setInterval(() => { if (typeof ui !== 'undefined' && ui.preauthorizeApiKey) {"
+                  f" ui.preauthorizeApiKey('APIKeyHeader', {json.dumps(settings.admin_token)}); clearInterval(dcmAuth); }}"
+                  " }, 200);</script>")
+        return HTMLResponse(page.body.decode().replace("</body>", script + "</body>"))
 
     @app.get("/", include_in_schema=False)
     def index():

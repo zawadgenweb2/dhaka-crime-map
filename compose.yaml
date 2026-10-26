@@ -54,6 +54,7 @@ services:
       GOOGLE_MAPS_MAP_ID: ${GOOGLE_MAPS_MAP_ID:-}
       ALLOW_UI_TRIGGER: ${ALLOW_UI_TRIGGER:-true}
       ADMIN_TOKEN: ${ADMIN_TOKEN:-}
+      SWAGGER_PREAUTHORIZE: ${SWAGGER_PREAUTHORIZE:-false}
     ports:
       - "127.0.0.1:${PORT:-8100}:8100"   # loopback only
     healthcheck:

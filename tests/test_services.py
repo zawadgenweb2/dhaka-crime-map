@@ -588,3 +588,15 @@ def test_try_an_article_answers_without_saving(monkeypatch):
     assert inc["would_be_published"] and out["gemma_answer"]["incidents"][0]["category"] == "drugs_arms"
     assert q1("SELECT count(*) n FROM articles")["n"] == 0 and q1("SELECT count(*) n FROM incidents")["n"] == 0
     assert api.get(f"/api/classify/{out['id']}", headers={"x-admin-token": "t" * 24}).json()["status"] == "done"
+
+
+def test_swagger_preauthorize_only_when_enabled(monkeypatch):
+    import dataclasses
+    import app.api as api_mod
+    on = dataclasses.replace(api_mod.settings, admin_token="t" * 24, swagger_preauthorize=True)
+    monkeypatch.setattr(api_mod, "settings", on)
+    page = TestClient(api_mod.create_app()).get("/docs").text
+    assert "preauthorizeApiKey('APIKeyHeader', \"" + "t" * 24 in page and "persistAuthorization" in page
+    monkeypatch.setattr(api_mod, "settings", dataclasses.replace(on, swagger_preauthorize=False))
+    page = TestClient(api_mod.create_app()).get("/docs").text
+    assert "preauthorizeApiKey" not in page and "t" * 24 not in page

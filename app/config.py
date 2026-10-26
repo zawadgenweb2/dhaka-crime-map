@@ -56,6 +56,9 @@ class Settings:
     # "Collect now": dashboard button (same-origin + custom header) and/or X-Admin-Token for scripts
     allow_ui_trigger: bool = _bool("ALLOW_UI_TRIGGER", True)
     admin_token: str = os.getenv("ADMIN_TOKEN", "")
+    # In-house convenience: /docs (Swagger) comes already authorized with ADMIN_TOKEN. Anyone who can open /docs
+    # then has admin rights, so turn this off before the site is reachable from outside the office network.
+    swagger_preauthorize: bool = _bool("SWAGGER_PREAUTHORIZE", False)
 
 
 settings = Settings()
