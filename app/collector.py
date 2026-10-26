@@ -70,7 +70,11 @@ def record_coverage(by_day: dict, gaz: Gazetteer, run_id: int) -> None:
 
 def collect(trigger: str, days_back: int = 1, client=None, gaz: Gazetteer | None = None,
             max_articles: int | None = None, progress: Callable[[str], None] | None = None) -> dict:
-    """One scrape: discover → filter → fetch → store article → queue a classification job."""
+    """One scrape: discover → filter → fetch → store article → queue a classification job.
+
+    Window: Asia/Dhaka publication dates from today minus `days_back` to today (the dashboard's "N days" view is
+    days_back = N - 1). Daily sitemaps list updated old articles too; anything published before the window is
+    stored as skipped ('outside the window') and not sent to Gemma."""
     progress = progress or log.info
     client = client or ProthomAloClient()
     gaz = gaz or load_gazetteer()
@@ -106,13 +110,17 @@ def collect(trigger: str, days_back: int = 1, client=None, gaz: Gazetteer | None
                 continue
             stats["fetched"] += 1
             art.published_at = art.published_at or cand.published_at
+            window_start = datetime.now(DHAKA_TZ).date() - timedelta(days=days_back)
+            outside = bool(art.published_at) and art.published_at.astimezone(DHAKA_TZ).date() < window_start
             art.keywords = art.keywords or cand.keywords
             text = f"{art.title}\n{art.keywords}\n{art.body}"
             # Stage 2 (full text). Entries that came without a title (daily sitemaps) get the title rule now.
-            title_ok = bool(cand.title) or cand.section in CRIME_SECTIONS or crime_signal(f"{art.title} {art.keywords}") > 0
+            title_ok = (cand.section in CRIME_SECTIONS or crime_signal(f"{cand.title} {cand.keywords}") > 0
+                        or crime_signal(f"{art.title} {art.keywords}") > 0)
             in_dhaka = belongs_to_dhaka(cand.section, text, gaz)
-            relevant = title_ok and crime_signal(text) > 0 and in_dhaka
-            why = None if relevant else ("pre-filter: no crime word in the title" if not title_ok
+            relevant = not outside and title_ok and crime_signal(text) > 0 and in_dhaka
+            why = None if relevant else ("outside the window" if outside
+                                         else "pre-filter: no crime word in the title" if not title_ok
                                          else "pre-filter: no Dhaka district place in the text" if not in_dhaka
                                          else "pre-filter: no crime word in the text")
             with db.tx() as c:

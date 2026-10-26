@@ -35,7 +35,7 @@ NS = {"s": "http://www.sitemaps.org/schemas/sitemap/0.9", "n": "http://www.googl
 # Sections that are almost always crime or Dhaka news
 CRIME_SECTIONS = {"bangladesh/crime", "bangladesh/capital"}
 # Not articles (no text to read)
-NON_ARTICLE_PREFIXES = ("video/", "photo/", "amp/", "topic/", "author/")
+NON_ARTICLE_SECTIONS = {"video", "photo", "amp", "topic", "author", "https:", "http:"}
 # Daily sitemaps list URLs without titles. In these sections the title is read after download (backfills).
 TITLE_AFTER_DOWNLOAD = {"bangladesh", "bangladesh/district", "politics"}
 MAX_BYTES = 8 * 1024 * 1024
@@ -111,7 +111,7 @@ def is_candidate(c: Candidate, gaz: Gazetteer) -> bool:
     - videos, photo galleries and Prothom Alo's sister sites (other hosts): never"""
     if (urlsplit(c.url).hostname or "").lower() not in ALLOWED_HOSTS:
         return False
-    if c.section.startswith(NON_ARTICLE_PREFIXES) or c.section in {"video", "photo"}:
+    if c.section.split("/")[0] in NON_ARTICLE_SECTIONS:
         return False
     if c.section in CRIME_SECTIONS:
         return True
@@ -120,8 +120,6 @@ def is_candidate(c: Candidate, gaz: Gazetteer) -> bool:
     return crime_signal(f"{c.title} {c.keywords}") > 0
 
 
-# Victims from anywhere are taken to Dhaka Medical: naming it says nothing about where the crime happened.
-REFERRAL_PLACES = {"dmch"}
 # Words that place a story in the capital. A bare "ঢাকা" is not enough outside the crime/capital sections
 # ("ঢাকা বিভাগ", "ঢাকায় পাঠানো হয়").
 CAPITAL_TERMS = [normalize(t) for t in ("রাজধানী", "ডিএমপি", "ঢাকা মহানগর")]
@@ -133,7 +131,7 @@ def belongs_to_dhaka(section: str, text: str, gaz: Gazetteer) -> bool:
     referral hospital) or, outside district news, an explicit capital term. Gemma makes the final call."""
     if section in CRIME_SECTIONS:
         return gaz.mentions_dhaka(text)
-    if any(p.id not in REFERRAL_PLACES for p in gaz.find_all(text)):
+    if gaz.grounded_places(text):
         return True
     if section == "bangladesh/district":
         return False
@@ -267,10 +265,7 @@ class ProthomAloClient:
                 raise FetchBlocked(f"host not allowed: {url}")
             if not self.allowed(url):
                 raise FetchBlocked(f"robots.txt disallows {url}")
-            wait = self.delay - (time.monotonic() - self._last)
-            if wait > 0:
-                time.sleep(wait)
-            self._last = time.monotonic()
+            self._pace()
             r = self._download(url, MAX_BYTES)
             if r.is_redirect:
                 url = urljoin(url, r.headers.get("location", ""))
@@ -278,6 +273,13 @@ class ProthomAloClient:
             r.raise_for_status()
             return r.text
         raise FetchBlocked(f"too many redirects: {url}")
+
+    def _pace(self):
+        """One request per second to the publisher, robots.txt included."""
+        wait = self.delay - (time.monotonic() - self._last)
+        if wait > 0:
+            time.sleep(wait)
+        self._last = time.monotonic()
 
     def allowed(self, url: str) -> bool:
         """RFC 9309: follow up to 5 same-site redirects; 4xx = no restrictions; 5xx, unreachable or a redirect loop
@@ -289,6 +291,7 @@ class ProthomAloClient:
                 for _ in range(6):
                     if (urlsplit(target).hostname or "").lower() not in ALLOWED_HOSTS:
                         break
+                    self._pace()
                     r = self._download(target, MAX_ROBOTS_BYTES)
                     if r.is_redirect:
                         target = urljoin(target, r.headers.get("location", ""))

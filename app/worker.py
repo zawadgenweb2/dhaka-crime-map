@@ -307,6 +307,7 @@ def preview_result(classifier: Classifier, inp: dict, gaz: Gazetteer) -> dict:
             "thana": f"{thana.name_bn} / {thana.name_en}" if thana else None, "lat": r["lat"], "lng": r["lng"],
             "precision": r["precision"], "incident_date": r["incident_date"].isoformat() if r["incident_date"] else None,
             "time_of_day": r["time_of_day"], "victims": r["victims"], "evidence_in_article": r["evidence_ok"],
+            "place_named_in_article": r["located_in_dhaka"],
             "would_be_published": r["published"], "exact_spot_lookup": r["geocode_query"]})
     return {
         "classifier": classifier.name, "model": meta.get("model"), "seconds": round(time.monotonic() - started, 2),

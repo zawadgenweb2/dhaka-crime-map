@@ -120,6 +120,8 @@ def build_rows(article: dict, analysis: ArticleAnalysis, gaz: Gazetteer,
     if not consistent:
         return rows
     source = f"{article['title'] or ''}\n{article.get('keywords') or ''}\n{article['body'] or ''}"
+    grounded = gaz.grounded_places(source)                   # Dhaka places the article really names
+    elsewhere = gaz.lead_in_other_district(article["body"] or "")
     seen = set()
     for inc in analysis.incidents:
         if inc.category not in CATEGORIES:
@@ -130,14 +132,19 @@ def build_rows(article: dict, analysis: ArticleAnalysis, gaz: Gazetteer,
         seen.add(same)
         loc = locate(inc, gaz, geocoded, source)
         inc_date = clean_incident_date(inc.incident_date, upper)
-        ok = evidence_ok(inc.evidence, article["title"] or "", article["body"] or "")
+        quoted = evidence_ok(inc.evidence, article["title"] or "", article["body"] or "")
+        # Auto-publishing also needs a located incident whose place (or its thana) the article itself names, and a
+        # lead that does not put the story in another district. Gemma's in_dhaka alone is not enough.
+        in_dhaka = bool(loc["place_id"]) and (loc["place_id"] in grounded or loc["thana_id"] in grounded) \
+            and not elsewhere
+        ok = quoted and in_dhaka
         rows.append({
             **loc, "category": inc.category, "headline_bn": inc.headline_bn, "headline_en": inc.headline_en,
             "location_text": inc.location_text, "incident_date": inc_date, "event_date": inc_date or pub_day or fetched_day or upper,
             "time_of_day": inc.time_of_day, "victims": max(0, inc.victims), "evidence": inc.evidence,
             # passes = automatic checks OK. Published now only in auto mode; review mode waits for a human.
-            # Unlocated (city-level) incidents are still published: listed, counted, but not mapped.
-            "evidence_ok": ok, "passes": ok, "published": ok and publish_mode == "auto",
+            "evidence_ok": quoted, "located_in_dhaka": in_dhaka, "passes": ok,
+            "published": ok and publish_mode == "auto",
             "review_status": ("auto" if publish_mode == "auto" else "pending") if ok else "failed",
             "geocode_query": inc.geocode_query if inc.geocode_query and loc["place_id"] else None,
             "geocode_state": "todo" if inc.geocode_query and loc["place_id"] and not loc["geocoded"] else "none",

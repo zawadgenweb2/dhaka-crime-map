@@ -32,6 +32,24 @@ def _other_district(word: str) -> bool:
     return word in OTHER_DISTRICTS
 
 
+# Words that can sit between a district and a place: "চট্টগ্রাম নগরের চকবাজারে", "কুষ্টিয়া সদর উপজেলার মিরপুরে"
+_CONNECTORS = {normalize(x) for x in ("নগরের", "নগর", "নগরীর", "মহানগরের", "মহানগর", "শহরের", "শহর", "জেলার", "জেলা",
+                                      "উপজেলার", "উপজেলা", "পৌরসভার", "পৌর", "সদরের", "সদর", "থানার", "এলাকার")}
+# Victims from anywhere are taken to Dhaka Medical: naming it says nothing about where a crime happened.
+REFERRAL_PLACES = {"dmch"}
+
+
+def _namesake_context(before: str) -> bool:
+    """True if the words right before a place name put it in another district (up to 3 words back, through
+    connector words like নগরের/উপজেলার)."""
+    for word in reversed(before.rstrip().split(" ")[-4:]):
+        if _other_district(word):
+            return True
+        if word not in _CONNECTORS:
+            return False
+    return False
+
+
 @dataclass(frozen=True)
 class Place:
     id: str
@@ -77,8 +95,7 @@ class Gazetteer:
                 word_end = n.find(" ", end)
                 rest = n[end:word_end]
                 ok_boundary = n[start - 1] == " " and rest in SUFFIXES
-                prev_word = n[:start].rstrip().rsplit(" ", 1)[-1]
-                if ok_boundary and _other_district(prev_word):
+                if ok_boundary and _namesake_context(n[:start]):
                     ok_boundary = False  # e.g. Kushtia's Mirpur, Chattogram's Kotwali
                 if ok_boundary and not any(s < end and start < e for s, e in taken):
                     taken.append((start, end))
@@ -90,6 +107,22 @@ class Gazetteer:
     def best_match(self, text: str) -> Place | None:
         hits = self.find_all(text)
         return hits[0] if hits else None
+
+    def grounded_places(self, text: str) -> set[str]:
+        """Ids of Dhaka places the text really names (namesakes and referral hospitals excluded), plus their thanas."""
+        out = set()
+        for p in self.find_all(text):
+            if p.id not in REFERRAL_PLACES:
+                out |= {p.id, self.thana_of(p).id}
+        return out
+
+    def lead_in_other_district(self, body: str) -> bool:
+        """News leads say where it happened: "চট্টগ্রাম নগরের ..." vs "রাজধানীর মিরপুরে ...". True if the first
+        sentence names another district and no Dhaka place or Dhaka/capital term."""
+        lead = normalize((body or "").split("।", 1)[0][:300])          # the first sentence
+        if not any(_other_district(w) for w in lead.split(" ")):
+            return False
+        return not (self.grounded_places(lead) or any(normalize(t) in lead for t in DHAKA_TERMS))
 
     def mentions_dhaka(self, text: str) -> bool:
         n = normalize(text)

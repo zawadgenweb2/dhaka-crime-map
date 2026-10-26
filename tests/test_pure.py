@@ -87,6 +87,8 @@ def test_news_sitemap_and_prefilter():
     assert is_candidate(Candidate(P + "bangladesh/district/a", "bangladesh/district", "স্ত্রীকে গলা টিপে হত্যা", ""), g)
     assert is_candidate(Candidate(P + "sports/cricket/b", "sports/cricket", "ক্রিকেটার গ্রেপ্তার", ""), g)
     assert not is_candidate(Candidate(P + "video/c", "video", "হত্যা", ""), g)
+    for bare in ("topic", "author", "amp"):                                  # non-article pages, even with a crime word
+        assert not is_candidate(Candidate(P + bare + "/হত্যা", bare, "হত্যা", ""), g)
     assert not is_candidate(Candidate("https://www.kishoralo.com/x/y", "https:", "হত্যা", ""), g)   # sister site
     assert is_candidate(Candidate(P + "bangladesh/district/d", "bangladesh/district"), g)    # no title yet: read it
     assert not is_candidate(Candidate(P + "sports/cricket/e", "sports/cricket"), g)
@@ -404,3 +406,34 @@ def test_referral_hospital_is_not_dhaka_evidence():
     assert not belongs_to_dhaka("bangladesh", "চট্টগ্রামে ছুরিকাঘাত, আহত ব্যক্তিকে ঢাকা মেডিকেলে নেওয়া হয়", g)
     assert belongs_to_dhaka("bangladesh/crime", "চট্টগ্রামে ছুরিকাঘাত, ঢাকা মেডিকেলে নেওয়া হয়", g)   # crime section: Gemma decides
     assert belongs_to_dhaka("bangladesh", "মিরপুরে ছিনতাই, ঢাকা মেডিকেলে নেওয়া হয়", g)
+
+
+
+# ---- publication grounding (council review, 26 Oct) ---------------------------------------------
+def test_namesake_through_connector_words():
+    g = load()
+    assert [p.id for p in g.find_all("চট্টগ্রাম নগরের চকবাজারে ছিনতাই")] == []
+    assert [p.id for p in g.find_all("কুষ্টিয়া সদর উপজেলার মিরপুরে হামলা")] == []
+    assert "chawkbazar" in [p.id for p in g.find_all("পুরান ঢাকার চকবাজারে ছিনতাই")]
+
+
+def test_published_only_when_the_article_names_the_place():
+    g = load()
+    ok = build_rows(ARTICLE, ArticleAnalysis(is_crime_report=True, in_dhaka=True, incidents=[_inc()], note=""), g, {}, "auto")
+    assert ok[0]["published"] and ok[0]["located_in_dhaka"]
+    invented = build_rows(ARTICLE, ArticleAnalysis(is_crime_report=True, in_dhaka=True, note="",
+                                                   incidents=[_inc(place_id="badda", location_text="বাড্ডা")]), g, {}, "auto")
+    assert not invented[0]["published"] and invented[0]["evidence_ok"]       # quote fine, place not in the article
+    unlocated = build_rows(ARTICLE, ArticleAnalysis(is_crime_report=True, in_dhaka=True, note="",
+                                                    incidents=[_inc(place_id=None, location_text="")]), g, {}, "auto")
+    assert not unlocated[0]["published"]
+    ctg = {**ARTICLE, "body": "চট্টগ্রাম নগরের চকবাজারে ছিনতাই হয়েছে। চকবাজার থানার পুলিশ জানায়, মিরপুর ১১ নম্বর মেট্রোরেল স্টেশনের নিচে …"}
+    rows = build_rows(ctg, ArticleAnalysis(is_crime_report=True, in_dhaka=True, incidents=[_inc()], note=""), g, {}, "auto")
+    assert not rows[0]["published"]                                            # the lead puts it in Chattogram
+
+
+def test_no_dhaka_place_means_no_shortlist():
+    from app.classifiers.base import candidate_places
+    far = Article(url="u", section="bangladesh", title="চট্টগ্রামে ছিনতাই", body="চট্টগ্রাম নগরের বিবিরহাটে ছিনতাই, ঢাকা মেডিকেলে নেওয়া হয়",
+                  published_at=None)
+    assert candidate_places(far) == []

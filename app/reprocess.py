@@ -44,8 +44,8 @@ def reprocess_all() -> dict:
 
 
 def requeue_set_aside(days: int) -> dict:
-    """Give articles that were set aside as 'outside the 7-day window' (when a backfill was cut short) a fresh Gemma job
-    if they were published in the last `days` days. Same versioning as reprocess_all, so older jobs can never write."""
+    """Give articles that were set aside as outside the window a fresh Gemma job if they were published on or after
+    today minus `days` (Asia/Dhaka dates; the dashboard's 30-day view is days = 29). Same versioning as reprocess_all, so older jobs can never write."""
     with db.tx() as c:
         c.execute("SELECT pg_advisory_xact_lock(%s)", (MATERIALIZE_LOCK,))
         run_id = c.execute("""INSERT INTO runs (trigger, status, finished_at, message, days_back)
@@ -55,8 +55,10 @@ def requeue_set_aside(days: int) -> dict:
                             FROM (SELECT a2.id, greatest(a2.analysis_version,
                                                          coalesce(max(j.analysis_version), 0)) + 1 AS nv
                                   FROM articles a2 LEFT JOIN jobs j ON j.article_id = a2.id
-                                  WHERE a2.status = 'skipped' AND a2.note = 'outside the 7-day window'
-                                    AND a2.published_at >= now() - make_interval(days => %s)
+                                  WHERE a2.status = 'skipped'
+                                    AND a2.note IN ('outside the 7-day window', 'outside the window')
+                                    AND (a2.published_at AT TIME ZONE 'Asia/Dhaka')::date
+                                        >= (now() AT TIME ZONE 'Asia/Dhaka')::date - %s
                                     AND NOT EXISTS (SELECT 1 FROM jobs q WHERE q.article_id = a2.id
                                                     AND q.state IN ('queued', 'running'))
                                   GROUP BY a2.id) v

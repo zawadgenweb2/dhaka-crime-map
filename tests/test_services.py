@@ -42,7 +42,9 @@ class FakeSite:
         return []
 
     def article(self, url):
-        return parse_article(FIXTURE.read_text(encoding="utf-8"), url)
+        art = parse_article(FIXTURE.read_text(encoding="utf-8"), url)
+        art.published_at = datetime.now(timezone.utc) - timedelta(hours=2)   # always inside the run's window
+        return art
 
 
 def _incident(**kw):
@@ -501,7 +503,7 @@ def test_saved_answer_from_another_model_is_not_reused():
 def test_exact_spot_geocoding_after_publication(monkeypatch):
     collect("test", client=FakeSite(urls=(URL, URL + "b")))
     answers = iter([[_incident(geocode_query="Mirpur 11 metro station, Dhaka")],
-                    [_incident(geocode_query="Somewhere far, Dhaka", place_id="badda", location_text="বাড্ডা")]])
+                    [_incident(geocode_query="Somewhere far, Dhaka", place_id="pallabi", location_text="পল্লবী")]])
 
     class Seq(FakeClassifier):
         def classify_with_meta(self, article):
@@ -631,3 +633,18 @@ def test_coverage_marks_each_day(monkeypatch):
     Worker(classifier=FakeClassifier(), use_geocoder=False).drain()
     by = {d["date"]: d for d in api.get("/api/coverage", params={"days": 3}).json()["days"]}
     assert by[yday.isoformat()]["status"] == "complete" and by[yday.isoformat()]["missing"] == 0
+
+
+
+def test_backfill_window_skips_old_articles(monkeypatch):
+    class OldSite(FakeSite):
+        def article(self, url):
+            art = super().article(url)
+            art.published_at = datetime.now(timezone.utc) - timedelta(days=40)
+            return art
+    r = collect("test", days_back=29, client=OldSite())
+    assert r["queued"] == 0
+    assert q1("SELECT status, note FROM articles") == {"status": "skipped", "note": "outside the window"}
+    from app.reprocess import requeue_set_aside
+    assert requeue_set_aside(29)["articles_queued"] == 0                 # 40 days old: still outside
+    assert requeue_set_aside(45)["articles_queued"] == 1

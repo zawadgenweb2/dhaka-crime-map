@@ -93,7 +93,8 @@ def user_message(article: Article) -> str:
 # ---- compact prompt for small local models ------------------------------------------------------
 _COMPACT_CATALOGUE = (
     "Place candidates are given per article in the user message (`place_candidates`): only places this article "
-    "mentions, plus their parent thanas. Use only those ids for place_id, or null.\n\n"
+    "mentions, plus their parent thanas. Use only those ids for place_id, or null. An empty list means the article "
+    "names no place in Dhaka district: then the incidents are probably not in Dhaka.\n\n"
     "Dates: never calculate dates yourself. `recent_dates` lists the publication day and the 7 days before it with "
     "their Bangla weekday names. 'আজ' = the day marked today, 'গতকাল' = the day marked yesterday, a weekday name "
     "(e.g. শনিবার) = the most recent listed day with that name. If the event is older or unclear, use null.\n\n"
@@ -105,14 +106,18 @@ _WEEKDAYS_BN = ["সোমবার", "মঙ্গলবার", "বুধব�
 
 
 def candidate_places(article: Article) -> list:
-    """Places the article mentions (gazetteer matcher) plus their thanas; all thanas/upazilas if none found."""
+    """Places the article mentions (gazetteer matcher, namesakes excluded) plus their thanas. If it names no Dhaka
+    place the list is empty and place_id can only be null: offering every thana invited invented locations."""
+    from ..gazetteer import REFERRAL_PLACES
     gaz = load_gazetteer()
     out = []
     for p in gaz.find_all(f"{article.title}\n{article.keywords}\n{article.body}"):
+        if p.id in REFERRAL_PLACES:
+            continue
         for q in (p, gaz.thana_of(p)):
             if q not in out:
                 out.append(q)
-    return out or [p for p in gaz.places if p.kind in ("thana", "upazila")]
+    return out
 
 
 @lru_cache(maxsize=1)
