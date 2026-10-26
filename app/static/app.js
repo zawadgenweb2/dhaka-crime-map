@@ -105,7 +105,8 @@
   function heatScale(pts) {
     const n = {};
     for (const p of pts) { const k = `${p.lat.toFixed(3)},${p.lng.toFixed(3)}`; n[k] = (n[k] || 0) + 1; }
-    return Math.max(2, Math.max(0, ...Object.values(n)));
+    // compressed: a single incident glows faintly, a quarter of the largest pile-up is already deep red
+    return Math.max(1.5, Math.max(0, ...Object.values(n)) / 4);
   }
   // Blobs grow as you zoom in (half as fast as the map), so hotspots stay visible instead of shrinking to dots.
   const heatRadius = (zoom) => Math.max(30, Math.min(150, 42 * 2 ** ((zoom - 11.5) * 0.55)));
