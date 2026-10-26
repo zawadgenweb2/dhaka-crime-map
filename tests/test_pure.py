@@ -447,11 +447,17 @@ def test_victims_home_is_not_the_crime_location():
     inc = _inc(place_id="mirpur", location_text="মিরপুরে", evidence="চট্টগ্রামে ছিনতাই হয়েছে")
     assert not build_rows(art, ArticleAnalysis(is_crime_report=True, in_dhaka=True, incidents=[inc], note=""),
                           g, {}, "auto")[0]["published"]
-    # place named only far from where the incident is described: held
-    art2 = {**ARTICLE, "body": "রাজধানীর মিরপুরে আজ একটি সভা হয়েছে। সভায় অনেকে বক্তব্য দেন। পরে সবাই চলে যান। "
-                               "সন্ধ্যায় বৃষ্টি হয়। রাতে বিদ্যুৎ ছিল না। এক দোকানে চুরি হয়েছে।"}
-    inc2 = _inc(place_id="mirpur", location_text="দোকানে", evidence="এক দোকানে চুরি হয়েছে")
+    # council counter-example: a referral to Dhaka Medical is not a Dhaka location
+    art2 = {**ARTICLE, "body": "চট্টগ্রামে ছিনতাই হয়েছে, আহত ব্যক্তিকে ঢাকা মেডিকেলে নেওয়া হয়। তাঁর বাড়ি মিরপুরে।"}
+    inc2 = _inc(place_id="mirpur", location_text="মিরপুরে",
+                evidence="চট্টগ্রামে ছিনতাই হয়েছে, আহত ব্যক্তিকে ঢাকা মেডিকেলে নেওয়া হয়")
     assert not build_rows(art2, ArticleAnalysis(is_crime_report=True, in_dhaka=True, incidents=[inc2], note=""),
+                          g, {}, "auto")[0]["published"]
+    # the model's own location phrase names another district (Dhamrai article about a robbery in Tangail)
+    art4 = {**ARTICLE, "body": "ধামরাই থানার পুলিশ জানায়, পিকআপ উদ্ধার হয়েছে। টাঙ্গাইল সদর উপজেলার করটিয়ায় ডাকাতি হয়।"}
+    inc4 = _inc(category="robbery", place_id="dhamrai", location_text="টাঙ্গাইল সদর উপজেলার করটিয়ায়",
+                evidence="ধামরাই থানার পুলিশ জানায়, পিকআপ উদ্ধার হয়েছে")
+    assert not build_rows(art4, ArticleAnalysis(is_crime_report=True, in_dhaka=True, incidents=[inc4], note=""),
                           g, {}, "auto")[0]["published"]
     # the incident's own sentence says রাজধানী and the article names the place: published (e.g. ECB Chattar,
     # not in the place list, inside Cantonment)

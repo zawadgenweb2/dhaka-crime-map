@@ -135,12 +135,12 @@ def build_rows(article: dict, analysis: ArticleAnalysis, gaz: Gazetteer,
         quoted = evidence_ok(inc.evidence, article["title"] or "", article["body"] or "")
         # Auto-publishing also needs a located incident whose place (or its thana) the article itself names, and a
         # lead that does not put the story in another district. Gemma's in_dhaka alone is not enough.
-        # Where the article describes this incident (location phrase + the quote's sentence and its neighbours)
-        # must name the place or say রাজধানী/ঢাকা, and the quote's own sentence must not put it in another
-        # district. A place named only elsewhere in the article (e.g. a victim's home) is not enough.
-        local, capital, conflict = gaz.incident_support(article["body"] or "", inc.location_text, inc.evidence)
+        # Auto-publish only if the place is one the article names (the shortlist), and neither the first sentence,
+        # the quote's own sentence, nor the location phrase puts the incident in another district.
         in_dhaka = bool(loc["place_id"]) and (loc["place_id"] in grounded or loc["thana_id"] in grounded) \
-            and (loc["place_id"] in local or loc["thana_id"] in local or capital) and not conflict and not elsewhere
+            and not elsewhere \
+            and not gaz.names_other_district(gaz.quote_sentence(article["body"] or "", inc.evidence)) \
+            and not gaz.names_other_district(inc.location_text)
         ok = quoted and in_dhaka
         rows.append({
             **loc, "category": inc.category, "headline_bn": inc.headline_bn, "headline_en": inc.headline_en,

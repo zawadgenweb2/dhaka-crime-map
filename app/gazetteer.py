@@ -38,6 +38,7 @@ _CONNECTORS = {normalize(x) for x in ("নগরের", "নগর", "নগর
                                       "উপজেলার", "উপজেলা", "পৌরসভার", "পৌর", "সদরের", "সদর", "থানার", "এলাকার")}
 # Victims from anywhere are taken to Dhaka Medical: naming it says nothing about where a crime happened.
 REFERRAL_PLACES = {"dmch"}
+REFERRAL_PHRASES = [normalize(x) for x in ("ঢাকা মেডিকেল কলেজ হাসপাতাল", "ঢাকা মেডিকেল কলেজ", "ঢাকা মেডিকেল")]
 
 
 def _namesake_context(before: str) -> bool:
@@ -117,40 +118,27 @@ class Gazetteer:
                 out |= {p.id, self.thana_of(p).id}
         return out
 
-    def incident_support(self, body: str, location_text: str, evidence: str) -> tuple[set[str], bool, bool]:
-        """Where the article describes this incident: its location phrase plus the sentence holding the evidence
-        quote and one sentence either side. Returns (Dhaka places named there, says রাজধানী/ঢাকা there,
-        the quote's own sentence names another district without any Dhaka place or term)."""
-        nb, ne = normalize(body or ""), normalize(evidence or "")
-        sentences = [x.strip() for x in (body or "").split("।")]
-        quote_sentence, window = "", ""
-        if ne:
-            pos = nb.find(ne[:60])
-            if pos >= 0:   # sentence index = number of sentence ends before the quote in the normalized body
-                ends, n = 0, 0
-                for k, sent in enumerate(sentences):
-                    n += len(normalize(sent)) + 1
-                    if n > pos:
-                        ends = k
-                        break
-                quote_sentence = sentences[ends]
-                window = " । ".join(sentences[max(0, ends - 1): ends + 2])
-        ctx = f"{location_text or ''} । {window or evidence or ''}"
-        places = self.grounded_places(ctx)
-        nctx = normalize(ctx)
-        capital = any(normalize(t) in nctx for t in DHAKA_TERMS)
-        nq = normalize(quote_sentence or evidence or "")
-        conflict = any(_other_district(w) for w in nq.split(" ")) and not (
-            self.grounded_places(quote_sentence or evidence or "") or any(normalize(t) in nq for t in DHAKA_TERMS))
-        return places, capital, conflict
+    def names_other_district(self, text: str) -> bool:
+        """The text names another district (চট্টগ্রাম/চট্টগ্রামের/চট্টগ্রামে …) and no Dhaka place or Dhaka/capital term.
+        "ঢাকা মেডিকেলে নেওয়া হয়" is a referral, not a Dhaka location, so it does not count as Dhaka."""
+        n = normalize(text or "")
+        for phrase in REFERRAL_PHRASES:
+            n = n.replace(phrase, " ")
+        if not any(_other_district(w) for w in n.split(" ")):
+            return False
+        return not (self.grounded_places(n) or any(normalize(t) in n for t in DHAKA_TERMS))
 
     def lead_in_other_district(self, body: str) -> bool:
-        """News leads say where it happened: "চট্টগ্রাম নগরের ..." vs "রাজধানীর মিরপুরে ...". True if the first
-        sentence names another district and no Dhaka place or Dhaka/capital term."""
-        lead = normalize((body or "").split("।", 1)[0][:300])          # the first sentence
-        if not any(_other_district(w) for w in lead.split(" ")):
-            return False
-        return not (self.grounded_places(lead) or any(normalize(t) in lead for t in DHAKA_TERMS))
+        """News leads say where it happened: "চট্টগ্রাম নগরের ..." vs "রাজধানীর মিরপুরে ..."."""
+        return self.names_other_district((body or "").split("।", 1)[0][:300])
+
+    @staticmethod
+    def quote_sentence(body: str, evidence: str) -> str:
+        """The article sentence that contains the start of the evidence quote ("" if not found)."""
+        head = normalize(evidence or "")[:40]
+        if not head:
+            return ""
+        return next((x for x in (body or "").split("।") if head in normalize(x)), "")
 
     def mentions_dhaka(self, text: str) -> bool:
         n = normalize(text)
