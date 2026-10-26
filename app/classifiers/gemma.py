@@ -38,6 +38,9 @@ class GemmaClassifier(Classifier):
         # compact (default): per-article place shortlist + grammar-enforced ids; full: whole 163-place catalogue
         self.prompt_mode = os.getenv("GEMMA_PROMPT", "compact")
         self.stream = os.getenv("GEMMA_STREAM", "0") == "1"   # streaming = measure prefill/decode speed
+        # vLLM with --structured-outputs-config '{"backend": "guidance"}': cap whitespace between JSON tokens
+        # (like llama.cpp's grammar); unbounded whitespace lets the model loop on newlines until max_tokens.
+        self.bounded_whitespace = os.getenv("GEMMA_JSON_WHITESPACE", "") == "bounded"
         self.name = f"gemma:{self.model}" + ("" if self.prompt_mode == "compact" else ":full")
 
     @staticmethod
@@ -128,6 +131,8 @@ class GemmaClassifier(Classifier):
             messages = [{"role": "system", "content": system_prompt() + SCHEMA_NOTE},
                         {"role": "user", "content": user_message(article)}]
             schema = self._schema(None)
+        if self.bounded_whitespace:
+            schema["x-guidance"] = {"whitespace_pattern": "[ \\n]{0,16}"}
         body = {
             "model": self.model, "messages": messages, "temperature": 0, "max_tokens": 4096,
             "response_format": {"type": "json_schema", "json_schema": {
