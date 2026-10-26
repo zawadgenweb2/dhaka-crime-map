@@ -11,7 +11,7 @@ where in **Dhaka district** it happened, and shows the result as a heat map with
   (robots.txt,        └─────┬──────┘  never calls a model; singleton via Postgres advisory lock
    1 req/s, ≤8 MB)          │ jobs (queue)
                       ┌─────▼──────┐  claim job with lease (FOR UPDATE SKIP LOCKED)
- Claude API / local ◄─┤ classifier │  record call → call model once → save full answer → geocode → incidents
+ in-house Gemma    ◄─┤ classifier │  record call → call model once → save full answer → geocode → incidents
  model server         └─────┬──────┘  daily budget; crash after sending ⇒ 'uncertain', never re-sent
                             │
  OSM Nominatim ◄────────────┤ shared geocoding lane: ≤ 4 requests/minute across all containers
@@ -32,7 +32,7 @@ where in **Dhaka district** it happened, and shows the result as a heat map with
 | `classifier` | claims queued articles, classifies, saves, locates, deduplicates | **only here** |
 
 The design was reviewed by an independent Codex council (architecture + code review); its findings are fixed and
-covered by tests: atomic job claiming, bounded paid calls, results saved before anything else can fail,
+covered by tests: atomic job claiming, bounded model calls, results saved before anything else can fail,
 no network calls inside database transactions, Nominatim rate limits, a scheduler that cannot double-run,
 CSRF-safe "collect now", streamed size limits and RFC 9309 robots handling.
 
@@ -40,7 +40,7 @@ CSRF-safe "collect now", streamed size limits and RFC 9309 robots handling.
 
 ```bash
 cd dhaka-crime-map
-cp .env.example .env          # set POSTGRES_PASSWORD and ANTHROPIC_API_KEY (GOOGLE_MAPS_API_KEY optional)
+cp .env.example .env          # set POSTGRES_PASSWORD, ADMIN_TOKEN, GEMMA_API_KEY (GOOGLE_MAPS_API_KEY optional)
 docker compose up -d --build  # http://127.0.0.1:8100
 docker compose --profile test run --rm test      # full test suite against Postgres
 ```
@@ -51,7 +51,7 @@ Admin commands run in the same image:
 docker compose run --rm migrate collect-now --days 1   # ask the collector to scrape now
 docker compose run --rm migrate stats
 docker compose run --rm migrate rebuild-duplicates     # regroup duplicate reports (no model calls)
-docker compose run --rm migrate compare --with gemma   # local model vs saved Claude answers
+docker compose run --rm migrate compare --with gemma   # model vs the frozen reference articles
 docker compose logs -f collector classifier
 ```
 
@@ -74,16 +74,12 @@ docker compose logs -f collector classifier
 Scope: **Dhaka district** (50 DMP thanas + Savar, Ashulia, Dhamrai, Keraniganj, Dohar, Nawabganj). A place name
 right after another district's name ("কুষ্টিয়ার মিরপুরে") is not treated as Dhaka.
 
-## Models
+## Model
 
-| `CLASSIFIER` | What | Cost |
-|---|---|---|
-| `claude` (default) | Claude Opus 5.5, adaptive thinking, structured output, prompt caching (cache warmed by one request before the rest run in parallel), server-side refusal fallback | ~US$0.01–0.02 per article, capped by `MAX_LLM_CALLS_PER_DAY` |
-| `gemma` | any OpenAI-compatible server (llama.cpp / Ollama / vLLM), same prompt and schema | self-hosted |
-| `rules` | keyword baseline | free, offline |
-
-Every call is recorded (`llm_calls`) and every answer saved with token usage and cost (`analyses`);
-`/api/meta` reports today's spend.
+The only model is **Gemma 4** served from the in-house GPU server (`genweb2inhouse`) by llama.cpp on 127.0.0.1:8090
+(OpenAI-compatible API with an API key); no external AI API is used. `CLASSIFIER=rules` is an offline keyword baseline
+for tests. Every model call is recorded in `llm_calls` and every answer saved in `analyses`. Model setup, evaluation and
+switching are described in `docs/ENGINEERING.md`.
 
 ## Map
 

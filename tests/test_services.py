@@ -55,7 +55,7 @@ def _incident(**kw):
 
 
 class FakeClassifier(Classifier):
-    def __init__(self, name="claude:fake", fail=None, incidents=None):
+    def __init__(self, name="gemma:fake", fail=None, incidents=None):
         self.name, self.calls, self.fail = name, 0, fail
         self.incidents = incidents if incidents is not None else [_incident()]
 
@@ -67,7 +67,7 @@ class FakeClassifier(Classifier):
         if self.fail:
             raise self.fail
         return (ArticleAnalysis(is_crime_report=True, in_dhaka=True, incidents=self.incidents, note="ok"),
-                {"model": "fake", "input_tokens": 10, "output_tokens": 5, "cost_usd": 0.001})
+                {"model": "fake", "input_tokens": 10, "output_tokens": 5, "cost_usd": 0})
 
 
 def q1(sql, *params):
@@ -137,33 +137,6 @@ def test_failure_after_geocode_keeps_old_incidents(monkeypatch):
         with db.tx() as c:
             store_mod.materialize(c, art, None, analysis, "test", load(), {})
     assert q1("SELECT count(*) n FROM incidents")["n"] == before          # rolled back, nothing deleted
-
-
-def test_daily_budget_stops_paid_calls(monkeypatch):
-    collect("test", client=FakeSite(urls=(URL, URL + "b")))
-    import dataclasses
-    import app.worker as worker_mod
-    monkeypatch.setattr(worker_mod, "settings", dataclasses.replace(worker_mod.settings, max_llm_calls_per_day=1))
-    clf = FakeClassifier()
-    w = Worker(classifier=clf, use_geocoder=False)
-    outcomes = w.drain()
-    assert outcomes == {"done": 1, "budget": 1}
-    assert clf.calls == 1
-    assert q1("SELECT count(*) n FROM jobs WHERE state='queued' AND available_at > now()")["n"] == 1
-
-
-def test_crash_after_sending_marks_uncertain_not_resent():
-    collect("test", client=FakeSite())
-    w = Worker(classifier=FakeClassifier(), use_geocoder=False)
-    job = w.claim()
-    with db.tx() as c:   # simulate: call recorded as sent, worker died, lease expired
-        c.execute("INSERT INTO llm_calls (job_id, backend) VALUES (%s, 'claude')", (job["id"],))
-        c.execute("UPDATE jobs SET dispatches = 1, lease_until = now() - interval '1 minute' WHERE id = %s",
-                  (job["id"],))
-    assert w.recover_expired() == 1
-    assert q1("SELECT state FROM jobs")["state"] == "uncertain"
-    assert q1("SELECT status FROM articles")["status"] == "uncertain"
-    assert w.drain() == {}
 
 
 def test_transient_errors_retry_then_fail_with_bounded_calls():
@@ -401,7 +374,7 @@ def test_failed_slot_is_retried_then_given_up(monkeypatch):
     assert q1("SELECT status, attempts FROM schedule_slots WHERE attempts > 0") == {"status": "failed", "attempts": 3}
 
 
-def test_crashed_local_call_is_retried_not_uncertain():
+def test_crashed_call_is_requeued():
     collect("test", client=FakeSite())
     w = Worker(classifier=FakeClassifier(name="gemma:fake"), use_geocoder=False)
     job = w.claim()

@@ -3,13 +3,13 @@
 Services (one per container):
   api                     dashboard + read API on HOST:PORT
   collector               the only scheduler: scrapes at SCRAPE_TIMES, queues articles
-  classifier              claims queued articles and classifies them (CLASSIFIER=claude|gemma|rules)
+  classifier              claims queued articles and classifies them (CLASSIFIER=gemma|rules)
   migrate [--import-sqlite PATH]   apply schema migrations; optionally import the v0.1 SQLite data once
 
 Admin:
   collect-now [--days N]  ask the running collector to scrape now (inserts a run request)
   rebuild-duplicates      regroup duplicate reports with the current rule (no model calls)
-  compare --with gemma    run another classifier on articles Claude already analysed and report agreement
+  compare --with gemma    run the model on the frozen reference articles and report agreement
   stats                   counts in the terminal
 """
 from __future__ import annotations

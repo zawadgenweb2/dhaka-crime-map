@@ -1,7 +1,7 @@
 """Self-hosted classifier: any OpenAI-compatible server (llama.cpp llama-server, Ollama, vLLM).
 
 Deployed on the in-house GPU server as llama.cpp (see deploy/inhouse-llm/). Same prompt, same schema and the same
-validation as Claude, so results are comparable (`python -m app compare --with gemma`).
+validation for every model, so runs are comparable (`python -m app compare --with gemma`).
 """
 from __future__ import annotations
 
@@ -34,7 +34,7 @@ class GemmaClassifier(Classifier):
         key = api_key if api_key is not None else os.getenv("GEMMA_API_KEY", "")
         headers = {"Authorization": f"Bearer {key}"} if key else {}
         self.http = httpx.Client(timeout=timeout, headers=headers, transport=transport)
-        # compact (default): per-article place shortlist + grammar-enforced ids; full: same prompt as Claude
+        # compact (default): per-article place shortlist + grammar-enforced ids; full: whole 163-place catalogue
         self.prompt_mode = os.getenv("GEMMA_PROMPT", "compact")
         self.name = f"gemma:{self.model}" + ("" if self.prompt_mode == "compact" else ":full")
 

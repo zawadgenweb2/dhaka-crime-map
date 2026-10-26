@@ -274,7 +274,7 @@
     if (m.running) parts.push(t("running"));
     else parts.push(`${t("lastRun")}: ${m.last_run ? fmtTime(m.last_run.finished_at || m.last_run.started_at) : t("never")}`);
     if (m.next_run) parts.push(`${t("nextRun")}: ${fmtTime(m.next_run)}`);
-    const model = m.classifier === "claude" ? "Claude Opus 5.5" : m.model;
+    const model = (m.model || "").replace(/^gemma:/, "") === "dhaka-gemma" ? "Gemma 4 (in-house)" : m.model;
     parts.push(`${t("model")}: ${model}`);
     $("#status-line").textContent = parts.join(" · ");
     $("#run-btn").disabled = m.running;

@@ -8,7 +8,7 @@ Commit `b4f1209` · 26 Oct 2026 · repo `github.com/zawadgenweb2/dhaka-crime-map
 - Places resolve against a curated **gazetteer** (163 Dhaka places) and optional OpenStreetMap geocoding; duplicates across articles are grouped.
 - A **human reviews** every new incident (`PUBLISH_MODE=review`); only published incidents reach the API and map.
 - Five Docker services + one systemd model server on `genweb2inhouse`; **Postgres is the data store, job queue and lock service**.
-- Precision over recall. No paid model calls in production. Dhaka is always collected; other districts are planned on demand.
+- Precision over recall. **No external AI APIs**: the only model is the in-house Gemma server. Dhaka is always collected; other districts are planned on demand.
 
 ## 1. Architecture
 
@@ -65,7 +65,7 @@ One image (`Dockerfile`) for every service; the command picks the role (`python 
 
 1. **One collector.** It holds Postgres advisory lock `7000003`; a second one waits.
 2. **Claim before work.** Jobs are claimed with `FOR UPDATE SKIP LOCKED` + lease; every write checks the job `generation`.
-3. **Record before paying, save before using.** `llm_calls` row before the request; `analyses` row before geocoding or incidents. A crash after a *paid* call → `uncertain`, never auto-resent.
+3. **Record before calling, save before using.** `llm_calls` row before the request; `analyses` row before geocoding or incidents, so a later failure never needs a second model call. A worker that dies mid-call has its job requeued when the lease expires.
 4. **No network inside a DB transaction.** Geocode first, then one short transaction replaces an article's incidents (lock `7000002`).
 5. **Public = published.** `/api/incidents` and `/api/stats` return only `published AND duplicate_of IS NULL`.
 6. **Politeness.** robots.txt per RFC 9309 (`RobotsPolicy`), 1 req/s per publisher, Nominatim ≤ 4/min via `rate_limits`.
@@ -83,18 +83,18 @@ One image (`Dockerfile`) for every service; the command picks the role (`python 
 | `app/collector.py` | collector service and `collect()` |
 | `app/worker.py` | classifier service: claim → call → save → materialize → recover |
 | `app/store.py` | locate, date/evidence checks, publish status, duplicate grouping |
-| `app/classifiers/` | `base.py` prompts (full + compact), `gemma.py` local, `claude.py` reference, `rules.py` tests |
+| `app/classifiers/` | `base.py` prompts (full + compact), `gemma.py` in-house model client, `rules.py` offline baseline |
 | `app/gazetteer.py`, `data/dhaka_places.json` | Bangla place matching (suffixes, namesake guard) |
 | `app/api.py`, `app/static/` | REST + Swagger, dashboard, review page |
-| `app/evaluate.py`, `scripts/eval_table.py` | offline model evaluation vs the Claude reference set |
+| `app/evaluate.py`, `scripts/eval_table.py` | offline model evaluation vs the frozen 71-article reference set |
 | `deploy/inhouse-llm/` | llama.cpp build, model download, start scripts, systemd units, vLLM setup |
 | `compose.yaml`, `compose.inhouse.yaml` | services; server overrides (HTTPS, loopback DB, host-network classifier) |
 
 ## 6. Configuration (`.env`, see `.env.example`)
 
-`POSTGRES_PASSWORD` · `ADMIN_TOKEN` (review + token-triggered runs) · `API_BIND` (server LAN IP) · `CLASSIFIER` (`gemma`|`claude`|`rules`) ·
+`POSTGRES_PASSWORD` · `ADMIN_TOKEN` (review + token-triggered runs) · `API_BIND` (server LAN IP) · `CLASSIFIER` (`gemma`|`rules`) ·
 `GEMMA_API_KEY`, `GEMMA_BASE_URL`, `GEMMA_MODEL`, `GEMMA_PROMPT` (`compact`|`full`) · `PUBLISH_MODE` (`review`|`auto`) ·
-`SCRAPE_TIMES` · `USER_AGENT` · `MAX_ARTICLES_PER_RUN` · `MAX_LLM_CALLS_PER_DAY` (paid backends only) · `GEOCODE_*` ·
+`SCRAPE_TIMES` · `USER_AGENT` · `MAX_ARTICLES_PER_RUN` · `GEOCODE_*` ·
 `ALLOW_UI_TRIGGER` · `GOOGLE_MAPS_API_KEY` (browser key; empty = OpenStreetMap tiles).
 
 ## 7. Runbook
@@ -117,7 +117,6 @@ deploy/backup-db.sh                     # backup now; restore: pg_restore -U dcm
 | Run `failed: robots.txt disallows …` | publisher reachable? | transient: slot retries; persistent: network or publisher block |
 | Jobs stay `queued` | `curl -s 127.0.0.1:8090/health`; classifier logs | `systemctl --user restart dhaka-llm` |
 | Classifier log "pausing 10 min" | 401/404 from model server | key in `.env` vs `~/.config/dhaka-llm/api-key`; model alias `dhaka-gemma` |
-| Articles `uncertain` | paid call may have been billed | review in `/review`; "retry with model" |
 | Map not updating | `/api/meta` `data_version`, review queue | approve pending incidents; open pages refresh within 60 s |
 | Browser "Not secure" | self-signed LAN cert | Tailscale HTTPS (needs tailnet admin) or a domain + Let's Encrypt |
 | GPU errors after kernel update | `nvidia-smi`, `dkms status` | DKMS must rebuild driver 575 for the new kernel |
@@ -137,8 +136,8 @@ deploy/backup-db.sh                     # backup now; restore: pg_restore -U dcm
 
 ## 9. Tests and evaluation
 
-`$C --profile test run --rm test` on the server (54 tests; pure + the separate `dcm_test` database, never `dcm`). Evaluation reference: 71 Claude-classified articles (a strong
-baseline, not ground truth). Best local run (E2B, compact prompt + calendar): JSON 100%, article P/R 0.86/0.88, incident P/R 0.76/0.71,
+`$C --profile test run --rm test` on the server (52 tests; pure + the separate `dcm_test` database, never `dcm`). Evaluation reference: 71 articles labelled during the prototype phase
+(stored with the historical label `claude`; a strong baseline, not ground truth). Best local run (E2B, compact prompt + calendar): JSON 100%, article P/R 0.86/0.88, incident P/R 0.76/0.71,
 category 0.78, thana 0.93, date 0.53, 2.4 s/article; **below gates**, hence review mode. Gemma 4 E4B Q8 is next.
 
 ## 10. Decisions

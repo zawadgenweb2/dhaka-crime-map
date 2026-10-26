@@ -98,8 +98,7 @@ def create_app() -> FastAPI:
             pending = c.execute("SELECT count(*) n FROM run_requests WHERE status IN ('pending','running')").fetchone()["n"]
             collecting = c.execute("SELECT count(*) n FROM runs WHERE status = 'running'").fetchone()["n"]
             day0 = datetime.now(DHAKA_TZ).replace(hour=0, minute=0, second=0, microsecond=0)
-            spend = c.execute("""SELECT count(*) calls, coalesce(sum(cost_usd), 0) usd FROM analyses
-                                 WHERE created_at >= %s AND NOT legacy""", (day0,)).fetchone()
+            calls = c.execute("SELECT count(*) n FROM llm_calls WHERE sent_at >= %s", (day0,)).fetchone()["n"]
         now = datetime.now(timezone.utc)
         clf = (beats.get("classifier") or {}).get("detail") or {}
         return {
@@ -116,7 +115,7 @@ def create_app() -> FastAPI:
             "articles": counts, "data_span": {"first": _iso(span["a"]), "last": _iso(span["b"])},
             # changes whenever an incident is published, approved, rejected or replaced
             "data_version": f'{span["n"]}:{_iso(span["t"])}',
-            "spend_today": {"calls": spend["calls"], "usd": float(spend["usd"])},
+            "model_calls_today": calls,
             "google_maps_api_key": settings.google_maps_api_key,
             "google_maps_map_id": settings.google_maps_map_id,
         }

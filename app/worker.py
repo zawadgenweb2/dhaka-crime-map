@@ -1,13 +1,11 @@
 """Classifier service: claims queued articles, calls the model once, saves the answer, then maps incidents.
 
-Cost and safety rules (from the Codex council review):
+Safety rules (from the Codex council review). The model is the in-house Gemma server; there are no paid calls.
 - A job is claimed with a lease (FOR UPDATE SKIP LOCKED); no two workers process the same article.
-- Every paid call is recorded in llm_calls *before* it is sent and counted against a daily budget.
+- Every model call is recorded in llm_calls *before* it is sent (audit trail, at most max_dispatches per job).
 - The model's answer is saved (analyses) immediately; materializing incidents can be retried from it
   without another model call.
-- If a worker dies after sending a call but before saving the answer, the job becomes 'uncertain' for
-  review instead of being re-sent (we cannot know whether that call was billed).
-- When the prompt cache is cold, only one call is sent first so the others reuse the cached prefix.
+- A job whose worker died mid-call is simply requeued once its lease expires.
 """
 from __future__ import annotations
 
@@ -17,8 +15,6 @@ import signal
 import socket
 import threading
 import time
-from datetime import datetime, timedelta
-
 from psycopg.types.json import Jsonb
 
 from . import db
@@ -26,43 +22,12 @@ from .classifiers import Classifier, ClassifierError, get_classifier
 from .config import settings
 from .gazetteer import Gazetteer, load as load_gazetteer
 from .schema import ArticleAnalysis
-from .scraper import DHAKA_TZ, Article
+from .scraper import Article
 from .store import materialize, resolve_locations
 
 log = logging.getLogger(__name__)
-PAID_BACKENDS = {"claude"}
 MAX_MATERIALIZE_ATTEMPTS = 3
 RECOVERY_EVERY = 60
-
-
-class CacheWarmGate:
-    """Let one request warm the provider's prompt cache before the rest go out in parallel."""
-
-    def __init__(self, ttl: float = 240):
-        self.ttl, self.cv, self.last_ok, self.priming = ttl, threading.Condition(), 0.0, False
-
-    def enter(self) -> bool:
-        with self.cv:
-            while True:
-                if time.monotonic() - self.last_ok < self.ttl:
-                    return False                  # cache warm: go ahead in parallel
-                if not self.priming:
-                    self.priming = True
-                    return True                   # this request warms the cache
-                self.cv.wait(timeout=30)
-
-    def leave(self, primed: bool, ok: bool):
-        with self.cv:
-            if ok:
-                self.last_ok = time.monotonic()
-            if primed:
-                self.priming = False
-            self.cv.notify_all()
-
-
-def dhaka_day_start() -> datetime:
-    now = datetime.now(DHAKA_TZ)
-    return now.replace(hour=0, minute=0, second=0, microsecond=0)
 
 
 def article_from_row(row: dict) -> Article:
@@ -77,7 +42,6 @@ class Worker:
         self.gaz = gaz or load_gazetteer()
         self.use_geocoder = use_geocoder
         self.owner = owner or f"{socket.gethostname()}:{os.getpid()}"
-        self.gate = CacheWarmGate()
         self.stop = threading.Event()
         self.paused_until = 0.0
 
@@ -89,24 +53,14 @@ class Worker:
 
     # ---- queue -----------------------------------------------------------------------------
     def recover_expired(self) -> int:
-        """Jobs whose lease ran out: requeue, unless a model call may have been billed without a saved answer."""
-        n = 0
+        """Jobs whose lease ran out (worker died or hung): requeue them; a saved answer is reused, not recomputed."""
         with db.tx() as c:
-            for job in c.execute("""SELECT id, article_id FROM jobs WHERE state = 'running' AND lease_until < now()
-                                    FOR UPDATE SKIP LOCKED""").fetchall():
-                in_flight = c.execute("""SELECT 1 FROM llm_calls WHERE job_id = %s AND outcome = 'sent'
-                                         AND backend = ANY(%s)""", (job["id"], list(PAID_BACKENDS))).fetchone()
-                saved = c.execute("SELECT 1 FROM analyses WHERE job_id = %s", (job["id"],)).fetchone()
-                if in_flight and not saved:
-                    c.execute("""UPDATE jobs SET state = 'uncertain', owner = NULL, updated_at = now(),
-                                 last_error = 'worker stopped after sending a paid call; review before retrying'
-                                 WHERE id = %s""", (job["id"],))
-                    c.execute("UPDATE articles SET status = 'uncertain' WHERE id = %s", (job["article_id"],))
-                else:
-                    c.execute("""UPDATE jobs SET state = 'queued', owner = NULL, updated_at = now()
-                                 WHERE id = %s""", (job["id"],))
-                n += 1
-        return n
+            rows = c.execute("""UPDATE jobs SET state = 'queued', owner = NULL, updated_at = now()
+                                WHERE id IN (SELECT id FROM jobs WHERE state = 'running' AND lease_until < now()
+                                             FOR UPDATE SKIP LOCKED) RETURNING id""").fetchall()
+            c.execute("""UPDATE llm_calls SET outcome = 'error', error = 'worker stopped', finished_at = now()
+                         WHERE outcome = 'sent' AND job_id = ANY(%s)""", ([r["id"] for r in rows],))
+        return len(rows)
 
     def claim(self) -> dict | None:
         with db.tx() as c:
@@ -128,11 +82,6 @@ class Worker:
                 c.execute("UPDATE articles SET status = %s, error = %s WHERE id = %s",
                           (state, (error or "")[:500], job["article_id"]))
 
-    def calls_today(self, backend: str) -> int:
-        with db.connect() as c:
-            return c.execute("SELECT count(*) AS n FROM llm_calls WHERE backend = %s AND sent_at >= %s",
-                             (backend, dhaka_day_start())).fetchone()["n"]
-
     # ---- one job ---------------------------------------------------------------------------
     def process(self, job: dict) -> str:
         with db.connect() as c:
@@ -148,13 +97,6 @@ class Worker:
             if job["dispatches"] >= job["max_dispatches"]:
                 self._release(job, "failed", job["last_error"] or "model call limit reached")
                 return "failed"
-            limit = settings.max_llm_calls_per_day
-            if backend in PAID_BACKENDS and limit and self.calls_today(backend) >= limit:
-                tomorrow = dhaka_day_start() + timedelta(days=1)
-                wait = (tomorrow - datetime.now(DHAKA_TZ)).total_seconds() / 60
-                self._release(job, "queued", f"daily budget of {limit} calls reached", wait)
-                log.warning("daily budget reached; job %s waits until %s", job["id"], tomorrow.isoformat())
-                return "budget"
             with db.tx() as c:
                 ok = c.execute("""UPDATE jobs SET dispatches = dispatches + 1, backend = %s
                                   WHERE id = %s AND generation = %s RETURNING id""",
@@ -163,14 +105,11 @@ class Worker:
                     return "lost"  # lease expired and someone else owns it now
                 call_id = c.execute("INSERT INTO llm_calls (job_id, backend) VALUES (%s, %s) RETURNING id",
                                     (job["id"], backend)).fetchone()["id"]
-            primed = self.gate.enter() if backend in PAID_BACKENDS else False
-            success = False
             try:
                 analysis, meta = self.classifier.classify_with_meta(article_from_row(article))
-                success = True
             except ClassifierError as e:
                 self._call_failed(call_id, str(e))
-                if e.permanent:  # bad key, bad config: stop spending attempts on every article
+                if e.permanent:  # bad key or model alias: pause instead of failing every article
                     self.paused_until = time.monotonic() + 600
                     self._release(job, "queued", str(e), 10)
                     log.error("classifier misconfigured, pausing 10 min: %s", e)
@@ -182,8 +121,6 @@ class Worker:
                 self._call_failed(call_id, f"{type(e).__name__}: {e}")
                 self._release(job, "failed", f"{type(e).__name__}: {e}")
                 return "failed"
-            finally:
-                self.gate.leave(primed, success)
             with db.tx() as c:
                 c.execute("UPDATE llm_calls SET outcome = 'ok', finished_at = now() WHERE id = %s", (call_id,))
                 analysis_id = c.execute(

@@ -1,4 +1,4 @@
-"""Shared output schema for every classifier (Claude now, Gemma later, rules offline)."""
+"""Shared output schema for every classifier (in-house Gemma model; keyword rules offline)."""
 from __future__ import annotations
 
 from typing import Literal

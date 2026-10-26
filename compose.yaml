@@ -49,7 +49,7 @@ services:
       HOST: 0.0.0.0
       PORT: "8100"
       SCRAPE_TIMES: ${SCRAPE_TIMES:-08:00,20:00}
-      CLASSIFIER: ${CLASSIFIER:-claude}
+      CLASSIFIER: ${CLASSIFIER:-gemma}
       GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY:-}
       GOOGLE_MAPS_MAP_ID: ${GOOGLE_MAPS_MAP_ID:-}
       ALLOW_UI_TRIGGER: ${ALLOW_UI_TRIGGER:-true}
@@ -68,7 +68,7 @@ services:
     environment:
       <<: *db-url
       SCRAPE_TIMES: ${SCRAPE_TIMES:-08:00,20:00}
-      CLASSIFIER: ${CLASSIFIER:-claude}
+      CLASSIFIER: ${CLASSIFIER:-gemma}
       USER_AGENT: ${USER_AGENT:-DhakaCrimeMap/0.2 (research prototype)}
       MAX_ARTICLES_PER_RUN: ${MAX_ARTICLES_PER_RUN:-150}
 
@@ -77,12 +77,8 @@ services:
     command: ["classifier"]
     environment:
       <<: *db-url
-      CLASSIFIER: ${CLASSIFIER:-claude}
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      CLAUDE_MODEL: ${CLAUDE_MODEL:-claude-opus-5-5}
-      CLAUDE_EFFORT: ${CLAUDE_EFFORT:-medium}
+      CLASSIFIER: ${CLASSIFIER:-gemma}
       CLASSIFY_CONCURRENCY: ${CLASSIFY_CONCURRENCY:-3}
-      MAX_LLM_CALLS_PER_DAY: ${MAX_LLM_CALLS_PER_DAY:-200}
       GEMMA_BASE_URL: ${GEMMA_BASE_URL:-http://127.0.0.1:8090/v1}
       GEMMA_MODEL: ${GEMMA_MODEL:-dhaka-gemma}
       PUBLISH_MODE: ${PUBLISH_MODE:-auto}

@@ -1,7 +1,7 @@
 """Offline evaluation: run a candidate classifier on articles that already have reference results.
 
-The reference is whatever is stored now (Claude's answers, plus any reviewer decisions). It is a strong baseline,
-not ground truth: disagreements should be checked by a Bangla reviewer before switching models.
+The reference set is the 71 articles labelled during the prototype phase (stored as backend 'claude'; no Claude
+API is used any more). It is a strong baseline, not ground truth: a Bangla reviewer should check disagreements.
 Nothing here writes to `incidents`; answers go to `eval_results` under a run label.
 """
 from __future__ import annotations
@@ -50,7 +50,7 @@ def compare(other: str, limit: int = 1000, out: str | None = None) -> int:
     gaz = load_gazetteer()
     label = f"{clf.name}@{datetime.now().strftime('%Y%m%d-%H%M%S')}"
     with db.connect() as c:
-        # Frozen reference set: articles classified by Claude (the local model's own output never becomes reference).
+        # Frozen reference set: the prototype-phase labels (historical backend 'claude'); local output never becomes reference.
         arts = c.execute("""SELECT a.* FROM articles a WHERE a.status = 'classified' AND EXISTS
                               (SELECT 1 FROM analyses x WHERE x.article_id = a.id AND x.backend = 'claude')
                             ORDER BY a.published_at DESC NULLS LAST LIMIT %s""", (limit,)).fetchall()
