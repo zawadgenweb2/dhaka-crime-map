@@ -41,17 +41,24 @@ def test_gazetteer_word_boundaries():
     assert g.find_all("চাঁপাইনবাবগঞ্জে হত্যা") == []
 
 
-@pytest.mark.parametrize("text", ["কুষ্টিয়ার মিরপুরে হত্যা", "চট্টগ্রামের কোতোয়ালিতে হত্যা",
-                                  "দিনাজপুরের নবাবগঞ্জে হত্যা"])
+@pytest.mark.parametrize("text", ["কুষ্টিয়ার মিরপুরে হত্যা", "দিনাজপুরের নবাবগঞ্জে হত্যা"])
 def test_gazetteer_rejects_other_district_namesakes(text):
     assert load().find_all(text) == []
 
 
+def test_gazetteer_resolves_supported_district_namesake():
+    assert [p.id for p in load().find_all("চট্টগ্রামের কোতোয়ালিতে হত্যা")] == ["chattogram:chittagong_kotwali"]
+
+
 def test_gazetteer_integrity():
     g = load()
-    assert len([p for p in g.places if p.kind == "thana"]) == 50
+    assert len([p for p in g.places if p.kind == "thana" and p.district == "dhaka"]) == 50
+    assert {p.district for p in g.places} == {"dhaka", "chattogram", "sylhet", "khulna", "barishal", "rangpur"}
     for p in g.places:
-        assert 23.55 < p.lat < 24.0 and 90.1 < p.lng < 90.6
+        if p.district == "dhaka":
+            assert 23.55 < p.lat < 24.0 and 90.1 < p.lng < 90.6
+        elif p.lat is not None:                                    # inside Bangladesh
+            assert 20.5 < p.lat < 26.7 and 88.0 < p.lng < 92.7
         assert p.parent is None or p.parent in g.by_id
 
 
@@ -422,7 +429,7 @@ def test_namesake_through_connector_words():
 def test_published_only_when_the_article_names_the_place():
     g = load()
     ok = build_rows(ARTICLE, ArticleAnalysis(is_crime_report=True, in_dhaka=True, incidents=[_inc()], note=""), g, {}, "auto")
-    assert ok[0]["published"] and ok[0]["located_in_dhaka"]
+    assert ok[0]["published"] and ok[0]["located"]
     invented = build_rows(ARTICLE, ArticleAnalysis(is_crime_report=True, in_dhaka=True, note="",
                                                    incidents=[_inc(place_id="badda", location_text="বাড্ডা")]), g, {}, "auto")
     assert not invented[0]["published"] and invented[0]["evidence_ok"]       # quote fine, place not in the article
