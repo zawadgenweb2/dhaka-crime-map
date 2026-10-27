@@ -109,7 +109,14 @@ def collect(trigger: str, days_back: int = 1, client=None, gaz: Gazetteer | None
         lanes = [(getattr(getattr(client, "source", None), "key", "prothomalo"), client)]
     else:
         keys = [s.key for s in enabled_sources() if sources is None or s.key in sources]
-        lanes = [(k, NewsClient(SOURCES[k])) for k in keys]
+        with db.connect() as c:                 # papers that refused us recently are left alone
+            resting = {r["source"]: r for r in c.execute(
+                "SELECT source, not_before, reason FROM source_state WHERE not_before > now()")}
+        for k in keys:
+            if k in resting:
+                progress(f"[{k}] skipped: cooling down until {resting[k]['not_before']:%Y-%m-%d %H:%M} UTC "
+                         f"({resting[k]['reason']})")
+        lanes = [(k, NewsClient(SOURCES[k])) for k in keys if k not in resting]
 
     def flush():
         with lock, db.tx() as c:
@@ -129,6 +136,13 @@ def collect(trigger: str, days_back: int = 1, client=None, gaz: Gazetteer | None
         except Exception as e:
             error = f"{key}: {type(e).__name__}: {e}"
             log.exception("collection run %s failed for %s", run_id, key)
+        refused = getattr(cl, "blocked", None)
+        if refused is not None and getattr(refused, "cooldown_until", None):
+            with db.tx() as c:
+                c.execute("""INSERT INTO source_state (source, not_before, reason) VALUES (%s, %s, %s)
+                             ON CONFLICT (source) DO UPDATE SET not_before = EXCLUDED.not_before,
+                               reason = EXCLUDED.reason, updated_at = now()""",
+                          (key, refused.cooldown_until, str(refused)[:300]))
         try:
             record_coverage(by_day, gaz, run_id, key)
         except Exception as e:  # never leave stale "complete" days behind a silent failure

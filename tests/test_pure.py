@@ -661,24 +661,42 @@ def test_politeness_backs_off_and_stops_on_refusals(monkeypatch):
     import app.scraper as sc
     slept = []
     monkeypatch.setattr(sc.time, "sleep", lambda s: slept.append(s))
-    seq = iter([httpx.Response(429, headers={"retry-after": "7"}), httpx.Response(200, text="ok")])
+    robots404 = lambda req: httpx.Response(404)                        # noqa: E731
 
-    def handler(req):
-        if req.url.path == "/robots.txt":
-            return httpx.Response(404)
-        return next(seq)
-    c = _client(handler)
+    def site(*responses):
+        seq = iter(responses)
+        return _client(lambda req: robots404(req) if req.url.path == "/robots.txt" else next(seq))
+    c = site(httpx.Response(429, headers={"retry-after": "7"}), httpx.Response(200, text="ok"))
     assert c._get("https://www.prothomalo.com/bangladesh/crime/a") == "ok"
-    assert 7 in slept and c.delay >= 0.5                               # waited as told, and slowed down
-
-    def refuse(req):
-        return httpx.Response(404) if req.url.path == "/robots.txt" else httpx.Response(403)
-    c = _client(refuse)
-    for i in range(2):
-        with pytest.raises(httpx.HTTPStatusError):
-            c._get(f"https://www.prothomalo.com/bangladesh/crime/{i}")
+    assert 7 in slept and c.delay >= 1                                 # waited as told, and slowed down for good
+    c = site(httpx.Response(429, headers={"retry-after": "7"}), httpx.Response(429, headers={"retry-after": "7"}))
+    with pytest.raises(sc.PublisherRefused) as e:
+        c._get("https://www.prothomalo.com/bangladesh/crime/b")
+    assert e.value.cooldown_until is not None                          # a second 429: leave it alone for a while
     with pytest.raises(sc.PublisherRefused):
-        c._get("https://www.prothomalo.com/bangladesh/crime/3")
-    with pytest.raises(sc.PublisherRefused):                           # no more requests to it this run
-        c._get("https://www.prothomalo.com/bangladesh/crime/4")
-    assert c.blocked
+        c._get("https://www.prothomalo.com/bangladesh/crime/c")        # and no new request to it this run
+    c = site(httpx.Response(403))
+    with pytest.raises(sc.PublisherRefused) as e:
+        c._get("https://www.prothomalo.com/bangladesh/crime/d")        # the first 403 stops the paper
+    assert e.value.cooldown_until is not None and c.blocked
+    c = site(httpx.Response(429, headers={"retry-after": "7200"}))
+    with pytest.raises(sc.PublisherRefused):
+        c._get("https://www.prothomalo.com/bangladesh/crime/e")        # a long deadline is respected, not shortened
+    assert 7200 not in slept
+
+
+def test_slow_down_never_speeds_up_and_crawl_delay_is_respected():
+    from app.scraper import RobotsPolicy
+    c = _client(lambda req: httpx.Response(404))
+    c.delay = 20
+    c.slow_down("test")
+    assert c.delay == 20
+    p = RobotsPolicy.parse("User-agent: *\nCrawl-delay: 10\nDisallow: /search", "DhakaCrimeMap/0.2")
+    assert p.crawl_delay == 10 and not p.can_fetch("https://x/search?q=1")
+
+
+def test_robots_refusal_is_a_refusal_not_allow_all():
+    import app.scraper as sc
+    c = _client(lambda req: httpx.Response(403) if req.url.path == "/robots.txt" else httpx.Response(200, text="ok"))
+    with pytest.raises(sc.PublisherRefused):
+        c._get("https://www.prothomalo.com/bangladesh/crime/x")

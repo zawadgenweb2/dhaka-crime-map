@@ -41,7 +41,7 @@ class Settings:
     scrape_times: list[str] = field(default_factory=lambda: _list("SCRAPE_TIMES", "08:00,20:00"))
 
     # Scraping
-    user_agent: str = os.getenv("USER_AGENT", "DhakaCrimeMap/0.2 (research prototype)")
+    user_agent: str = os.getenv("USER_AGENT", "DhakaCrimeMap/0.2 (+https://github.com/zawadgenweb2/dhaka-crime-map)")
     request_delay: float = float(os.getenv("REQUEST_DELAY_SECONDS", "1.0"))
     max_articles_per_run: int = int(os.getenv("MAX_ARTICLES_PER_RUN", "150"))
 
