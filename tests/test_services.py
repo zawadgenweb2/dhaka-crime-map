@@ -940,7 +940,7 @@ def test_same_crime_from_two_papers_becomes_one_event_shown_once():
     assert _public().get("/api/stats", params={"days": 3}).json()["total"] == 1
 
 
-def test_different_verdict_missing_proof_or_errors_never_merge():
+def test_different_verdict_or_errors_never_merge():
     from app.events import build_all, status
     _news("মিরপুরে যুবক খুন", "মিরপুরে যুবক খুন হয়েছে রাতে।", "prothomalo", 5)
     _news("মিরপুরে আরেকটি খুন", "মিরপুরে আরেকটি খুনের ঘটনা ঘটেছে।", "samakal", 2)
