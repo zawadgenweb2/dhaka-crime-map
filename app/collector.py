@@ -27,6 +27,7 @@ from .text import crime_signal
 
 log = logging.getLogger(__name__)
 COLLECTOR_LOCK = 7_000_003
+FRESH, BACKFILL = 0, 2      # job priority: Gemma reads fresh news before history
 TICK_SECONDS = 20
 SLOT_ATTEMPTS = 3          # a failed scheduled run is retried this many times in total
 SLOT_RETRY_MINUTES = 10
@@ -123,7 +124,8 @@ def collect(trigger: str, days_back: int = 1, client=None, gaz: Gazetteer | None
         error = None
         try:
             _collect_source(key, cl, days_back, gaz, window_start, run_id, by_day, stats, lock, flush,
-                            max_articles or settings.max_articles_per_run, say)
+                            max_articles or settings.max_articles_per_run, say,
+                            FRESH if trigger == "schedule" or days_back <= 1 else BACKFILL)
         except Exception as e:
             error = f"{key}: {type(e).__name__}: {e}"
             log.exception("collection run %s failed for %s", run_id, key)
@@ -148,7 +150,8 @@ def collect(trigger: str, days_back: int = 1, client=None, gaz: Gazetteer | None
     return {"run_id": run_id, "status": status, "message": message, **stats}
 
 
-def _collect_source(key, client, days_back, gaz, window_start, run_id, by_day, stats, lock, flush, cap, progress):
+def _collect_source(key, client, days_back, gaz, window_start, run_id, by_day, stats, lock, flush, cap, progress,
+                    priority=FRESH):
     candidates = [c for c in discover(client, days_back, progress, by_day) if is_candidate(c, gaz)]
     with db.connect() as c:
         known = {r["url"] for r in c.execute("SELECT url FROM articles WHERE url = ANY(%s)",
@@ -202,9 +205,9 @@ def _collect_source(key, client, days_back, gaz, window_start, run_id, by_day, s
                  "queued" if relevant else "skipped", why),
             ).fetchone()
             if row and relevant:
-                c.execute("""INSERT INTO jobs (article_id, backend, run_id) VALUES (%s, %s, %s)
+                c.execute("""INSERT INTO jobs (article_id, backend, run_id, priority) VALUES (%s, %s, %s, %s)
                              ON CONFLICT (article_id, analysis_version) DO NOTHING""",
-                          (row["id"], settings.classifier, run_id))
+                          (row["id"], settings.classifier, run_id, priority))
                 with lock:
                     stats["queued"] += 1
 

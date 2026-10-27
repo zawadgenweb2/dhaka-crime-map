@@ -70,7 +70,7 @@ class Worker:
         with db.tx() as c:
             return c.execute(
                 """WITH next AS (SELECT id FROM jobs WHERE state = 'queued' AND available_at <= now()
-                                 ORDER BY available_at, id FOR UPDATE SKIP LOCKED LIMIT 1)
+                                 ORDER BY priority, available_at, id FOR UPDATE SKIP LOCKED LIMIT 1)
                    UPDATE jobs j SET state = 'running', owner = %s, generation = j.generation + 1,
                           lease_until = now() + make_interval(mins => %s), updated_at = now()
                    FROM next WHERE j.id = next.id RETURNING j.*""",

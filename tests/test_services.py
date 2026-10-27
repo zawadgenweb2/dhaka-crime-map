@@ -821,3 +821,16 @@ def test_coverage_needs_every_paper_and_lanes_record_their_paper(monkeypatch):
         assert {x["source"] for x in c.execute("SELECT source FROM coverage_days")} == {"prothomalo", "samakal"}
     cov = _admin().get("/api/coverage", params={"days": 1}).json()
     assert cov["days"][-1]["status"] == "partial"            # Samakal's candidate was not downloaded
+
+
+def test_fresh_news_is_read_before_a_backfill():
+    collect("test", days_back=29, client=FakeSite(urls=(URL,)))           # backfill job
+    collect("schedule", client=FakeSite(urls=(URL + "b",)))              # scheduled run, queued later
+    order = []
+
+    class Rec(FakeClassifier):
+        def classify_with_meta(self, article):
+            order.append(article["url"])
+            return super().classify_with_meta(article)
+    Worker(classifier=Rec(), use_geocoder=False).drain()
+    assert order == [URL + "b", URL]

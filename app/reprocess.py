@@ -34,7 +34,7 @@ def reprocess_all() -> dict:
                                   GROUP BY a2.id) v
                             WHERE a.id = v.id RETURNING a.id, a.analysis_version""").fetchall()
         for a in arts:
-            c.execute("""INSERT INTO jobs (article_id, analysis_version, backend, run_id) VALUES (%s, %s, %s, %s)""",
+            c.execute("""INSERT INTO jobs (article_id, analysis_version, backend, run_id, priority) VALUES (%s, %s, %s, %s, 2)""",
                       (a["id"], a["analysis_version"], settings.classifier, run_id))
         c.execute("UPDATE runs SET discovered = %s, fetched = %s, queued = %s WHERE id = %s",
                   (len(arts), len(arts), len(arts), run_id))
@@ -64,7 +64,7 @@ def requeue_set_aside(days: int) -> dict:
                                   GROUP BY a2.id) v
                             WHERE a.id = v.id RETURNING a.id, a.analysis_version""", (days,)).fetchall()
         for a in arts:
-            c.execute("INSERT INTO jobs (article_id, analysis_version, backend, run_id) VALUES (%s, %s, %s, %s)",
+            c.execute("INSERT INTO jobs (article_id, analysis_version, backend, run_id, priority) VALUES (%s, %s, %s, %s, 2)",
                       (a["id"], a["analysis_version"], settings.classifier, run_id))
         c.execute("UPDATE runs SET discovered = %s, fetched = %s, queued = %s WHERE id = %s",
                   (len(arts), len(arts), len(arts), run_id))
@@ -130,7 +130,7 @@ def refilter_skipped(days: int) -> dict:
                                   WHERE a2.id = ANY(%s) AND a2.status = 'skipped' GROUP BY a2.id) v
                             WHERE a.id = v.id RETURNING a.id, a.analysis_version""", (ids,)).fetchall()
         for a in arts:
-            c.execute("INSERT INTO jobs (article_id, analysis_version, backend, run_id) VALUES (%s, %s, %s, %s)",
+            c.execute("INSERT INTO jobs (article_id, analysis_version, backend, run_id, priority) VALUES (%s, %s, %s, %s, 2)",
                       (a["id"], a["analysis_version"], settings.classifier, run_id))
         c.execute("UPDATE runs SET discovered = %s, fetched = %s, queued = %s WHERE id = %s",
                   (len(rows), len(arts), len(arts), run_id))
