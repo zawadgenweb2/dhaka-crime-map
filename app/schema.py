@@ -45,7 +45,8 @@ def next_hue(existing: list[float], chroma: float = 0.15) -> int:
     import math
     vec = lambda h: (chroma * math.cos(math.radians(h)), chroma * math.sin(math.radians(h)))   # noqa: E731
     old = [vec(h) for h in existing]
-    return max(range(360), key=lambda h: (min(math.dist(vec(h), o) for o in old) if old else 0, -h))
+    # distances rounded so float noise cannot break an exact tie (52 and 53 tie today; the smaller angle wins)
+    return max(range(360), key=lambda h: (round(min(math.dist(vec(h), o) for o in old), 9) if old else 0, -h))
 
 
 _check_categories()
