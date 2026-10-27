@@ -3,7 +3,7 @@
 Every published report goes through the matcher once (and again whenever its article is re-read):
 
   1. block    candidate events in the same district, compatible crime type (assault may become murder), the same
-              place or thana, event dates within 3 days (1 when both reports state the date), not from the same
+              place or thana, event dates within 7 days (1 when both reports state the date), not from the same
               article, not excluded by an admin split
   2. rank     cosine similarity of EmbeddingGemma 2 vectors (report vs the event's primary report); top 3 >= 0.80.
               Embeddings only find candidates: on our data they cannot tell "same crime" from "same kind of crime"
@@ -32,12 +32,13 @@ from .schema import TOTALS_ONLY
 from .text import normalize
 
 log = logging.getLogger(__name__)
-MATCHER_VERSION = "m1-eg2-judge2"
+MATCHER_VERSION = "m2-eg2-judge2-wide"   # m2: fuller excerpts, quotes checked against the whole article, +-7 days, consolidation
 EMBED_MODEL = "embeddinggemma-2-q8"
 EMBED_URL = os.getenv("EMBED_URL", "http://127.0.0.1:8091/v1/embeddings")
 MATCH_LOCK = 7_000_005
 COMPATIBLE = {("assault", "murder"), ("murder", "assault")}     # an assault victim may die later
 TOP_K, MIN_COSINE = 3, 0.80
+WINDOW_DAYS = 7          # follow-ups (investigation, post-mortem, court) arrive days later with their own date
 FACT_KINDS = ["person", "premise", "method", "object", "distinctive_circumstance"]
 
 
@@ -140,15 +141,16 @@ JUDGE_SYSTEM = (
 SENT = re.compile(r"(?<=[।!?\.])\s+")
 
 
-def excerpt(r: dict, limit: int = 1400) -> str:
-    """Title, the lead and the sentences around the report's own quote: enough to compare, short enough to be fast."""
+def excerpt(r: dict, limit: int = 2800) -> str:
+    """Title, the first six sentences and the sentences around the report's own quote. Follow-up stories name the
+    victims further down than the lead, so two lead sentences were too little (Rangpur follow-ups, 28 Oct)."""
     body = r.get("body") or ""
     sents = [s for s in SENT.split(body) if s.strip()]
-    keep = list(range(min(2, len(sents))))
+    keep = list(range(min(6, len(sents))))
     ev = normalize(r.get("evidence") or "")[:40]
     for i, s in enumerate(sents):
         if ev and ev[:25] in normalize(s):
-            keep += [i - 1, i, i + 1]
+            keep += [i - 2, i - 1, i, i + 1, i + 2]
             break
     text = " ".join(sents[i] for i in sorted({i for i in keep if 0 <= i < len(sents)}))
     return f"{r.get('title') or ''}\n{text}"[:limit]
@@ -160,7 +162,7 @@ def _side(r: dict) -> str:
 
 
 def _grounded(verdict: dict, a_text: str, b_text: str) -> list[dict]:
-    """Shared facts whose quotes really appear in each side's text (normalised), distinct and of allowed kinds."""
+    """Shared facts whose quotes really appear in each side's article (normalised), distinct and of allowed kinds."""
     na, nb, out, seen = normalize(a_text), normalize(b_text), [], set()
     for f in verdict.get("shared_facts") or []:
         qa, qb = normalize(f.get("quote_a") or ""), normalize(f.get("quote_b") or "")
@@ -178,7 +180,8 @@ def judge(classifier, a: dict, b: dict) -> dict:
         msg = f"REPORT A\n{_side(first)}\n\nREPORT B\n{_side(second)}"
         v = classifier.chat_json([{"role": "system", "content": JUDGE_SYSTEM}, {"role": "user", "content": msg}],
                                  JUDGE_SCHEMA, max_tokens=900)
-        facts = _grounded(v, excerpt(first), excerpt(second))
+        facts = _grounded(v, f"{first.get('title') or ''}\n{first.get('body') or ''}",
+                          f"{second.get('title') or ''}\n{second.get('body') or ''}")
         # the verdict already weighs contradictions (on real pairs the model lists toll and date changes there
         # while correctly answering "same"); they are kept for the audit, not used as a veto
         ok = v.get("verdict") == "same" and len(facts) >= 2
@@ -241,12 +244,12 @@ def candidates(conn, r: dict) -> list[dict]:
                         JOIN events e ON e.primary_incident_id = i.id AND e.state = 'active'
                         WHERE e.district_id = %s AND e.category = ANY(%s)
                           AND (e.place_id = %s OR e.thana_id = %s OR e.place_id = %s OR e.thana_id = %s)
-                          AND abs(e.event_date - %s::date) <= 3
+                          AND abs(e.event_date - %s::date) <= %s
                           AND NOT EXISTS (SELECT 1 FROM event_reports x WHERE x.event_id = e.id AND x.article_id = %s)
                           AND NOT EXISTS (SELECT 1 FROM event_exclusions z WHERE z.event_id = e.id AND z.report_key = %s)
                           AND NOT EXISTS (SELECT 1 FROM event_reports y WHERE y.report_key = %s AND y.event_id = e.id)""",
                         (r["district_id"], cats, r["place_id"], r["thana_id"], r["thana_id"], r["place_id"],
-                         r["event_date"], r["article_id"], r["report_key"], r["report_key"])).fetchall()
+                         r["event_date"], WINDOW_DAYS, r["article_id"], r["report_key"], r["report_key"])).fetchall()
     # both reports state the date and they differ by more than a day: not the same episode
     return [c for c in rows if not (r["incident_date"] and c["incident_date"]
                                     and abs((r["incident_date"] - c["incident_date"]).days) > 1)]
@@ -438,3 +441,55 @@ def status() -> dict:
             "SELECT outcome, count(*) n FROM match_decisions WHERE stage = 'final' GROUP BY 1")}
         return {"queue": q["n"], "retried": q["retried"], "events": ev["active"], "events_with_several_reports":
                 ev["multi"], "decisions": out, "live": events_live(c)}
+
+
+# ---- consolidation: look-alike events judged directly ----------------------------------------------
+def consolidate(classifier, embedder=embed, min_cosine: float = 0.85, limit: int | None = None) -> dict:
+    """Pairs of separate events that look alike (district, compatible type, place or thana, within 7 days, main
+    reports similar) are judged directly - their two main reports, both orders, >= 2 quote-proven facts - and merged
+    when they are one crime. Repairs stories that split before a bridging report arrived. Logged, undoable (split)."""
+    with db.connect() as c:
+        pairs = c.execute(f"""SELECT e1.id e1, e2.id e2 FROM events e1 JOIN events e2 ON e1.id < e2.id
+                              AND e1.state = 'active' AND e2.state = 'active' AND e1.district_id = e2.district_id
+                              AND (e1.category = e2.category OR (e1.category, e2.category) IN (('assault','murder'),('murder','assault')))
+                              AND (e1.place_id = e2.place_id OR e1.thana_id = e2.thana_id)
+                              AND abs(e1.event_date - e2.event_date) <= %s
+                              AND e1.category NOT IN (SELECT unnest(%s::text[]))
+                              WHERE NOT EXISTS (SELECT 1 FROM match_decisions d WHERE d.stage = 'consolidate'
+                                                AND d.event_id = e1.id AND d.candidate_key = e2.id::text
+                                                AND d.matcher_version = %s)
+                              ORDER BY e1.event_date, e1.id, e2.id""",
+                           (WINDOW_DAYS, sorted(TOTALS_ONLY), MATCHER_VERSION)).fetchall()
+    done = merged = 0
+    for p in pairs[:limit] if limit else pairs:
+        with db.connect() as c:
+            a = c.execute(f"SELECT e.id AS event_id, {REPORT_COLS} FROM events e JOIN incidents i ON i.id = e.primary_incident_id "
+                          "JOIN articles a ON a.id = i.article_id WHERE e.id = %s AND e.state = 'active'", (p["e1"],)).fetchone()
+            b = c.execute(f"SELECT e.id AS event_id, {REPORT_COLS} FROM events e JOIN incidents i ON i.id = e.primary_incident_id "
+                          "JOIN articles a ON a.id = i.article_id WHERE e.id = %s AND e.state = 'active'", (p["e2"],)).fetchone()
+            if not a or not b:
+                continue                                          # one side merged away already
+            if c.execute("""SELECT 1 FROM event_exclusions x JOIN event_reports er ON er.report_key = x.report_key
+                            WHERE (x.event_id = %s AND er.event_id = %s) OR (x.event_id = %s AND er.event_id = %s)""",
+                         (a["event_id"], b["event_id"], b["event_id"], a["event_id"])).fetchone():
+                continue                                          # an admin split them
+            score = cosine(vector(c, a, embedder), vector(c, b, embedder))
+            c.commit()
+        done += 1
+        res = {"same": False, "facts": [], "calls": [{"verdict": "below_similarity"}]}
+        if score >= min_cosine and roundups_compatible(a, b):
+            res = judge(classifier, a, b)
+        with db.tx() as c:
+            c.execute("SELECT pg_advisory_xact_lock(%s)", (MATCH_LOCK,))
+            _decide(c, a["report_key"], a["event_id"], str(b["event_id"]), "consolidate",
+                    "merged" if res["same"] else "kept_apart", score, {"calls": res["calls"], "facts": res["facts"]})
+            alive = c.execute("SELECT count(*) n FROM events WHERE id = ANY(%s) AND state = 'active'",
+                              ([a["event_id"], b["event_id"]],)).fetchone()["n"] == 2
+            if res["same"] and alive:
+                first, second = sorted([a, b], key=lambda x: (x["published_at"] is None, x["published_at"], x["event_id"]))
+                c.execute("UPDATE event_reports SET event_id = %s WHERE event_id = %s", (first["event_id"], second["event_id"]))
+                recompute(c, first["event_id"])
+                recompute(c, second["event_id"])
+                db.bump_revision(c)
+                merged += 1
+    return {"pairs_checked": done, "merged": merged}

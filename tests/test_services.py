@@ -1038,3 +1038,22 @@ def test_event_store_verification_report():
     assert rep["invariants"]["ok"] and rep["invariants"]["eligible_reports"] == 2
     assert rep["public"]["ok"] and rep["public"]["map_rows"] == 1 and rep["public"]["stats_total"] == 1
     assert rep["residual"]["remaining_pairs"] == 0 and rep["residual"]["report_level_pairs_before"] == 1
+
+
+
+def test_consolidation_merges_look_alike_events_only_when_judged_same():
+    from app.events import build_all, consolidate, status
+    _news("রংপুরে চার খুন, গণপতি চক্রবর্তীর পরিবার", "রংপুরে চার খুন, গণপতি চক্রবর্তীর পরিবার। পুলিশ জানায়।", "prothomalo", 30)
+    _news("রংপুরে চার খুন: ময়নাতদন্তে গণপতি চক্রবর্তী", "রংপুরে চার খুন: ময়নাতদন্তে গণপতি চক্রবর্তী। ডিবি তদন্ত করছে।", "ittefaq", 2)
+    build_all()
+    _drain(Judge("different"))
+    assert status()["events"] == 2
+    assert consolidate(Judge("different"), _vec) == {"pairs_checked": 1, "merged": 0}
+    assert consolidate(Judge("same"), _vec) == {"pairs_checked": 0, "merged": 0}      # judged once per version
+    from app import events as ev
+    ev.MATCHER_VERSION = ev.MATCHER_VERSION + "-x"
+    try:
+        assert consolidate(Judge("same"), _vec) == {"pairs_checked": 1, "merged": 1}
+    finally:
+        ev.MATCHER_VERSION = ev.MATCHER_VERSION[:-2]
+    assert status()["events"] == 1

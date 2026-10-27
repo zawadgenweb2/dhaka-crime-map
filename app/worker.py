@@ -264,8 +264,11 @@ class Worker:
         """One report through the cross-paper matcher (app/events.py). False = nothing to do."""
         if not hasattr(self.classifier, "chat_json"):
             return False
-        from .events import run_queue_item
-        return run_queue_item(self.classifier) is not None
+        from .events import consolidate, run_queue_item
+        if run_queue_item(self.classifier) is not None:
+            return True
+        # queue empty: tidy a few look-alike events (each pair is judged once per matcher version)
+        return consolidate(self.classifier, limit=3)["pairs_checked"] > 0
 
     def _geocode_loop(self):
         """Exact spots for published incidents, one at a time through the shared Nominatim lane."""

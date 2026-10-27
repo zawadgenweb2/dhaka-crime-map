@@ -53,6 +53,7 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("rebuild-duplicates")
     sub.add_parser("events-build")
     sub.add_parser("events-status")
+    sub.add_parser("events-consolidate")
     ev = sub.add_parser("events-verify"); ev.add_argument("--export", default=None); ev.add_argument("--sample", type=int, default=30)
     cp = sub.add_parser("compare"); cp.add_argument("--with", dest="other", default="gemma")
     cp.add_argument("--limit", type=int, default=1000); cp.add_argument("--out", default=None)
@@ -145,6 +146,10 @@ def main(argv: list[str] | None = None) -> int:
         for x in o_["largest"]:
             print("  largest", x["id"], x["report_count"], "reports,", x["papers"], "papers, span", x["day_span"], "days,",
                   x["thanas"], "thanas:", " | ".join(t[:40] for t in x["titles"]))
+    elif args.cmd == "events-consolidate":
+        from .classifiers.gemma import GemmaClassifier
+        from .events import consolidate
+        print(consolidate(GemmaClassifier()))
     elif args.cmd == "events-status":
         from .events import status
         print(status())
