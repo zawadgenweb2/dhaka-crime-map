@@ -119,6 +119,27 @@ class GemmaClassifier(Classifier):
     def classify(self, article: Article) -> ArticleAnalysis:
         return self.classify_with_meta(article)[0]
 
+    def chat_json(self, messages: list[dict], schema: dict, max_tokens: int = 900) -> dict:
+        """One schema-constrained answer (used by the duplicate judge, app/events.py)."""
+        body = {"model": self.model, "messages": messages, "temperature": 0, "max_tokens": max_tokens,
+                "response_format": {"type": "json_schema", "json_schema": {"name": "answer", "schema": schema,
+                                                                            "strict": True}},
+                "chat_template_kwargs": {"enable_thinking": False}}
+        try:
+            status, res = self._send(body)
+        except httpx.HTTPError as e:
+            raise ClassifierError(f"local model server unreachable: {type(e).__name__}", outage=True) from e
+        if status == 503:
+            raise ClassifierError(f"local model server error {status}", outage=True)
+        if status >= 400:
+            raise ClassifierError(f"local model server error {status}: {str(res)[:200]}")
+        if res["finish"] == "length":
+            raise ClassifierError("judge answer was cut off")
+        try:
+            return json.loads(res["content"])
+        except ValueError as e:
+            raise ClassifierError(f"judge answer is not JSON: {e}") from e
+
     def classify_with_meta(self, article: Article) -> tuple[ArticleAnalysis, dict]:
         if self.prompt_mode == "compact":
             candidates = candidate_places(article)

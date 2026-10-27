@@ -17,6 +17,8 @@ Admin:
   refilter-skipped [--days N]   re-check pre-filter-skipped articles (stored text) and queue those that now qualify
   requeue-no-text SOURCE [--days N]   after fixing a paper's extractor: re-download pages that had no article text
   rebuild-duplicates      regroup duplicate reports with the current rule (no model calls)
+  events-build            queue every published report for the cross-paper matcher (the map switches when done)
+  events-status           matcher queue, events and decisions
   compare --with gemma    run the model on the frozen reference articles and report agreement (offline only)
   stats                   counts in the terminal
 """
@@ -48,6 +50,8 @@ def main(argv: list[str] | None = None) -> int:
     rf = sub.add_parser("refilter-skipped"); rf.add_argument("--days", type=int, default=29)
     rn = sub.add_parser("requeue-no-text"); rn.add_argument("source"); rn.add_argument("--days", type=int, default=29)
     sub.add_parser("rebuild-duplicates")
+    sub.add_parser("events-build")
+    sub.add_parser("events-status")
     cp = sub.add_parser("compare"); cp.add_argument("--with", dest="other", default="gemma")
     cp.add_argument("--limit", type=int, default=1000); cp.add_argument("--out", default=None)
     sub.add_parser("stats")
@@ -120,6 +124,12 @@ def main(argv: list[str] | None = None) -> int:
     elif args.cmd == "requeue-set-aside":
         from .reprocess import requeue_set_aside
         print(requeue_set_aside(args.days))
+    elif args.cmd == "events-build":
+        from .events import build_all
+        print(build_all())
+    elif args.cmd == "events-status":
+        from .events import status
+        print(status())
     elif args.cmd == "rebuild-duplicates":
         from .store import MATERIALIZE_LOCK, rebuild_groups
         with db.tx() as c:

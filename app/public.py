@@ -97,7 +97,11 @@ def create_public_app() -> FastAPI:
             rows = c.execute(
                 f"""SELECT i.id, i.category, i.district_id, i.place_id, i.thana_id, i.lat, i.lng, i.precision, i.geocoded,
                            i.event_date, i.time_of_day, a.url, a.published_at,
-                           (SELECT count(*) FROM incidents d WHERE d.duplicate_of = i.id AND d.published) AS more_reports
+                           (CASE WHEN EXISTS (SELECT 1 FROM app_flags f WHERE f.key = 'events_live' AND f.value = '1')
+                            THEN coalesce((SELECT e.report_count - 1 FROM events e WHERE e.primary_incident_id = i.id
+                                           AND e.state = 'active'), 0)
+                            ELSE (SELECT count(*) FROM incidents d WHERE d.duplicate_of = i.id AND d.published) END)
+                           AS more_reports
                     FROM incidents i JOIN articles a ON a.id = i.article_id
                     WHERE {where} ORDER BY i.event_date DESC, i.id DESC LIMIT %s""", (*params, limit)).fetchall()
         response.headers.update({"X-Total-Count": str(total), "X-Truncated": "true" if total > limit else "false",

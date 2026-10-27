@@ -254,11 +254,18 @@ class Worker:
                     previews_in_a_row += 1
                     continue
                 previews_in_a_row = 0
-                if self.run_once() is None and not self.run_preview():
+                if self.run_once() is None and not self.run_preview() and not self.run_match():
                     self.stop.wait(2)
             except Exception:
                 log.exception("worker iteration failed")
                 self.stop.wait(10)
+
+    def run_match(self) -> bool:
+        """One report through the cross-paper matcher (app/events.py). False = nothing to do."""
+        if not hasattr(self.classifier, "chat_json"):
+            return False
+        from .events import run_queue_item
+        return run_queue_item(self.classifier) is not None
 
     def _geocode_loop(self):
         """Exact spots for published incidents, one at a time through the shared Nominatim lane."""

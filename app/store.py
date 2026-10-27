@@ -193,7 +193,7 @@ def materialize(conn, article: dict, analysis_id: int | None, analysis: ArticleA
                 gaz: Gazetteer, geocoded: dict | None = None) -> int:
     """Replace the article's incidents atomically. Caller owns the transaction (conn.transaction())."""
     conn.execute("SELECT pg_advisory_xact_lock(%s)", (MATERIALIZE_LOCK,))
-    old = conn.execute("SELECT category, place_id, event_date FROM incidents WHERE article_id = %s",
+    old = conn.execute("SELECT category, place_id, event_date, report_key FROM incidents WHERE article_id = %s",
                        (article["id"],)).fetchall()
     keys = {(r["category"], r["place_id"], r["event_date"]) for r in old if r["place_id"] and r["event_date"]}
     conn.execute("DELETE FROM incidents WHERE article_id = %s", (article["id"],))
@@ -211,6 +211,13 @@ def materialize(conn, article: dict, analysis_id: int | None, analysis: ArticleA
         if r["place_id"] and r["event_date"]:
             keys.add((r["category"], r["place_id"], r["event_date"]))
     rebuild_groups(conn, keys)
+    # the event store: every report of this article (new, changed or vanished) goes through the matcher again
+    from .events import assign_keys, enqueue
+    assign_keys(conn, article["id"])
+    new_keys = {r["report_key"] for r in conn.execute(
+        "SELECT report_key FROM incidents WHERE article_id = %s", (article["id"],))}
+    fresh = article.get("published_at") is None or (datetime.now(DHAKA_TZ) - article["published_at"]).days <= 3
+    enqueue(conn, sorted(new_keys | {r["report_key"] for r in old if r["report_key"]}), priority=0 if fresh else 2)
     conn.execute("""UPDATE articles SET status = 'classified', classifier = %s, note = %s, error = NULL,
                     classified_at = now() WHERE id = %s""", (classifier, (analysis.note or "")[:500], article["id"]))
     if analysis_id:

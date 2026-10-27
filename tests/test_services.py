@@ -881,3 +881,108 @@ def test_model_outage_pauses_without_using_up_attempts():
     assert w.paused_until > 0 and w.outage_wait >= 5
     w.classifier.fail = None                                            # the model is back
     assert w.run_once() == "done" and w.outage_wait == 0
+
+
+# ---- cross-paper event store (app/events.py) ------------------------------------------------------
+def _news(title, body, source, hours_ago, category="murder", place="mirpur11", district="dhaka", evidence=None):
+    from datetime import date
+    with db.tx() as c:
+        aid = c.execute("""INSERT INTO articles (url, status, source, title, body, published_at)
+                           VALUES (%s, 'classified', %s, %s, %s, now() - make_interval(hours => %s)) RETURNING id""",
+                        (f"https://example.com/{source}/{title[:8]}{hours_ago}", source, title, body, hours_ago)).fetchone()["id"]
+        an = c.execute("INSERT INTO analyses (article_id, backend, model, result) VALUES (%s, 'gemma', 'f', '{}') RETURNING id",
+                       (aid,)).fetchone()["id"]
+        c.execute("""INSERT INTO incidents (article_id, analysis_id, category, place_id, thana_id, district_id, lat, lng,
+                       event_date, time_of_day, published, review_status, evidence_ok, evidence)
+                     VALUES (%s,%s,%s,%s,'pallabi',%s,23.81,90.36,%s,'night',true,'auto',true,%s)""",
+                  (aid, an, category, place, district, date.today(), evidence or body[:40]))
+    return aid
+
+
+class Judge:
+    """Fake Gemma judge: quotes the first words of each side (so the quotes are real) or says something else."""
+    def __init__(self, verdict="same", fail=False):
+        self.verdict, self.fail, self.calls = verdict, fail, 0
+
+    def chat_json(self, messages, schema, max_tokens=900):
+        self.calls += 1
+        if self.fail:
+            raise ClassifierError("local model server unreachable: ConnectError", outage=True)
+        a, b = [part.split("text:\n", 1)[1].strip() for part in messages[1]["content"].split("REPORT B")]
+        return {"verdict": self.verdict, "contradictions": [],
+                "shared_facts": [{"kind": "person", "fact": "victim", "quote_a": a[:10], "quote_b": b[:10]},
+                                 {"kind": "premise", "fact": "place", "quote_a": a[12:24], "quote_b": b[12:24]}]}
+
+
+def _vec(texts):
+    return [[1.0, 0.0, 0.1] for _ in texts]                                     # every report "looks similar"
+
+
+def _drain(judge):
+    from app.events import run_queue_item
+    outcomes = []
+    while (o := run_queue_item(judge, _vec)) is not None:
+        outcomes.append(o)
+    return outcomes
+
+
+def test_same_crime_from_two_papers_becomes_one_event_shown_once():
+    from app.events import build_all, status
+    _news("মিরপুরে যুবক খুন, রাকিব হাসান নিহত", "মিরপুরে যুবক খুন, রাকিব হাসান নিহত। পুলিশ জানায় রাতে ঘটনা ঘটে।", "prothomalo", 5)
+    _news("মিরপুরে যুবক খুন, রাকিব হাসান নিহত হন", "মিরপুরে যুবক খুন, রাকিব হাসান নিহত হন। থানার ওসি জানান।", "samakal", 2)
+    build_all()
+    judge = Judge("same")
+    assert sorted(_drain(judge)) == ["linked", "new_event"] and judge.calls == 2    # A,B then B,A
+    st = status()
+    assert st["events"] == 1 and st["events_with_several_reports"] == 1 and st["live"]
+    items = _public().get("/api/incidents", params={"days": 3}).json()
+    assert len(items) == 1 and items[0]["more_reports"] == 1
+    assert _public().get("/api/stats", params={"days": 3}).json()["total"] == 1
+
+
+def test_different_verdict_missing_proof_or_errors_never_merge():
+    from app.events import build_all, status
+    _news("মিরপুরে যুবক খুন", "মিরপুরে যুবক খুন হয়েছে রাতে।", "prothomalo", 5)
+    _news("মিরপুরে আরেকটি খুন", "মিরপুরে আরেকটি খুনের ঘটনা ঘটেছে।", "samakal", 2)
+    build_all()
+    assert sorted(_drain(Judge("different"))) == ["new_event", "new_event"] and status()["events"] == 2
+
+
+def test_a_failed_judge_keeps_the_report_visible_and_retries():
+    from app.events import build_all, run_queue_item
+    _news("মিরপুরে যুবক খুন", "মিরপুরে যুবক খুন হয়েছে রাতে।", "prothomalo", 5)
+    _news("মিরপুরে যুবক খুন হয়", "মিরপুরে যুবক খুন হয় রাতে।", "samakal", 2)
+    build_all()
+    j = Judge(fail=True)
+    outcomes = [run_queue_item(j, _vec), run_queue_item(j, _vec)]
+    assert outcomes == ["new_event", "error"]
+    with db.connect() as c:
+        assert c.execute("SELECT count(*) n FROM events WHERE state = 'active'").fetchone()["n"] == 2   # both visible
+        assert c.execute("SELECT attempts FROM match_queue").fetchone()["attempts"] == 1               # retried later
+
+
+def test_sexual_violence_reports_are_never_sent_to_the_judge():
+    from app.events import build_all
+    _news("ধর্ষণের অভিযোগ", "মিরপুরে ধর্ষণের অভিযোগে মামলা হয়েছে।", "prothomalo", 5, category="sexual_violence")
+    _news("ধর্ষণের মামলা", "মিরপুরে ধর্ষণের মামলা হয়েছে।", "samakal", 2, category="sexual_violence")
+    build_all()
+    j = Judge("same")
+    _drain(j)
+    assert j.calls == 0
+
+
+def test_admin_split_sticks_when_the_matcher_runs_again():
+    from app.events import build_all, enqueue, split, status
+    _news("মিরপুরে যুবক খুন, রাকিব হাসান নিহত", "মিরপুরে যুবক খুন, রাকিব হাসান নিহত। রাতে ঘটনা।", "prothomalo", 5)
+    _news("মিরপুরে যুবক খুন, রাকিব হাসান নিহত হন", "মিরপুরে যুবক খুন, রাকিব হাসান নিহত হন। ওসি জানান।", "samakal", 2)
+    build_all()
+    _drain(Judge("same"))
+    with db.connect() as c:
+        later = c.execute("""SELECT er.report_key FROM event_reports er JOIN articles a ON a.id = er.article_id
+                             WHERE a.source = 'samakal'""").fetchone()["report_key"]
+    split(later, "tester")
+    assert status()["events"] == 2
+    with db.tx() as c:
+        enqueue(c, [later])
+    _drain(Judge("same"))
+    assert status()["events"] == 2                                            # the split was not undone

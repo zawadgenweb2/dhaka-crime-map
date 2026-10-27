@@ -68,8 +68,13 @@ def _filters(start: str | None, end: str | None, days: int | None, categories: s
     # A duplicate is hidden only if the report it points to is itself in the period, so an event never
     # vanishes from a period because its first report fell just outside it.
     where = ["i.published", db.GEMMA_PROVENANCE, "i.event_date BETWEEN %s AND %s",
-             """(i.duplicate_of IS NULL OR NOT EXISTS (SELECT 1 FROM incidents c WHERE c.id = i.duplicate_of
-                 AND c.published AND c.event_date BETWEEN %s AND %s))"""]
+             # event store live: show each event once, by its primary (earliest) report; reports the matcher
+             # has not reached yet show on their own. Before that: the old duplicate_of rule.
+             """(CASE WHEN EXISTS (SELECT 1 FROM app_flags f WHERE f.key = 'events_live' AND f.value = '1')
+                 THEN (EXISTS (SELECT 1 FROM events e WHERE e.primary_incident_id = i.id AND e.state = 'active')
+                       OR NOT EXISTS (SELECT 1 FROM event_reports er WHERE er.report_key = i.report_key))
+                 ELSE (i.duplicate_of IS NULL OR NOT EXISTS (SELECT 1 FROM incidents c WHERE c.id = i.duplicate_of
+                       AND c.published AND c.event_date BETWEEN %s AND %s)) END)"""]
     params: list = [start_d, end_d, start_d, end_d]
     if categories:
         cats = [c for c in categories.split(",") if c]
@@ -266,7 +271,11 @@ def create_app() -> FastAPI:
                 f"""SELECT i.id, i.category, i.headline_bn, i.headline_en, i.location_text, i.place_id, i.thana_id,
                            i.lat, i.lng, i.precision, i.geocoded, i.incident_date, i.event_date, i.time_of_day,
                            i.victims, i.evidence, i.evidence_ok, a.url, a.title, a.published_at,
-                           (SELECT count(*) FROM incidents d WHERE d.duplicate_of = i.id AND d.published) AS more_reports
+                           (CASE WHEN EXISTS (SELECT 1 FROM app_flags f WHERE f.key = 'events_live' AND f.value = '1')
+                            THEN coalesce((SELECT e.report_count - 1 FROM events e WHERE e.primary_incident_id = i.id
+                                           AND e.state = 'active'), 0)
+                            ELSE (SELECT count(*) FROM incidents d WHERE d.duplicate_of = i.id AND d.published) END)
+                           AS more_reports
                     FROM incidents i JOIN articles a ON a.id = i.article_id
                     WHERE {where} ORDER BY i.event_date DESC, i.id DESC LIMIT %s""", (*params, limit)).fetchall()
         gaz = load_gazetteer()
