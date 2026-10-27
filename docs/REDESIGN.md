@@ -9,13 +9,14 @@ owner decisions below.
 |---|---|
 | Newspapers | Prothom Alo + Samakal, Ittefaq, Bangla Tribune, Ajker Patrika, Desh Rupantor (all robots-ok, news sitemaps with titles) |
 | Districts | Dhaka, Chattogram, Sylhet, Khulna, Barishal, Rangpur — District filter replaces Thana (thana drill-down kept inside a district) |
-| Queue | Redis + RQ for dispatch and traffic control; PostgreSQL stays the system of record (jobs, versions, leases) |
+| Queue | PostgreSQL job queue with priorities (fresh news before backfills), leases and retries; Redis + RQ dropped on 27 Oct (one source of truth; the GPU, not the queue, is the bottleneck). Revisit only for workers on several machines |
 | Collection | twice a day (08:00, 20:00 Asia/Dhaka) per paper; sitemap roll-over measured and flagged |
 | GPU | keep 1 llama.cpp slot; benchmark 2 × 12K context before switching |
 | History | 30 days where a paper's archive allows; gaps shown |
 | Admin | separate admin app, office LAN/VPN only, individual accounts with login |
 | Public events | safe summary + source links; no verbatim quotes, no victim counts; sexual-violence / child cases only in area totals |
 | Default view | all six districts |
+| Crime types on the map | One warm heat ramp for amount; one chosen type tints it; zoomed-in donuts per area show the crime mix (owner, 27 Oct) |
 | Heatmap | smooth heat glow, counting events (not articles), scale adapts to the data |
 
 ## Work plan (each step tested and deployed before the next)
@@ -31,7 +32,7 @@ owner decisions below.
    collect-only mode per source until verified.
 5. **Events** — event table; conservative cross-publisher / follow-up matching; counts, map and feed use events; all
    source links per event.
-6. **Queue** — Redis + RQ queues (scheduled, backfill, preview) on top of the PostgreSQL job records; per-publisher lanes.
+6. **Queue** — done in PostgreSQL: job priority (scheduled/small collect-now 0, backfill/reprocess 2), per-paper download lanes at 1 request/second.
 7. **Public UI** — district-first, mobile, map-first loading, compressed and smaller payloads, self-hosted map library,
    adaptive event heat scale.
 8. **GPU benchmark** — 1 vs 2 slots on real articles.
