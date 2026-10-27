@@ -831,3 +831,16 @@ def test_fresh_news_is_read_before_a_backfill():
         order = [r["url"] for r in c.execute("""SELECT a.url FROM llm_calls l JOIN jobs j ON j.id = l.job_id
                                                 JOIN articles a ON a.id = j.article_id ORDER BY l.id""")]
     assert order == [URL + "b", URL]
+
+
+
+def test_login_page_loaded_twice_still_logs_in():
+    import re
+    from app import auth
+    auth.add_user("tester", "a-long-password-1")
+    api = _anon()
+    first = re.search(r'name="pre" content="([^"]+)', api.get("/login").text).group(1)
+    api.get("/login")                                                  # a second load (prefetch, another tab)
+    r = api.post("/api/login", json={"username": "tester", "password": "a-long-password-1"},
+                 headers={"x-csrf-token": first, "origin": "https://testserver"})
+    assert r.status_code == 200

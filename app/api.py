@@ -3,6 +3,8 @@ Swagger. The public site is app/public.py. Every route here needs a browser sess
 X-Admin-Token machine token; see app/auth.py."""
 from __future__ import annotations
 
+import re
+
 import hmac
 import json
 import logging
@@ -136,8 +138,11 @@ def create_app() -> FastAPI:
 
     # ---- login ------------------------------------------------------------------------------------
     @app.get("/login", include_in_schema=False)
-    def login_page():
-        pre = auth.secrets.token_urlsafe(24)
+    def login_page(request: Request):
+        # Reuse the pre-login token while it lives: browsers load /login twice (redirect + prefetch, extra tabs), and a
+        # fresh token per load left the visible form holding a token the cookie no longer matched (403 on submit).
+        old = request.cookies.get(auth.PRE_COOKIE) or ""
+        pre = old if re.fullmatch(r"[A-Za-z0-9_-]{32}", old) else auth.secrets.token_urlsafe(24)
         html = (ADMIN_STATIC / "login.html").read_text(encoding="utf-8").replace("{{PRE}}", pre)
         r = HTMLResponse(html, headers={"Cache-Control": "private, no-store"})
         r.set_cookie(auth.PRE_COOKIE, pre, max_age=900, secure=True, httponly=True, samesite="strict", path="/")
