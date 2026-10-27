@@ -25,6 +25,7 @@ from .config import ROOT, settings
 from .gazetteer import load as load_gazetteer
 from .scheduler import next_run
 from .schema import CATEGORIES, DISTRICTS, TIME_OF_DAY
+from .sources import enabled_sources
 from .scraper import DHAKA_TZ
 
 log = logging.getLogger(__name__)
@@ -317,8 +318,11 @@ def create_app() -> FastAPI:
         today = datetime.now(DHAKA_TZ).date()
         end_d = min(end_d, today)                                    # no future days
         with db.connect() as c:
+            # a day is read when every enabled paper with an archive has read its list for that day
+            papers = [x.key for x in enabled_sources() if x.archive]
             read = {r["day"]: r["links"] for r in c.execute(
-                "SELECT day, links FROM coverage_days WHERE day BETWEEN %s AND %s", (start_d, end_d))}
+                """SELECT day, sum(links)::int links FROM coverage_days WHERE day BETWEEN %s AND %s AND source = ANY(%s)
+                   GROUP BY day HAVING count(DISTINCT source) = %s""", (start_d, end_d, papers, len(papers)))}
             per = {r["day"]: r for r in c.execute(
                 """SELECT cu.day, count(*) AS candidates,
                           count(*) FILTER (WHERE a.id IS NULL) AS missing,

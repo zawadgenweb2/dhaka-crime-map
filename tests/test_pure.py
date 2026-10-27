@@ -105,7 +105,8 @@ def test_full_text_decides_dhaka():
     from app.scraper import belongs_to_dhaka
     g = load()
     assert belongs_to_dhaka("bangladesh/district", "কেরানীগঞ্জে স্ত্রীকে হত্যার মামলায় রায়", g)
-    assert not belongs_to_dhaka("bangladesh/district", "চট্টগ্রাম নগরের বিবিরহাটে ছিনতাই, ঢাকা মেডিকেলে নেওয়া হয়", g)
+    assert belongs_to_dhaka("bangladesh/district", "চট্টগ্রাম নগরের বিবিরহাটে ছিনতাই, ঢাকা মেডিকেলে নেওয়া হয়", g)
+    assert not belongs_to_dhaka("bangladesh/district", "ফেনীর ছাগলনাইয়ায় ছিনতাই, ঢাকা মেডিকেলে নেওয়া হয়", g)
     assert not belongs_to_dhaka("bangladesh/district", "টঙ্গীতে শিশুকে নিপীড়ন, গাজীপুর", g)
     assert belongs_to_dhaka("bangladesh", "রাজধানীতে ছিনতাই", g)
 
@@ -527,3 +528,64 @@ def test_old_saved_answers_still_load_as_dhaka():
                           "time_of_day": "unknown", "victims": 0, "evidence": "মিরপুরে চুরি"}]}
     a = ArticleAnalysis.model_validate(old)
     assert a.in_scope and a.incidents[0].district == "dhaka"
+
+
+
+# ---- five more newspapers (27 Oct) ----------------------------------------------------------------
+def test_sections_and_headlines_from_each_papers_urls():
+    from app.sources import section_of, source_for_url, title_from_url
+    assert section_of("https://www.prothomalo.com/bangladesh/crime/abc123") == "bangladesh/crime"
+    assert section_of("https://samakal.com/whole-country/article/379715/%E0%A6%B9%E0%A6%A4%E0%A7%8D%E0%A6%AF%E0%A6%BE") == "whole-country"
+    assert section_of("https://www.banglatribune.com/law-and-crime/976980/x") == "law-and-crime"
+    assert section_of("https://www.banglatribune.com/country/chitagong/976981/x") == "country/chitagong"
+    assert section_of("https://www.ajkerpatrika.com/bangladesh/dhaka/ajpymd01llkbz") == "bangladesh/dhaka"
+    assert section_of("https://www.ittefaq.com.bd/817537/x") == ""                     # no sections in its URLs
+    assert source_for_url("https://www.kishoralo.com/x/y") is None
+    assert title_from_url("https://www.deshrupantor.com/730537/স্ত্রীকে-গলা-টিপে-হত্যা") == "স্ত্রীকে গলা টিপে হত্যা"
+    assert title_from_url("https://www.ajkerpatrika.com/bangladesh/dhaka/ajpymd01llkbz") == ""   # id, not a headline
+
+
+def test_untitled_archive_entries_use_the_headline_in_the_url():
+    g = load()
+    ok = Candidate("https://www.ittefaq.com.bd/817537/স্ত্রীকে-হত্যা", "", "স্ত্রীকে হত্যা")
+    sport = Candidate("https://www.ittefaq.com.bd/817538/সাকিবের-সেঞ্চুরি", "", "সাকিবের সেঞ্চুরি")
+    assert is_candidate(ok, g) and not is_candidate(sport, g)
+    assert is_candidate(Candidate("https://www.banglatribune.com/law-and-crime/1/x", "law-and-crime"), g)
+    assert is_candidate(Candidate("https://www.ajkerpatrika.com/bangladesh/khulna/ajp1", "bangladesh/khulna"), g)
+    assert not is_candidate(Candidate("https://www.ajkerpatrika.com/sports/cricket/ajp2", "sports/cricket"), g)
+    assert not is_candidate(Candidate("https://www.ajkerpatrika.com/video/ajp3", "video", "হত্যা"), g)
+
+
+DOM_PAGE = """<html><head><meta property="og:title" content="খালিশপুরে যুবককে কুপিয়ে হত্যা">
+<meta property="article:published_time" content="2026-10-26T21:10:00+06:00">
+<script type="application/ld+json">{"@type":"NewsArticle","headline":"x","datePublished":"2026-10-26T21:10:00+06:00",
+"keywords":"খুলনা, হত্যা"}</script></head><body><h1>খালিশপুরে যুবককে কুপিয়ে হত্যা</h1>
+<div class="viewport jw_article_body" itemprop="articleBody"><p>খুলনা নগরের খালিশপুর এলাকায় গতকাল রাতে এক যুবককে কুপিয়ে হত্যা করা হয়েছে।</p>
+<figure><figcaption>ছবি: সংগৃহীত</figcaption></figure><script>ads()</script>
+<p>খালিশপুর থানার ওসি জানান, এ ঘটনায় মামলার প্রস্তুতি চলছে এবং জড়িতদের ধরতে অভিযান চলছে।</p></div></body></html>"""
+
+
+def test_paper_without_json_ld_text_is_read_from_its_text_block():
+    a = parse_article(DOM_PAGE, "https://www.deshrupantor.com/730999/খালিশপুরে-হত্যা")
+    assert a.title == "খালিশপুরে যুবককে কুপিয়ে হত্যা" and a.keywords == "খুলনা, হত্যা"
+    assert a.body.splitlines()[0].startswith("খুলনা নগরের খালিশপুর") and "ছবি" not in a.body and "ads" not in a.body
+    assert a.published_at.isoformat() == "2026-10-26T21:10:00+06:00"
+    with pytest.raises(ValueError):
+        parse_article(DOM_PAGE.replace("jw_article_body", "other"), "https://www.ittefaq.com.bd/1/x")
+
+
+def test_each_paper_is_its_own_lane():
+    from app.scraper import NewsClient
+    seen = []
+
+    def handler(req):
+        seen.append(str(req.url))
+        if req.url.path == "/robots.txt":
+            return httpx.Response(200, text="User-agent: *\nDisallow: /search")
+        return httpx.Response(200, text="<urlset xmlns='http://www.sitemaps.org/schemas/sitemap/0.9'></urlset>")
+    c = NewsClient("samakal", client=httpx.Client(transport=httpx.MockTransport(handler)), delay=0)
+    assert c.news_sitemap() == [] and seen == ["https://samakal.com/robots.txt", "https://samakal.com/news_sitemap.xml"]
+    with pytest.raises(FetchBlocked):
+        c._get("https://www.prothomalo.com/bangladesh/crime/x")               # another paper's host
+    with pytest.raises(FetchBlocked):
+        c._get("https://samakal.com/search?q=x")

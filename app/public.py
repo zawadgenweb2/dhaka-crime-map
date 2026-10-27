@@ -20,27 +20,24 @@ from .config import settings
 from .gazetteer import load as load_gazetteer
 from .schema import CATEGORIES, DISTRICTS, TIME_OF_DAY
 from .scraper import DHAKA_TZ
+from .sources import source_for_url
 
 # Never a point, feed item or link on the public site; still counted in totals.
 AREA_TOTALS_ONLY = {"sexual_violence"}
-PUBLISHERS = {   # host -> (Bangla, English); only links to these hosts are ever returned
-    "www.prothomalo.com": ("প্রথম আলো", "Prothom Alo"), "prothomalo.com": ("প্রথম আলো", "Prothom Alo"),
-}
 CACHE = "public, max-age=30"
 
 
 def _publisher(url: str | None) -> tuple[str | None, str | None, str | None]:
     if not url:
         return None, None, None
-    parts = urlsplit(url)
-    names = PUBLISHERS.get((parts.hostname or "").lower())
-    if parts.scheme != "https" or not names:
+    src = source_for_url(url)       # only links to the registered papers are ever returned
+    if urlsplit(url).scheme != "https" or src is None:
         return None, None, None
-    return url, *names
+    return url, src.name_bn, src.name_en
 
 
 def create_public_app() -> FastAPI:
-    app = FastAPI(title="Dhaka Crime Map", docs_url=None, redoc_url=None, openapi_url=None)
+    app = FastAPI(title="Bangladesh Crime Map", docs_url=None, redoc_url=None, openapi_url=None)
     app.add_middleware(GZipMiddleware, minimum_size=1000)
     app.mount("/static", StaticFiles(directory=STATIC), name="static")
 

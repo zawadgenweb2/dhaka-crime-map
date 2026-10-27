@@ -1,9 +1,9 @@
-"""Prothom Alo (Bangla) collector.
+"""Newspaper collector (the papers are listed in sources.py).
 
-Discovery uses the publisher's own sitemaps, which robots.txt advertises:
-  * news_sitemap.xml   - last ~48h, with title + keywords (used by the scheduled runs)
-  * sitemap-daily-YYYY-MM-DD.xml - one per day, URL + section only (used for backfill)
-Article text comes from the page's JSON-LD NewsArticle block.
+Discovery uses each publisher's own sitemaps, which robots.txt advertises:
+  * the Google News sitemap - last ~48h, with titles (used by the scheduled runs)
+  * a daily or monthly archive sitemap - URL (+ lastmod) only (used for backfill)
+Article text comes from the page's JSON-LD NewsArticle block (Prothom Alo) or the paper's article-text block.
 """
 from __future__ import annotations
 
@@ -23,21 +23,19 @@ from defusedxml import ElementTree as ET
 
 from .config import settings
 from .gazetteer import Gazetteer
+from .sources import SOURCES, Source, section_of, source_for_url, title_from_url
 from .text import crime_signal, normalize
 
 log = logging.getLogger(__name__)
 DHAKA_TZ = ZoneInfo("Asia/Dhaka")
-BASE = "https://www.prothomalo.com"
-NEWS_SITEMAP = f"{BASE}/news_sitemap.xml"
-DAILY_SITEMAP = f"{BASE}/sitemap/sitemap-daily-{{day}}.xml"
 NS = {"s": "http://www.sitemaps.org/schemas/sitemap/0.9", "n": "http://www.google.com/schemas/sitemap-news/0.9"}
 
-# Sections that are almost always crime or Dhaka news
-CRIME_SECTIONS = {"bangladesh/crime", "bangladesh/capital"}
+# Sections that are almost always crime news (any paper)
+CRIME_SECTIONS = set().union(*(s.crime_sections for s in SOURCES.values()))
 # Not articles (no text to read)
-NON_ARTICLE_SECTIONS = {"video", "photo", "amp", "topic", "author", "https:", "http:"}
-# Daily sitemaps list URLs without titles. In these sections the title is read after download (backfills).
-TITLE_AFTER_DOWNLOAD = {"bangladesh", "bangladesh/district", "politics"}
+NON_ARTICLE_SECTIONS = {"video", "videos", "photo", "photos", "gallery", "amp", "topic", "tags", "author", "https:", "http:"}
+# District-news sections: a bare "ঢাকা" there is not the capital
+DISTRICT_SECTIONS = {"bangladesh/district", "whole-country"}
 MAX_BYTES = 8 * 1024 * 1024
 
 
@@ -61,12 +59,6 @@ class Article:
     extra: dict = field(default_factory=dict)
 
 
-def section_of(url: str) -> str:
-    path = url.split("prothomalo.com/", 1)[-1].strip("/")
-    parts = path.split("/")
-    return "/".join(parts[:2]) if len(parts) >= 3 else parts[0]
-
-
 def parse_dt(value: str | None) -> datetime | None:
     if not value:
         return None
@@ -85,7 +77,7 @@ def parse_news_sitemap(xml: str) -> list[Candidate]:
             continue
         out.append(Candidate(
             url=loc, section=section_of(loc),
-            title=(u.findtext("n:news/n:title", "", NS) or "").strip(),
+            title=(u.findtext("n:news/n:title", "", NS) or "").strip() or title_from_url(loc),
             keywords=(u.findtext("n:news/n:keywords", "", NS) or "").strip(),
             published_at=parse_dt(u.findtext("n:news/n:publication_date", None, NS))))
     return out
@@ -96,7 +88,7 @@ def parse_daily_sitemap(xml: str) -> list[Candidate]:
     for u in ET.fromstring(xml).findall("s:url", NS):
         loc = (u.findtext("s:loc", "", NS) or "").strip()
         if loc:
-            out.append(Candidate(url=loc, section=section_of(loc),
+            out.append(Candidate(url=loc, section=section_of(loc), title=title_from_url(loc),
                                  published_at=parse_dt(u.findtext("s:lastmod", None, NS))))
     return out
 
@@ -104,19 +96,18 @@ def parse_daily_sitemap(xml: str) -> list[Candidate]:
 def is_candidate(c: Candidate, gaz: Gazetteer) -> bool:
     """Stage 1, before download: is this sitemap entry worth downloading?
 
-    - crime and capital sections: always
-    - any other section (sports, business, district, ...): when the title or keywords contain a crime word.
-      Dhaka is NOT required in the title; the full text decides that after download (belongs_to_districts).
-    - no title known (daily-sitemap entry): only in TITLE_AFTER_DOWNLOAD sections; the title is checked after download
-    - videos, photo galleries and Prothom Alo's sister sites (other hosts): never"""
-    if (urlsplit(c.url).hostname or "").lower() not in ALLOWED_HOSTS:
+    - the paper's crime sections: always
+    - any other section (sports, business, district, ...): when the title (or the headline in the URL) or keywords
+      contain a crime word. A district is NOT required in the title; the full text decides (belongs_to_districts).
+    - no title known (archive entry): only in the paper's title_after_download sections; checked after download
+    - videos, photo galleries and other hosts (sister sites): never"""
+    src = source_for_url(c.url)
+    if src is None or c.section.split("/")[0] in NON_ARTICLE_SECTIONS:
         return False
-    if c.section.split("/")[0] in NON_ARTICLE_SECTIONS:
-        return False
-    if c.section in CRIME_SECTIONS:
+    if c.section in src.crime_sections:
         return True
     if not c.title and not c.keywords:
-        return c.section in TITLE_AFTER_DOWNLOAD
+        return c.section in src.title_after_download
     return crime_signal(f"{c.title} {c.keywords}") > 0
 
 
@@ -131,18 +122,25 @@ def belongs_to_districts(section: str, text: str, gaz: Gazetteer) -> bool:
     (not a referral hospital) or, outside district news, a capital term or another supported district's name."""
     if section in CRIME_SECTIONS:
         return gaz.mentions_supported(text)
-    if gaz.grounded_places(text):
+    if gaz.grounded_places(text) or gaz.district_mentions(text) - {"dhaka"}:
         return True
-    if section == "bangladesh/district":
+    if section in DISTRICT_SECTIONS:
         return False
     n = normalize(text)
-    return any(t in n for t in CAPITAL_TERMS) or bool(gaz.district_mentions(text) - {"dhaka"})
+    return any(t in n for t in CAPITAL_TERMS)
 
 
 belongs_to_dhaka = belongs_to_districts      # old name
 
 
+def _clean_lines(text: str) -> str:
+    return "\n".join(re.sub(r"\s+", " ", line).strip() for line in text.splitlines() if line.strip(" ."))
+
+
 def parse_article(page: str, url: str) -> Article:
+    src = source_for_url(url)
+    if src and src.body_selectors:
+        return parse_dom_article(page, url, src)
     soup = BeautifulSoup(page, "html.parser")
     node: dict = {}
     for tag in soup.select('script[type="application/ld+json"]'):
@@ -162,8 +160,7 @@ def parse_article(page: str, url: str) -> Article:
         if decoded == body:
             break
         body = decoded
-    text = BeautifulSoup(body, "html.parser").get_text("\n", strip=True)
-    text = "\n".join(re.sub(r"\s+", " ", line).strip() for line in text.splitlines() if line.strip(" ."))
+    text = _clean_lines(BeautifulSoup(body, "html.parser").get_text("\n", strip=True))
     title = html.unescape(node.get("headline") or node.get("name") or "").strip()
     kw = node.get("keywords") or ""
     if isinstance(kw, list):
@@ -174,7 +171,40 @@ def parse_article(page: str, url: str) -> Article:
                    published_at=parse_dt(node.get("datePublished")), keywords=kw)
 
 
-ALLOWED_HOSTS = {"www.prothomalo.com", "prothomalo.com"}
+def parse_dom_article(page: str, url: str, src: Source) -> Article:
+    """Papers whose JSON-LD has no article text: title and date from meta/JSON-LD, text from the paper's text block
+    (paragraphs only; captions, embeds, "read more" boxes and scripts dropped)."""
+    soup = BeautifulSoup(page, "html.parser")
+    ld: dict = {}
+    for tag in soup.select('script[type="application/ld+json"]'):
+        try:
+            data = json.loads(tag.string or tag.get_text() or "null", strict=False)
+        except (ValueError, TypeError):
+            continue
+        nodes = data if isinstance(data, list) else (data.get("@graph") or [data]) if isinstance(data, dict) else []
+        for n in nodes:
+            if isinstance(n, dict) and n.get("@type") in ("NewsArticle", "Article") and not ld:
+                ld = n
+    meta = {(m.get("property") or m.get("name") or "").lower(): m.get("content") or "" for m in soup.find_all("meta")}
+    title = html.unescape(meta.get("og:title") or ld.get("headline") or (soup.h1.get_text(strip=True) if soup.h1 else "")).strip()
+    published = parse_dt(meta.get("article:published_time") or ld.get("datePublished"))
+    kw = ld.get("keywords") or meta.get("news_keywords") or meta.get("keywords") or ""
+    if isinstance(kw, list):
+        kw = ", ".join(kw)
+    blocks = [el for sel in src.body_selectors for el in soup.select(sel)]
+    parts = []
+    for el in blocks:
+        for junk in el.select("script, style, figure, figcaption, iframe, aside, noscript, .ad, .advertisement"):
+            junk.decompose()
+        paras = el.find_all(["p", "h2", "h3", "li"])
+        parts.append("\n".join(p.get_text(" ", strip=True) for p in paras) if paras else el.get_text("\n", strip=True))
+    text = _clean_lines("\n".join(parts))
+    if len(text) < 80 or not title:
+        raise ValueError("article too short or missing title")
+    return Article(url=url, section=section_of(url), title=title, body=text[:60000], published_at=published,
+                   keywords=html.unescape(kw))
+
+
 MAX_REDIRECTS = 3
 MAX_ROBOTS_BYTES = 512 * 1024
 
@@ -238,8 +268,13 @@ class RobotsPolicy:
         return True if best is None else best[1]
 
 
-class ProthomAloClient:
-    def __init__(self, client: httpx.Client | None = None, delay: float | None = None):
+class NewsClient:
+    """One paper's lane: its own robots.txt, host allowlist and one-request-per-second pace."""
+
+    def __init__(self, source: Source | str = "prothomalo", client: httpx.Client | None = None,
+                 delay: float | None = None):
+        self.source = SOURCES[source] if isinstance(source, str) else source
+        self._months: dict[str, list[Candidate]] = {}
         # Redirects are followed manually so every hop is host- and robots-checked.
         self.http = client or httpx.Client(headers={"User-Agent": settings.user_agent, "Accept-Language": "bn,en"},
                                            timeout=30, follow_redirects=False)
@@ -264,7 +299,7 @@ class ProthomAloClient:
     def _get(self, url: str) -> str:
         for _ in range(MAX_REDIRECTS + 1):
             host = (urlsplit(url).hostname or "").lower()
-            if urlsplit(url).scheme != "https" or host not in ALLOWED_HOSTS:
+            if urlsplit(url).scheme != "https" or host not in self.source.hosts:
                 raise FetchBlocked(f"host not allowed: {url}")
             if not self.allowed(url):
                 raise FetchBlocked(f"robots.txt disallows {url}")
@@ -288,11 +323,11 @@ class ProthomAloClient:
         """RFC 9309: follow up to 5 same-site redirects; 4xx = no restrictions; 5xx, unreachable or a redirect loop
         = crawl nothing this run (the slot is retried later)."""
         if self._robots is None:
-            target = f"{BASE}/robots.txt"
+            target = self.source.url("/robots.txt")
             policy = RobotsPolicy(disallow_all=True)
             try:
                 for _ in range(6):
-                    if (urlsplit(target).hostname or "").lower() not in ALLOWED_HOSTS:
+                    if (urlsplit(target).hostname or "").lower() not in self.source.hosts:
                         break
                     self._pace()
                     r = self._download(target, MAX_ROBOTS_BYTES)
@@ -307,20 +342,37 @@ class ProthomAloClient:
             except (httpx.HTTPError, FetchBlocked):
                 pass
             if policy.disallow_all:
-                log.warning("robots.txt unavailable; not crawling this run")
+                log.warning("%s: robots.txt unavailable; not crawling this run", self.source.key)
             self._robots = policy
         return self._robots.can_fetch(url)
 
     def news_sitemap(self) -> list[Candidate]:
-        return parse_news_sitemap(self._get(NEWS_SITEMAP))
+        return parse_news_sitemap(self._get(self.source.url(self.source.news_sitemap)))
 
-    def daily_sitemap(self, day: date) -> list[Candidate]:
+    def _archive(self, path: str) -> list[Candidate]:
         try:
-            return parse_daily_sitemap(self._get(DAILY_SITEMAP.format(day=day.isoformat())))
+            return parse_daily_sitemap(self._get(self.source.url(path)))
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 404:
                 return []
             raise
 
+    def daily_sitemap(self, day: date) -> list[Candidate]:
+        """The archive entries for one day: the day's own file, or (monthly archives) the month's file read once and
+        filtered by lastmod. lastmod is never before publication, so a story published that day is listed on that day
+        or later; monthly days are approximate (the window check after download is exact)."""
+        if self.source.archive == "daily":
+            return self._archive(self.source.archive_path.format(day=day.isoformat()))
+        if self.source.archive == "monthly":
+            month = day.replace(day=1).isoformat()
+            if month not in self._months:
+                self._months[month] = self._archive(self.source.archive_path.format(month=month))
+            return [c for c in self._months[month]
+                    if c.published_at is None or c.published_at.astimezone(DHAKA_TZ).date() == day]
+        return []
+
     def article(self, url: str) -> Article:
         return parse_article(self._get(url), url)
+
+
+ProthomAloClient = NewsClient          # old name: NewsClient() defaults to Prothom Alo
