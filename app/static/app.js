@@ -86,16 +86,19 @@
     return [d.lng + Math.cos(a) * r, d.lat + Math.sin(a) * r];
   }
 
-  // Square-root compression: a spot with n incidents counts sqrt(n) (14 -> ~3.7). The busiest spot stays the
-  // darkest, but a single incident is no longer invisible next to it.
-  function heatWeights(pts) {
-    const key = (p) => `${p.lat.toFixed(3)},${p.lng.toFixed(3)}`;
+  // Blobs grow as you zoom in (half as fast as the map), so hotspots stay visible instead of shrinking to dots.
+  const heatRadius = (zoom) => Math.max(60, Math.min(180, 80 * 2 ** ((zoom - 11.5) * 0.4)));
+  // Square-root compression per map cell about half a blob wide: a cell with n incidents counts sqrt(n). The busiest
+  // place stays the darkest, but quieter ones stay visible next to it, from a street up to the whole country
+  // (zoomed out, a cell is a city: Dhaka 188 vs Chattogram 30 -> 13.7 vs 5.5, not 188 vs 30).
+  const heatCell = (zoom) => Math.max(0.001, (heatRadius(zoom) / 2) * 360 / (256 * 2 ** zoom));
+  function heatWeights(pts, zoom) {
+    const c = heatCell(zoom);
+    const key = (p) => `${Math.floor(p.lat / c)},${Math.floor(p.lng / c)}`;
     const n = {};
     for (const p of pts) n[key(p)] = (n[key(p)] || 0) + 1;
     return new Map(pts.map((p) => [p.id, 1 / Math.sqrt(n[key(p)])]));
   }
-  // Blobs grow as you zoom in (half as fast as the map), so hotspots stay visible instead of shrinking to dots.
-  const heatRadius = (zoom) => Math.max(60, Math.min(180, 80 * 2 ** ((zoom - 11.5) * 0.4)));
 
   // One warm ramp = how much crime. With exactly one crime type chosen, the ramp takes that type's colour.
   function heatRange() {
@@ -155,11 +158,11 @@
     if (state.mode !== "points") {
       const zoom = engine?.zoom ? engine.zoom() : 12;
       // Colours follow the view: the area with the most incidents is always the darkest.
-      const w = heatWeights(pts);
+      const w = heatWeights(pts, zoom);
       out.push(new deck.HeatmapLayer({
         id: "heat", data: pts, getPosition: (d) => [d.lng, d.lat], getWeight: (d) => w.get(d.id),
         radiusPixels: heatRadius(zoom), intensity: 1, threshold: 0.05, colorRange: heatRange(), aggregation: "SUM",
-        updateTriggers: { getWeight: pts.length },
+        updateTriggers: { getWeight: [pts.length, heatCell(zoom).toFixed(4)] },
       }));
     }
     const zoomNow = engine?.zoom ? engine.zoom() : 12;
