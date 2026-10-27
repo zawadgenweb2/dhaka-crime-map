@@ -11,7 +11,9 @@
       incidents: "ঘটনা", victims: "হতাহত", topArea: "শীর্ষ এলাকা", topCrime: "প্রধান অপরাধ",
       updated: "হালনাগাদ", topTime: "বেশি ঘটনার সময়", read: "পড়ুন:", moreReports: "আরও {n}টি প্রতিবেদন", noData: "এই ফিল্টারে কোনো ঘটনা নেই",
       exact: "নির্দিষ্ট স্থান", neighbourhood: "এলাকা", thana: "থানা পর্যায়", city: "স্থান অস্পষ্ট",
-      unlocated: "{n}টি ঘটনার স্থান অস্পষ্ট, মানচিত্রে নেই", fewer: "কম", more: "বেশি", density: "ঘটনার ঘনত্ব", mixNote: "বৃত্ত: মানচিত্রে থাকা ঘটনার এলাকাভিত্তিক ধরন (জুম করুন)", areaTotal: "{n}টি ঘটনা", crimeMix: "অপরাধের ধরন",
+      unlocated: "{n}টি ঘটনার স্থান অস্পষ্ট, মানচিত্রে নেই", fewer: "কম", more: "বেশি", density: "ঘটনার ঘনত্ব", blendNote: "প্রতিটি অপরাধের নিজস্ব রং; একাধিক ধরন মিশলে রংও মেশে। গাঢ় রং = বেশি প্রতিবেদিত ঘটনা (এই দৃশ্যের তুলনায়)। মানচিত্রে ট্যাপ করে মিশ্রণ দেখুন।",
+      localMix: "এখানকার আনুমানিক মিশ্রণ", localMixNote: "কাছের ম্যাপকৃত ঘটনা থেকে রঙের ভাগ; এই রাস্তার ঘটনার সংখ্যা নয়।",
+      totalsOnlyNote: "এই ধরন শুধু মোট সংখ্যায় গোনা হয়; স্থান ও প্রতিবেদনের লিংক দেখানো হয় না।", areaTotal: "{n}টি ঘটনা", crimeMix: "অপরাধের ধরন",
       published: "প্রকাশ", killedInjured: "হতাহত {n}", noKey: "Google Maps কী সেট করা নেই; বিকল্প মানচিত্র দেখানো হচ্ছে।",
       keyFailed: "Google Maps কী কাজ করছে না; বিকল্প মানচিত্র দেখানো হচ্ছে।", failed: "শুরু করা যায়নি", days: "দিন", year: "বছর",
       sourceNote: "সূত্র: সংবাদপত্রের প্রতিবেদন · স্বয়ংক্রিয় বিশ্লেষণ, ভুল থাকতে পারে · প্রতিবেদিত ঘটনা, সব অপরাধ নয়", truncated: "অনেক ঘটনা; প্রথম {n}টি দেখানো হচ্ছে",
@@ -26,7 +28,9 @@
       updated: "Updated", topTime: "Most common time", read: "Read on", moreReports: "{n} more reports", noData: "No incidents match these filters",
       exact: "Exact spot", neighbourhood: "Neighbourhood", thana: "Thana level", city: "Location unclear",
       unlocated: "{n} incidents have no clear location and are not on the map", fewer: "fewer", more: "more",
-      density: "Incident density", mixNote: "Circles: crime mix of mapped incidents by area (zoom in)", areaTotal: "{n} incidents", crimeMix: "Crime mix", published: "Published", killedInjured: "{n} killed/injured",
+      density: "Incident density", blendNote: "Each crime type has its own colour; where types overlap, the colours blend. Deeper colour = more reported incidents (relative to this view). Tap the map to see the mix.",
+      localMix: "Approximate local mix", localMixNote: "Shares of the glow from nearby mapped incidents, not counts for this street.",
+      totalsOnlyNote: "This type is counted in totals only; locations and report links are not shown.", areaTotal: "{n} incidents", crimeMix: "Crime mix", published: "Published", killedInjured: "{n} killed/injured",
       noKey: "No Google Maps key configured; showing the fallback map.",
       keyFailed: "Google Maps key was rejected; showing the fallback map.", failed: "Could not start", days: "days", year: "year",
       sourceNote: "Source: newspaper reports · automatically extracted, may contain errors · reported incidents, not all crime", truncated: "Many incidents; showing the first {n}",
@@ -36,8 +40,6 @@
   const CAT_ORDER = ["murder", "assault", "robbery", "theft", "sexual_violence", "kidnapping", "drugs_arms", "fraud_extortion", "other"];
   // Light pink where there are few incidents, deep red where there are many (the busiest area is the darkest).
   // The lightest step must stay visible: one incident is only a small fraction of the busiest spot.
-  const HEAT = [[253, 224, 217, 120], [252, 187, 161, 155], [251, 140, 110, 185], [239, 90, 70, 210], [214, 45, 40, 228],
-    [175, 20, 28, 240], [127, 10, 18, 250]];
   const DHAKA = { lat: 23.785, lng: 90.395 };
 
   const $ = (s) => document.querySelector(s);
@@ -58,7 +60,7 @@
 
   const state = {
     lang: store.get("dcm.lang", "bn"), theme: store.get("dcm.theme", ""), days: 7, start: "", end: "",
-    cats: new Set(CAT_ORDER), district: "", thana: "", mode: "heat", meta: null, incidents: [], stats: null, selected: null, area: null,
+    cats: new Set(CAT_ORDER), district: "", thana: "", mode: "heat", meta: null, incidents: [], stats: null, selected: null, mix: null, heat: null,
   };
   let engine = null;
 
@@ -86,97 +88,12 @@
     return [d.lng + Math.cos(a) * r, d.lat + Math.sin(a) * r];
   }
 
-  // Blobs grow as you zoom in (half as fast as the map), so hotspots stay visible instead of shrinking to dots.
-  const heatRadius = (zoom) => Math.max(60, Math.min(180, 80 * 2 ** ((zoom - 11.5) * 0.4)));
-  // Square-root compression per map cell about half a blob wide: a cell with n incidents counts sqrt(n). The busiest
-  // place stays the darkest, but quieter ones stay visible next to it, from a street up to the whole country
-  // (zoomed out, a cell is a city: Dhaka 188 vs Chattogram 30 -> 13.7 vs 5.5, not 188 vs 30).
-  const heatCell = (zoom) => Math.max(0.001, (heatRadius(zoom) / 2) * 360 / (256 * 2 ** zoom));
-  function heatWeights(pts, zoom) {
-    const c = heatCell(zoom);
-    const key = (p) => `${Math.floor(p.lat / c)},${Math.floor(p.lng / c)}`;
-    const n = {};
-    for (const p of pts) n[key(p)] = (n[key(p)] || 0) + 1;
-    const keep = zoom < 9 ? 0.25 : 0.5;          // country view: a cell counts n^(1/4), so every city shows
-    return new Map(pts.map((p) => [p.id, n[key(p)] ** (keep - 1)]));
-  }
-
-  // One warm ramp = how much crime. With exactly one crime type chosen, the ramp takes that type's colour.
-  function heatRange() {
-    if (state.cats.size !== 1) return HEAT;
-    const c = rgb(cssColor([...state.cats][0]));
-    const toWhite = (f, a) => [...c.map((v) => Math.round(255 + (v - 255) * f)), a];
-    const shade = (f, a) => [...c.map((v) => Math.round(v * f)), a];
-    return [toWhite(0.15, 120), toWhite(0.35, 155), toWhite(0.6, 185), toWhite(0.85, 210), shade(1, 228), shade(0.8, 240), shade(0.6, 250)];
-  }
-  const rampCss = () => `linear-gradient(90deg, ${heatRange().map(([r, g, b, a]) => `rgba(${r},${g},${b},${(a / 255).toFixed(2)})`).join(", ")})`;
-
-  // Crime mix per area (thana, else place): position = mean of its incidents, counts per type, biggest first.
-  function areaGroups(pts) {
-    const by = new Map();
-    for (const p of pts) {
-      const k = p.thana_id || p.place_id;
-      if (!k) continue;
-      const g = by.get(k) || { id: k, name_bn: p.thana_bn || p.place_bn, name_en: p.thana_en || p.place_en, lat: 0, lng: 0, total: 0, mix: {} };
-      g.lat += p.lat; g.lng += p.lng; g.total += 1; g.mix[p.category] = (g.mix[p.category] || 0) + 1;
-      by.set(k, g);
-    }
-    const thanaPt = new Map(state.meta.thanas.map((x) => [x.id, x]));
-    return [...by.values()].map((g) => {
-      const tp = thanaPt.get(g.id);                 // the area's own point, so the donut doesn't drift with its incidents
-      return { ...g, lat: tp && tp.lat != null ? tp.lat : g.lat / g.total, lng: tp && tp.lng != null ? tp.lng : g.lng / g.total,
-      slices: Object.entries(g.mix).sort((a, b) => b[1] - a[1] || CAT_ORDER.indexOf(a[0]) - CAT_ORDER.indexOf(b[0])) };
-    });
-  }
-  // A donut drawn as SVG: one stroke segment per crime type, the count in the middle. Icons are cached by mix.
-  const ICONS = new Map();
-  function donutIcon(g) {
-    const id = `${g.slices.map(([k, n]) => k + n).join("-")}-${isDark() ? "d" : "l"}`;
-    if (ICONS.has(id)) return ICONS.get(id);
-    if (ICONS.size > 500) ICONS.clear();
-    const R = 22, C = 2 * Math.PI * R; let off = 0;
-    const segs = g.slices.map(([k, n]) => {
-      const len = (n / g.total) * C;
-      const seg = `<circle cx="32" cy="32" r="${R}" fill="none" stroke="${cssColor(k)}" stroke-width="14" stroke-dasharray="${len.toFixed(2)} ${(C - len).toFixed(2)}" stroke-dashoffset="${(-off).toFixed(2)}" transform="rotate(-90 32 32)"/>`;
-      off += len; return seg;
-    }).join("");
-    const bg = isDark() ? "#1a1a19" : "#ffffff", fg = isDark() ? "#f2f1ed" : "#1a1a19";
-    // thin gaps between slices so neighbouring types stay apart even when their colours are close
-    let a0 = 0; const gaps = g.slices.length < 2 ? "" : g.slices.map(([, n]) => {
-      const ang = (a0 / g.total) * 2 * Math.PI - Math.PI / 2; a0 += n;
-      return `<line x1="${(32 + 14 * Math.cos(ang)).toFixed(2)}" y1="${(32 + 14 * Math.sin(ang)).toFixed(2)}" x2="${(32 + 30 * Math.cos(ang)).toFixed(2)}" y2="${(32 + 30 * Math.sin(ang)).toFixed(2)}" stroke="${bg}" stroke-width="2"/>`;
-    }).join("");
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><circle cx="32" cy="32" r="31" fill="${bg}" stroke="${fg}" stroke-opacity=".35" stroke-width="1"/>${segs}${gaps}`
-      + `<text x="32" y="37" text-anchor="middle" font-family="sans-serif" font-size="15" font-weight="700" fill="${fg}">${g.total}</text></svg>`;
-    const icon = { id, url: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`, width: 64, height: 64 };
-    ICONS.set(id, icon); return icon;
-  }
-  const MIX_MIN_ZOOM = 11;
-
   function layers() {
     const pts = state.incidents.filter((i) => i.lat != null);
     const out = [];
-    if (state.mode !== "points") {
-      const zoom = engine?.zoom ? engine.zoom() : 12;
-      // Colours follow the view: the area with the most incidents is always the darkest.
-      const w = heatWeights(pts, zoom);
-      out.push(new deck.HeatmapLayer({
-        id: "heat", data: pts, getPosition: (d) => [d.lng, d.lat], getWeight: (d) => w.get(d.id),
-        radiusPixels: heatRadius(zoom), intensity: 1, threshold: 0.05, colorRange: heatRange(), aggregation: "SUM",
-        updateTriggers: { getWeight: [pts.length, heatCell(zoom).toFixed(4), zoom < 9] },
-      }));
-    }
-    const zoomNow = engine?.zoom ? engine.zoom() : 12;
-    if (state.mode === "heat" && state.cats.size !== 1 && zoomNow >= MIX_MIN_ZOOM) {
-      // Crime mix on top of the heat; small areas only appear once zoomed further in, so donuts don't pile up.
-      const groups = areaGroups(pts).filter((g) => g.total >= (zoomNow >= 13 ? 1 : 2));
-      const selA = state.area?.id;
-      out.push(new deck.IconLayer({
-        id: "mix", data: groups, pickable: true, sizeUnits: "pixels", getPosition: (g) => [g.lng, g.lat],
-        getIcon: donutIcon, getSize: (g) => Math.min(56, 26 + 6 * Math.sqrt(g.total)) + (g.id === selA ? 6 : 0),
-        updateTriggers: { getIcon: isDark(), getSize: selA },
-        onHover: hoverArea, onClick: (info) => info.object && selectArea(info.object),
-      }));
+    if (state.mode !== "points" && state.heat) {
+      out.push(new deck.BitmapLayer({ id: "heat", image: state.heat.image, bounds: state.heat.bounds,
+                                      textureParameters: { minFilter: "linear", magFilter: "linear" } }));
     }
     if (state.mode !== "heat") {
       const ring = isDark() ? [26, 26, 25] : [252, 252, 251];
@@ -191,21 +108,6 @@
       }));
     }
     return out;
-  }
-
-  function hoverArea(info) {
-    const tip = $("#tooltip");
-    if (!info.object) { tip.hidden = true; return; }
-    const g = info.object;
-    fill(tip, el("div", {}, el("b", {}, state.lang === "bn" ? g.name_bn : g.name_en)),
-      el("div", { class: "meta" }, t("areaTotal", { n: g.total })),
-      ...g.slices.slice(0, 4).map(([k, n]) => el("div", { class: "tag" }, el("span", { class: "dot", style: `background:${cssColor(k)}` }), `${catLabel(k)} ${num(n)}`)));
-    tip.style.left = `${info.x + 12}px`; tip.style.top = `${info.y + 12}px`; tip.hidden = false;
-  }
-
-  function selectArea(g) {
-    state.selected = null; state.area = g;
-    renderSelected(); renderFeed(); engine?.render();
   }
 
   function hover(info) {
@@ -254,13 +156,30 @@
     const map = new Map($("#map"), opts);
     const overlay = new deck.GoogleMapsOverlay({ interleaved: Boolean(mapId), layers: [] });
     overlay.setMap(map);
-    map.addListener("click", () => {});
+    map.addListener("click", (e) => {
+      const r = $("#map").getBoundingClientRect(), de = e.domEvent;
+      if (de && "clientX" in de) inspectHeat(de.clientX - r.left, de.clientY - r.top);
+    });
+    map.addListener("bounds_changed", () => paintHeat(true));
     let lastZoom = map.getZoom();
     map.addListener("zoom_changed", () => { if (Math.abs(map.getZoom() - lastZoom) >= 0.5) { lastZoom = map.getZoom(); engine?.render(); } });
     return {
       name: "google",
       render() { overlay.setProps({ layers: layers() }); },
       zoom() { return map.getZoom() || 12; },
+      view() {
+        const proj = map.getProjection(), b = map.getBounds();
+        if (!proj || !b) return null;
+        const nw = proj.fromLatLngToPoint(new google.maps.LatLng(b.getNorthEast().lat(), b.getSouthWest().lng()));
+        const scale = 2 ** map.getZoom();
+        return { zoom: map.getZoom(), project: (lng, lat) => {
+          const p = proj.fromLatLngToPoint(new google.maps.LatLng(lat, lng));
+          return [(p.x - nw.x) * scale, (p.y - nw.y) * scale];
+        }, unproject: (x, y) => {
+          const ll = proj.fromPointToLatLng(new google.maps.Point(nw.x + x / scale, nw.y + y / scale));
+          return [ll.lng(), ll.lat()];
+        } };
+      },
       zoomBy(dz) { map.setZoom(Math.max(6, Math.min(18, (map.getZoom() || 12) + dz))); },
       reset() { fitArea(); },
       flyTo(lat, lng, zoom) { map.panTo({ lat, lng }); if (zoom) map.setZoom(zoom); },
@@ -294,7 +213,9 @@
       onViewStateChange: ({ viewState }) => {
         view = viewState;
         if (Math.round(view.zoom * 2) !== heatZoom) { heatZoom = Math.round(view.zoom * 2); engine?.render(); }
+        paintHeat(true);
       },
+      onClick: (info) => { if (!info.object) inspectHeat(info.x, info.y); },
     });
     const goTo = (v) => d.setProps({ initialViewState: { ...view, ...v, transitionDuration: 300, transitionInterpolator: new deck.FlyToInterpolator() } });
     const attribution = el("div", { class: "muted", style: "position:absolute;right:6px;bottom:4px;z-index:4;font-size:11px;background:var(--surface);padding:0 6px;border-radius:4px" },
@@ -305,6 +226,11 @@
       name: "tiles",
       render() { d.setProps({ layers: [baseLayer, ...layers()] }); },
       zoom() { return view.zoom; },
+      view() {
+        const el = $("#map");
+        const vp = new deck.WebMercatorViewport({ ...view, width: el.clientWidth || 800, height: el.clientHeight || 600 });
+        return { zoom: view.zoom, project: (lng, lat) => vp.project([lng, lat]), unproject: (x, y) => vp.unproject([x, y]) };
+      },
       zoomBy(dz) { goTo({ zoom: Math.max(6, Math.min(18, view.zoom + dz)) }); },
       reset() { fitArea(); },
       flyTo(lat, lng, zoom) {
@@ -398,15 +324,19 @@
     const seq = ++refreshSeq;
     const q = query();
     const qc = new URLSearchParams(q); qc.delete("categories");  // chip counts ignore the category filter itself
-    const [inc, stats, all] = await Promise.all([getJSON(`/api/incidents?${q}`), getJSON(`/api/stats?${q}`),
+    const [inc, stats, all] = await Promise.all([getJSON(`/api/incidents?${qc}`), getJSON(`/api/stats?${q}`),
       qc.toString() === q ? null : getJSON(`/api/stats?${qc}`)]);
     if (seq !== refreshSeq) return false;
-    state.incidents = inc.data; state.stats = stats.data; state.catCounts = (all || stats).data.by_category;
+    // the heat gets every type (hidden ones masked) so its scale stays put when chips change; lists use the filter
+    state.allIncidents = inc.data;
+    state.incidents = inc.data.filter((i) => state.cats.has(i.category));
+    HeatPaint.setData(inc.data);
+    state.mix = null;
+    state.stats = stats.data; state.catCounts = (all || stats).data.by_category;
     state.truncated = inc.headers.get("X-Truncated") === "true";
     state.totalCount = +(inc.headers.get("X-Total-Count") || inc.data.length);
     // keep the open card, but show the freshly fetched version of it
-    if (state.selected) state.selected = inc.data.find((i) => i.id === state.selected.id) || null;
-    if (state.area) state.area = areaGroups(state.incidents.filter((i) => i.lat != null)).find((g) => g.id === state.area.id) || null;
+    if (state.selected) state.selected = state.incidents.find((i) => i.id === state.selected.id) || null;
     renderAll();
     if (state.truncated) note(t("truncated", { n: inc.data.length }));
     if (opts.fit) fitToResults(opts.fallback);
@@ -427,7 +357,7 @@
   /* ---------- rendering ---------- */
   function renderAll() {
     renderChips(); renderTiles(); renderRank(); renderTod(); renderTrend(); renderFeed(); renderLegend(); renderSelected();
-    engine?.render();
+    engine?.render(); paintHeat();
   }
 
   function renderStatus() {
@@ -556,17 +486,21 @@
   }
 
   function renderLegend() {
-    const s = state.stats;
-    fill($("#legend"), 
-      state.mode !== "points" ? el("div", {}, el("div", { class: "muted" }, state.cats.size === 1 ? `${t("density")} · ${catLabel([...state.cats][0])}` : t("density")), el("div", { class: "ramp", style: `background:${rampCss()}` }), el("div", { class: "ends" }, el("span", {}, t("fewer")), el("span", {}, t("more")))) : null,
-      state.mode === "heat" && state.cats.size !== 1 ? el("div", { class: "muted" }, t("mixNote")) : null,
-      state.mode !== "heat" ? el("div", { class: "cats" }, ...CAT_ORDER.filter((k) => state.cats.has(k)).map((k) => el("span", {}, el("i", { style: `background:${cssColor(k)}` }), catLabel(k)))) : null,
+    const s = state.stats, dark = isDark();
+    const mapped = CAT_ORDER.filter((k) => state.cats.has(k) && !(state.meta?.area_totals_only || []).includes(k));
+    const totalsOnly = CAT_ORDER.filter((k) => state.cats.has(k) && (state.meta?.area_totals_only || []).includes(k));
+    fill($("#legend"),
+      state.mode !== "points" ? el("div", {},
+        el("div", { class: "cats" }, ...mapped.map((k) => el("span", {}, el("i", { style: `background:${HeatPaint.swatch(k, dark)}` }), catLabel(k)))),
+        el("div", { class: "muted" }, t("blendNote"))) : null,
+      state.mode !== "heat" ? el("div", { class: "cats" }, ...mapped.map((k) => el("span", {}, el("i", { style: `background:${cssColor(k)}` }), catLabel(k)))) : null,
+      !mapped.length && totalsOnly.length ? el("div", { class: "muted" }, t("totalsOnlyNote")) : null,
       s.unlocated ? el("div", { class: "muted" }, t("unlocated", { n: s.unlocated })) : null,
       el("div", { class: "muted", style: "font-size:11px" }, t("sourceNote")));
   }
 
   function select(i, fly) {
-    state.selected = i; state.area = null;
+    state.selected = i; state.mix = null;
     if (fly && i.lat != null) engine?.flyTo(i.lat, i.lng, 15);
     if (fly && matchMedia("(max-width: 760px)").matches) setTab("map");
     renderSelected(); renderFeed(); engine?.render();
@@ -574,7 +508,7 @@
 
   function renderSelected() {
     const card = $("#selected"); const i = state.selected;
-    if (!i && state.area) { renderAreaCard(card, state.area); return; }
+    if (!i && state.mix) { renderMixCard(card, state.mix); return; }
     if (!i) { card.hidden = true; return; }
     const loc = [i.location_text, thanaName(i) && thanaName(i) !== placeName(i) ? thanaName(i) : null].filter(Boolean).join(" · ");
     fill(card, 
@@ -590,18 +524,48 @@
     card.hidden = false;
   }
 
-  function renderAreaCard(card, g) {
-    const max = Math.max(1, ...g.slices.map(([, n]) => n));
+  // Tap on the heat: the approximate mix of crime types that makes up the glow there (shares, not counts)
+  function renderMixCard(card, rows) {
+    const dark = isDark();
     fill(card,
-      el("button", { class: "close", type: "button", "aria-label": "Close", onclick: () => { state.area = null; renderSelected(); engine?.render(); } }, "×"),
-      el("h3", {}, state.lang === "bn" ? g.name_bn : g.name_en),
-      el("div", { class: "meta" }, el("span", {}, t("areaTotal", { n: g.total }))),
-      el("div", { class: "muted" }, t("crimeMix")),
-      el("ul", { class: "mix" }, ...g.slices.map(([k, n]) => el("li", {},
-        el("span", { class: "name" }, el("span", { class: "dot", style: `background:${cssColor(k)}` }), catLabel(k)),
-        el("span", { class: "bar" }, el("i", { style: `width:${(n / max) * 100}%;background:${cssColor(k)}` })),
-        el("span", { class: "cnt" }, num(n))))));
+      el("button", { class: "close", type: "button", "aria-label": "Close", onclick: () => { state.mix = null; renderSelected(); } }, "×"),
+      el("h3", {}, t("localMix")),
+      el("div", { class: "muted", style: "font-size:12px;margin-bottom:6px" }, t("localMixNote")),
+      el("ul", { class: "mix" }, ...rows.map(([k, v]) => el("li", {},
+        el("span", { class: "name" }, el("span", { class: "dot", style: `background:${HeatPaint.swatch(k, dark)}` }), catLabel(k)),
+        el("span", { class: "bar" }, el("i", { style: `width:${v * 100}%;background:${HeatPaint.swatch(k, dark)}` })),
+        el("span", { class: "cnt" }, `${num(Math.round(v * 100))}%`)))));
     card.hidden = false;
+  }
+
+  /* ---------- multi-colour heat (HeatPaint on its own canvas over the map) ---------- */
+  let paintTimer = 0, paintRaf = 0;
+  // The painted image is shown by the map itself (a BitmapLayer over the view's bounds), under the incident dots.
+  function paintHeat(moving) {
+    if (!engine?.view) return;
+    if (state.mode === "points") { HeatPaint.clear(); if (state.heat) { state.heat = null; engine.render(); } return; }
+    if (paintRaf) return;
+    paintRaf = requestAnimationFrame(() => {
+      paintRaf = 0;
+      const v = engine.view(), box = $("#map"); if (!v) return;
+      const w = box.clientWidth, h = box.clientHeight;
+      HeatPaint.setHidden(CAT_ORDER.filter((k) => !state.cats.has(k)));
+      const image = HeatPaint.paint(w, h, v.zoom, v.project, isDark(), moving);
+      if (!image) { state.heat = null; engine.render(); return; }
+      // image covers whole grid cells, so its bottom-right corner can sit slightly past the view
+      const [x1, y1] = [image.width * (moving ? 6 : 3), image.height * (moving ? 6 : 3)];
+      const [west, north] = v.unproject(0, 0), [east, south] = v.unproject(x1, y1);
+      state.heat = { image, bounds: [west, south, east, north] };
+      engine.render();
+    });
+    clearTimeout(paintTimer);
+    if (moving) paintTimer = setTimeout(() => paintHeat(false), 160);       // full detail once the map settles
+  }
+  function inspectHeat(x, y) {
+    if (state.mode === "points") return;
+    const rows = HeatPaint.sample(x, y);
+    state.selected = null; state.mix = rows && rows.length ? rows : null;
+    renderSelected(); renderFeed(); engine?.render();
   }
 
   function setTab(tab) {
@@ -633,8 +597,9 @@
     });
     document.querySelectorAll("#mode button").forEach((b) => b.addEventListener("click", () => {
       state.mode = b.dataset.mode; document.querySelectorAll("#mode button").forEach((x) => x.classList.toggle("on", x === b));
-      renderLegend(); engine?.render();
+      renderLegend(); engine?.render(); paintHeat();
     }));
+    window.addEventListener("resize", () => paintHeat());
     $("#zoom-in").addEventListener("click", () => engine?.zoomBy(1));
     $("#zoom-out").addEventListener("click", () => engine?.zoomBy(-1));
     $("#zoom-reset").addEventListener("click", () => engine?.reset());
