@@ -87,6 +87,28 @@ def cosine(a: list[float], b: list[float]) -> float:
     return sum(x * y for x, y in zip(a, b)) / (na * nb) if na and nb else 0.0
 
 
+# ---- police round-ups ------------------------------------------------------------------------------
+# "DMP: 506 arrested in 24 hours" lists many unrelated arrests. Two round-ups are the same only when they carry
+# the same count (two papers printing one press release); a round-up never merges with a single crime. The judge
+# alone wrongly merged two different days' round-ups in our evaluation, so this is a rule, not a model call.
+ROUNDUP = re.compile(r"(২৪ ঘণ্টায়|24 ঘণ্টায়|একদিনে|এক দিনে|অভিযানে).*?(গ্রেপ্তার|গ্রেফতার|আটক)\s*(\d+)|"
+                     r"(গ্রেপ্তার|গ্রেফতার|আটক)\s*(\d{2,})")
+
+
+def roundup_count(title: str | None) -> int | None:
+    m = ROUNDUP.search(normalize(title or ""))
+    if not m:
+        return None
+    n = int(m.group(3) or m.group(5))
+    return n if n >= 10 else None
+
+
+def roundups_compatible(a: dict, b: dict) -> bool:
+    """False when the pair must not be judged: a round-up vs a single crime, or round-ups with different counts."""
+    ca, cb = roundup_count(a.get("title")), roundup_count(b.get("title"))
+    return ca == cb
+
+
 # ---- the judge -------------------------------------------------------------------------------------
 JUDGE_SCHEMA = {
     "type": "object", "additionalProperties": False, "required": ["verdict", "shared_facts", "contradictions"],
@@ -105,7 +127,8 @@ JUDGE_SYSTEM = (
     "You decide whether two Bangladeshi newspaper reports describe the SAME original criminal episode. Later "
     "reports about the same episode (arrests, court steps, a rising death toll) count as the same. Two different "
     "crimes of the same kind at the same place and date are DIFFERENT. Daily police round-ups from different days "
-    "are DIFFERENT. Answer 'same' only if at least two independent, distinctive facts are shared - a named person "
+    "are DIFFERENT. Police, RAB or DMP as organisations, a district or city, and generic drugs or weapons are not "
+    "distinctive facts. Answer 'same' only if at least two independent, distinctive facts are shared - a named person "
     "in the same role, a named shop/building/vehicle, a specific method or object, a specific circumstance - and "
     "copy a short verbatim quote for each fact from report A and from report B. Date, time, crime type, broad "
     "place and number of victims are NOT distinctive facts. A rising death toll or a one-day difference in the "
@@ -248,6 +271,9 @@ def reduce_report(key: str, classifier, embedder=embed) -> str:
             c.commit()                                           # keep the vectors even if the judge fails
     passed, looked = [], []
     for score, cand in scored:                                   # model calls happen outside any transaction
+        if not roundups_compatible(r, cand):
+            looked.append((score, cand, {"same": False, "facts": [], "calls": [{"verdict": "roundup_rule"}]}))
+            continue
         res = judge(classifier, r, cand)
         looked.append((score, cand, res))
         if res["same"]:

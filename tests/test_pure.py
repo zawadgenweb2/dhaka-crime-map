@@ -720,3 +720,14 @@ def test_a_category_without_visibility_is_refused(monkeypatch):
     monkeypatch.setitem(schema.CATEGORIES, "arson", {"bn": "অগ্নিসংযোগ", "en": "Arson", "family": "property"})
     with pytest.raises(AssertionError):
         schema._check_categories()
+
+
+def test_police_roundups_only_match_the_same_count():
+    from app.events import roundup_count, roundups_compatible
+    assert roundup_count("ডিএমপির অভিযানে ২৪ ঘণ্টায় গ্রেপ্তার ৪৯১") == 491
+    assert roundup_count("রাজধানী‌তে ২৪ ঘণ্টায় গ্রেফতার ৪৮৩, মামলা ৫৯") == 483
+    assert roundup_count("কেরানীগঞ্জে ইয়াবা তৈরির কারখানার সন্ধান, গ্রেপ্তার ২") is None
+    assert not roundups_compatible({"title": "২৪ ঘণ্টায় গ্রেপ্তার ৫০৬"}, {"title": "২৪ ঘণ্টায় গ্রেপ্তার ৪৮৩"})
+    assert roundups_compatible({"title": "২৪ ঘণ্টায় গ্রেপ্তার ৫২৭"}, {"title": "ডিএমপির অভিযানে গ্রেফতার ৫২৭"})
+    assert not roundups_compatible({"title": "২৪ ঘণ্টায় গ্রেপ্তার ৫২৭"}, {"title": "মিরপুরে যুবক খুন"})
+    assert roundups_compatible({"title": "মিরপুরে যুবক খুন"}, {"title": "মিরপুরে যুবক খুন হন"})
