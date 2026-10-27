@@ -82,8 +82,10 @@ _COMMON = {normalize(w) for w in (
 
 
 def _tokens(text: str | None) -> set[str]:
+    """Distinctive words of a quote (3+ characters, not common crime-report words). Numbers are not counted on their
+    own: a shared age or amount alone is weak evidence (the old second pass here never ran; removed, 28 Oct)."""
     words = (w.strip("()[]{}.,;:!?'\"‘’“”-–—।") for w in normalize(text or "").split())
-    return {w for w in words if len(w) >= 3 and w not in _COMMON} | {w for w in words if w.isdigit()}
+    return {w for w in words if len(w) >= 3 and w not in _COMMON}
 
 
 def _corroboration(a: dict, b: dict) -> int:

@@ -43,7 +43,8 @@ One image (`Dockerfile`) for every service; the command picks the role (`python 
 | 4 | Fetch (8 MB cap, per-hop robots+host check) + full-text check | `scraper.py`, `collector.py` | `articles` (`queued`/`skipped`) + `jobs` | fetch errors counted, run continues |
 | 5 | Classify: one call per article, JSON schema, compact prompt; place ids outside the article's shortlist → null | `worker.py`, `classifiers/gemma.py`, `classifiers/base.py`, `schema.py` | `llm_calls`, `analyses` | 2 dispatches max; then `failed` |
 | 6 | Validate + locate on the gazetteer place: dates, evidence quote, fallback phrase must be in the article | `store.py`, `gazetteer.py` | `incidents` (`auto` published / `failed` hidden) | failed checks are never shown |
-| 7 | Group duplicates: same category + place, dates ±1, compatible time | `store.rebuild_groups` | `incidents.duplicate_of` | rule-based; can merge repeated raids |
+| 7 | Group duplicates (fallback until the event store is live): same category + place, dates ±1, compatible time, corroborated | `store.rebuild_groups` | `incidents.duplicate_of` | rule-based |
+| 7b | **Event store** (one row per real crime across papers): filter → EmbeddingGemma 2 rank → Gemma judge (≥2 quote-proven shared facts, both orders) → link / new event; reports matching two events trigger a direct check of the two main reports | `events.py`, `deploy/inhouse-llm/dhaka-embed.service` | `events`, `event_reports`, `match_decisions` (append-only), `event_exclusions`, `match_queue` | errors never merge: the report shows on its own, retried later |
 | 8 | Exact spot (later): Nominatim, kept only ≤2.5 km from the place | `store.enrich_next`, `geocode.py` | `geocode_state` `todo`→`done`/`miss`/`far` | network error: retried later |
 | 9 | Serve + map: published Gemma canonical incidents; live refresh on `data_revision` | `api.py`, `static/app.js` | heat + points + feed + progress | – |
 | – | Optional corrections: fix category/place, reject, retry, dismiss (hides the article) | `api.py`, `static/review.html` | `review_status` | – |
@@ -160,6 +161,33 @@ eager mode decodes at ~15 tok/s, decode-only CUDA graphs (`-cc mode 0, FULL_DECO
 unbounded whitespace makes the model loop on newlines and its no-whitespace mode breaks answers (recall 0.02), so use the
 `guidance` backend with `GEMMA_JSON_WHITESPACE=bounded`. Decision: stay on llama.cpp E2B.
 
+## 9b. The event store and how it is verified (28 Oct)
+
+**Flow.** `store.materialize` gives every report a stable `report_key` (article + quote + type) and queues it. The
+worker, when idle, runs `events.run_queue_item`: block candidate events (district, compatible type, same place or
+thana, dates ±3, not the same article, not excluded by an admin split) → rank by EmbeddingGemma 2 cosine against each
+event's main report (top 3 ≥ 0.80) → `events.judge`: Gemma must answer "same" with ≥ 2 distinctive shared facts whose
+quotes are verbatim in BOTH articles, and again with the reports swapped. Police round-ups match only the same arrest
+count (rule). One passing event → link; two → the two main reports are judged directly and merged if same, else
+the report stays apart; none → new event. The event's main report = its earliest-published one. The public map,
+feed and stats switch to one row per event automatically once the full history has been matched (`app_flags`).
+
+**Verification, layer by layer.**
+1. Unit/service tests (`tests/test_services.py`): same crime → one event shown once; "different", missing proof or
+   a failed judge never merge; sexual-violence reports never judged; admin split sticks; fragments reunite;
+   round-up counts; the verification report itself. Mechanics only — they use a fake judge.
+2. Judge accuracy on real pairs: 48 hand-labelled cross-paper look-alike pairs (`scratchpad` eval, labels by reading
+   the Bangla titles and quotes): 39/42 same merged, 0/6 different merged. Small sample, one labeller.
+3. Embedding model choice on the same pairs: EmbeddingGemma 2 AUC 0.73 vs multilingual-e5-large-instruct 0.68 —
+   embeddings alone cannot decide, so they only rank candidates.
+4. `python -m app events-verify [--export F]` on the live data: invariants (each located published report in
+   exactly one active event, main report is a member, counts consistent, no event with two reports of one article),
+   public API rows = events (list and stats agree), known multi-paper stories → number of events, residual
+   look-alike pairs between separate events vs the old report-level count, over-merge flags (events spanning > 7
+   days or > 1 thana), and exported samples of merges and residual pairs for independent review.
+5. Independent review: a Codex council (GPT-6.1 Terra) labels the exported samples without seeing the judge's
+   verdicts; disagreements are fixed in the rules/prompt and the samples re-run.
+
 ## 10. Decisions
 
 | Decision | Why |
@@ -172,10 +200,12 @@ unbounded whitespace makes the model loop on newlines and its no-whitespace mode
 | llama.cpp, not vLLM (26 Oct) | same speed for one-at-a-time requests; vLLM's QAT checkpoints need most of the 12 GB card and long JSON output |
 | Geocode after publishing | Nominatim allows 1 request / 15 s; inline geocoding would stall the GPU for hours in a backfill |
 | Driver 535 → 575, no OS upgrade | enough for current vLLM/llama.cpp; OS upgrade unsafe without console access |
+| Event store with an LLM judge, no agent framework (27–28 Oct) | owner's design ("redux-like store", automatic, live); a fixed pipeline with one schema-constrained judge is testable and auditable; embeddings only rank (they cannot tell same crime from same kind of crime) |
+| EmbeddingGemma 2 over e5-large-instruct | better separation on our labelled pairs (AUC 0.73 vs 0.68), 310 MB vs 1.1 GB |
 
 ## 11. Known gaps
 
-Backups stay on the same machine (copy off-site) · duplicate rule can merge repeated raids at one place (Dayaganj 19/20 Oct) · re-classifying an
+Backups stay on the same machine (copy off-site) · event judge recall/precision measured on 48 pairs only · re-classifying an
 article drops its review corrections · daily sitemaps have no titles, so backfill covers only the crime/capital sections (older Savar/Keraniganj
 district news is missed) · Gemma can still split one episode into several incidents · pre-filter recall unmeasured · `/api/meta` exposes operational data (fine on LAN, not public) ·
 Tailscale HTTPS needs the tailnet admin · server: Redis on all interfaces, NTP unsynchronised, `sign2text` restart loop (not ours).
