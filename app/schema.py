@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 # Eight colour-coded categories plus "other". Order is fixed: it maps to the UI palette.
 CATEGORIES: dict[str, dict[str, str]] = {
@@ -21,6 +21,12 @@ CATEGORIES: dict[str, dict[str, str]] = {
 Category = Literal["murder", "assault", "robbery", "theft", "sexual_violence", "kidnapping",
                    "drugs_arms", "fraud_extortion", "other"]
 Precision = Literal["exact", "neighbourhood", "thana", "city"]
+District = Literal["dhaka", "chattogram", "sylhet", "khulna", "barishal", "rangpur"]
+DISTRICTS: dict[str, dict[str, str]] = {
+    "dhaka": {"bn": "ঢাকা", "en": "Dhaka"}, "chattogram": {"bn": "চট্টগ্রাম", "en": "Chattogram"},
+    "sylhet": {"bn": "সিলেট", "en": "Sylhet"}, "khulna": {"bn": "খুলনা", "en": "Khulna"},
+    "barishal": {"bn": "বরিশাল", "en": "Barishal"}, "rangpur": {"bn": "রংপুর", "en": "Rangpur"},
+}
 TimeOfDay = Literal["morning", "afternoon", "evening", "night", "unknown"]
 
 TIME_OF_DAY = {
@@ -34,6 +40,7 @@ TIME_OF_DAY = {
 
 class Incident(BaseModel):
     category: Category
+    district: District | None = Field(None, description="Supported district where the crime happened, or null")
     headline_bn: str = Field(description="One-line Bangla summary of this incident (max ~90 chars)")
     headline_en: str = Field(description="Same summary in English")
     location_text: str = Field(description="Most specific location phrase exactly as written in the article")
@@ -50,6 +57,17 @@ class Incident(BaseModel):
 
 class ArticleAnalysis(BaseModel):
     is_crime_report: bool
-    in_dhaka: bool = Field(description="True only if at least one incident happened inside Dhaka district")
+    in_scope: bool = Field(description="True only if at least one incident happened inside a supported district")
     incidents: list[Incident]
     note: str = Field(description="One short sentence on why incidents were or were not extracted")
+
+    @model_validator(mode="before")
+    @classmethod
+    def _legacy(cls, data):
+        """Answers saved before the six-district change said `in_dhaka` and had no per-incident district."""
+        if isinstance(data, dict) and "in_dhaka" in data and "in_scope" not in data:
+            data = {**data, "in_scope": data["in_dhaka"]}
+            data.pop("in_dhaka")
+            data["incidents"] = [{"district": "dhaka", **i} if isinstance(i, dict) else i
+                                 for i in data.get("incidents") or []]
+        return data

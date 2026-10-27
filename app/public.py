@@ -18,7 +18,7 @@ from . import db
 from .api import STATIC, _filters, _iso
 from .config import settings
 from .gazetteer import load as load_gazetteer
-from .schema import CATEGORIES, TIME_OF_DAY
+from .schema import CATEGORIES, DISTRICTS, TIME_OF_DAY
 from .scraper import DHAKA_TZ
 
 # Never a point, feed item or link on the public site; still counted in totals.
@@ -70,6 +70,8 @@ def create_public_app() -> FastAPI:
         return {
             "categories": [{"key": k, **v} for k, v in CATEGORIES.items()],
             "time_of_day": [{"key": k, **v} for k, v in TIME_OF_DAY.items()],
+            "districts": [{"id": k, **v, "bounds": gaz.bounds(k)} for k, v in DISTRICTS.items()],
+            "all_bounds": gaz.bounds(),
             "thanas": [p.to_dict() for p in gaz.places if p.kind in ("thana", "upazila")],
             "area_totals_only": sorted(AREA_TOTALS_ONLY),
             "google_maps_api_key": settings.google_maps_api_key,
@@ -88,15 +90,15 @@ def create_public_app() -> FastAPI:
     @app.get("/api/incidents")
     def incidents(response: Response, start: str | None = None, end: str | None = None,
                   days: int | None = Query(None, ge=1, le=366), categories: str | None = None,
-                  thana: str | None = None, limit: int = Query(10000, ge=1, le=20000)):
+                  thana: str | None = None, district: str | None = None, limit: int = Query(10000, ge=1, le=20000)):
         """Published incidents as safe summaries (no quotes, headlines or victim counts)."""
-        where, params, _, _ = _filters(start, end, days, categories, thana)
+        where, params, _, _ = _filters(start, end, days, categories, thana, district)
         where += " AND NOT (i.category = ANY(%s))"
         params = [*params, sorted(AREA_TOTALS_ONLY)]
         with db.connect() as c:
             total = c.execute(f"SELECT count(*) n FROM incidents i WHERE {where}", params).fetchone()["n"]
             rows = c.execute(
-                f"""SELECT i.id, i.category, i.place_id, i.thana_id, i.lat, i.lng, i.precision, i.geocoded,
+                f"""SELECT i.id, i.category, i.district_id, i.place_id, i.thana_id, i.lat, i.lng, i.precision, i.geocoded,
                            i.event_date, i.time_of_day, a.url, a.published_at,
                            (SELECT count(*) FROM incidents d WHERE d.duplicate_of = i.id AND d.published) AS more_reports
                     FROM incidents i JOIN articles a ON a.id = i.article_id
@@ -116,9 +118,10 @@ def create_public_app() -> FastAPI:
 
     @app.get("/api/stats")
     def stats(response: Response, start: str | None = None, end: str | None = None,
-              days: int | None = Query(None, ge=1, le=366), categories: str | None = None, thana: str | None = None):
+              days: int | None = Query(None, ge=1, le=366), categories: str | None = None, thana: str | None = None,
+              district: str | None = None):
         """Totals for the same filters (all categories, including those shown only as totals)."""
-        where, params, start_d, end_d = _filters(start, end, days, categories, thana)
+        where, params, start_d, end_d = _filters(start, end, days, categories, thana, district)
         gaz = load_gazetteer()
         with db.connect() as c:
             def q(sql):
@@ -143,9 +146,14 @@ def create_public_app() -> FastAPI:
                 f"SELECT time_of_day, count(*) n FROM incidents i WHERE {where} GROUP BY time_of_day", params)}
             by_day = [{"date": r["event_date"].isoformat(), "count": r["n"]} for r in c.execute(
                 f"SELECT event_date, count(*) n FROM incidents i WHERE {where} GROUP BY event_date ORDER BY 1", params)]
+            by_district = {r["district_id"]: r["n"] for r in c.execute(
+                f"""SELECT district_id, count(*) n FROM incidents i WHERE {where} AND district_id IS NOT NULL
+                    GROUP BY district_id""", params)}
         response.headers["Cache-Control"] = CACHE
         return {"total": total["n"], "unlocated": total["unloc"], "by_category": by_category, "by_time_of_day": by_tod,
-                "by_day": by_day, "by_thana": by_thana, "range": {"start": start_d.isoformat(), "end": end_d.isoformat()}}
+                "by_day": by_day, "by_thana": by_thana,
+                "by_district": [{"id": k, **DISTRICTS[k], "count": n} for k, n in
+                                sorted(by_district.items(), key=lambda kv: -kv[1])], "range": {"start": start_d.isoformat(), "end": end_d.isoformat()}}
 
     return app
 

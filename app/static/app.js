@@ -4,7 +4,7 @@
 
   const I18N = {
     bn: {
-      title: "ঢাকা অপরাধ মানচিত্র", period: "সময়কাল", from: "শুরু", to: "শেষ",
+      title: "বাংলাদেশ অপরাধ মানচিত্র", district: "জেলা", allDistricts: "সব জেলা (৬টি)", allAreas: "সব থানা / উপজেলা", period: "সময়কাল", from: "শুরু", to: "শেষ",
       crimeType: "অপরাধের ধরন", all: "সব", area: "থানা / এলাকা", allDhaka: "সমগ্র ঢাকা", mapView: "মানচিত্র",
       heat: "হিটম্যাপ", both: "দুটোই", points: "ঘটনা", hotspots: "সবচেয়ে বেশি ঘটনা", timeOfDay: "দিনের কোন সময়ে",
       daily: "প্রতিদিনের ঘটনা", reports: "প্রতিবেদন", tabFilters: "ফিল্টার", tabMap: "মানচিত্র", tabFeed: "প্রতিবেদন",
@@ -18,7 +18,7 @@
       showing: "{n}/{total}", offline: "সার্ভারে পৌঁছানো যাচ্ছে না; পুরোনো তথ্য দেখানো হচ্ছে",
     },
     en: {
-      title: "Dhaka Crime Map", period: "Period", from: "From", to: "To",
+      title: "Bangladesh Crime Map", district: "District", allDistricts: "All 6 districts", allAreas: "All thanas / upazilas", period: "Period", from: "From", to: "To",
       crimeType: "Crime type", all: "All", area: "Thana / area", allDhaka: "All of Dhaka", mapView: "Map",
       heat: "Heatmap", both: "Both", points: "Incidents", hotspots: "Most incidents", timeOfDay: "Time of day",
       daily: "Incidents per day", reports: "Reports", tabFilters: "Filters", tabMap: "Map", tabFeed: "Reports",
@@ -58,7 +58,7 @@
 
   const state = {
     lang: store.get("dcm.lang", "bn"), theme: store.get("dcm.theme", ""), days: 7, start: "", end: "",
-    cats: new Set(CAT_ORDER), thana: "", mode: "heat", meta: null, incidents: [], stats: null, selected: null,
+    cats: new Set(CAT_ORDER), district: "", thana: "", mode: "heat", meta: null, incidents: [], stats: null, selected: null,
   };
   let engine = null;
 
@@ -163,7 +163,7 @@
     await loadGoogle(key);
     const { Map } = await google.maps.importLibrary("maps");
     const opts = {
-      center: startView().center, zoom: startView().zoom, minZoom: 9, maxZoom: 18, mapTypeControl: false,
+      center: startView().center, zoom: startView().zoom, minZoom: 6, maxZoom: 18, mapTypeControl: false,
       streetViewControl: false, fullscreenControl: false, zoomControl: false,
       clickableIcons: false, gestureHandling: "greedy", backgroundColor: isDark() ? "#1a1a19" : "#f2f1ed",
     };
@@ -178,8 +178,8 @@
       name: "google",
       render() { overlay.setProps({ layers: layers() }); },
       zoom() { return map.getZoom() || 12; },
-      zoomBy(dz) { map.setZoom(Math.max(9, Math.min(18, (map.getZoom() || 12) + dz))); },
-      reset() { map.panTo(DHAKA); map.setZoom(12); },
+      zoomBy(dz) { map.setZoom(Math.max(6, Math.min(18, (map.getZoom() || 12) + dz))); },
+      reset() { fitArea(); },
       flyTo(lat, lng, zoom) { map.panTo({ lat, lng }); if (zoom) map.setZoom(zoom); },
       fitTo(b) {
         if (b.single) { this.flyTo(b.lat, b.lng, 15); return; }
@@ -204,7 +204,7 @@
       },
     });
     const sv = startView();
-    let view = { longitude: sv.center.lng, latitude: sv.center.lat, zoom: sv.zoom, pitch: 0, bearing: 0, minZoom: 9, maxZoom: 18 };
+    let view = { longitude: sv.center.lng, latitude: sv.center.lat, zoom: sv.zoom, pitch: 0, bearing: 0, minZoom: 6, maxZoom: 18 };
     let heatZoom = Math.round(view.zoom * 2);
     const d = new deck.Deck({
       parent: $("#map"), initialViewState: view, controller: true, layers: [],
@@ -222,8 +222,8 @@
       name: "tiles",
       render() { d.setProps({ layers: [baseLayer, ...layers()] }); },
       zoom() { return view.zoom; },
-      zoomBy(dz) { goTo({ zoom: Math.max(9, Math.min(18, view.zoom + dz)) }); },
-      reset() { goTo({ latitude: DHAKA.lat, longitude: DHAKA.lng, zoom: 11.2 }); },
+      zoomBy(dz) { goTo({ zoom: Math.max(6, Math.min(18, view.zoom + dz)) }); },
+      reset() { fitArea(); },
       flyTo(lat, lng, zoom) {
         d.setProps({ initialViewState: { ...view, latitude: lat, longitude: lng, zoom: zoom || view.zoom, transitionDuration: 700, transitionInterpolator: new deck.FlyToInterpolator() } });
       },
@@ -243,7 +243,7 @@
   function startView() {
     const h = new URLSearchParams(location.hash.slice(1));
     const z = parseFloat(h.get("z")), ll = (h.get("ll") || "").split(",").map(Number);
-    return { zoom: z >= 9 && z <= 18 ? z : 11.2,
+    return { zoom: z >= 6 && z <= 18 ? z : 11.2,
              center: ll.length === 2 && ll.every((x) => Number.isFinite(x)) ? { lat: ll[0], lng: ll[1] } : DHAKA };
   }
 
@@ -290,9 +290,18 @@
     const p = new URLSearchParams();
     if (state.start && state.end) { p.set("start", state.start); p.set("end", state.end); } else p.set("days", state.days);
     if (state.cats.size && state.cats.size < CAT_ORDER.length) p.set("categories", [...state.cats].join(","));
+    if (state.district) p.set("district", state.district);
     if (state.thana) p.set("thana", state.thana);
     return p.toString();
   }
+
+  // Map view for the current district selection (or all six districts)
+  function areaBounds() {
+    const d = state.meta.districts.find((x) => x.id === state.district);
+    const b = d ? d.bounds : state.meta.all_bounds;
+    return b ? { ...b } : null;
+  }
+  function fitArea() { const b = areaBounds(); if (b && engine) engine.fitTo(b); }
 
   const getJSON = async (url) => {
     const r = await fetch(url);
@@ -350,12 +359,23 @@
       const d = +b.dataset.days; b.textContent = d === 365 ? `১ ${t("year")}`.replace("১", num(1)) : `${num(d)} ${t("days")}`;
     });
     $("#lang-btn").textContent = state.lang === "bn" ? "EN" : "বাং";
-    const sel = $("#thana"); const cur = sel.value;
-    fill(sel, el("option", { value: "" }, t("allDhaka")),
-      ...state.meta.thanas.slice().sort((a, b) => (state.lang === "bn" ? a.name_bn.localeCompare(b.name_bn, "bn") : a.name_en.localeCompare(b.name_en)))
-        .map((p) => el("option", { value: p.id }, state.lang === "bn" ? p.name_bn : p.name_en)));
-    sel.value = cur;
+    fill($("#district"), el("option", { value: "" }, t("allDistricts")),
+      ...state.meta.districts.map((d) => el("option", { value: d.id }, state.lang === "bn" ? d.bn : d.en)));
+    $("#district").value = state.district;
+    renderThanaSelect();
     renderStatus();
+  }
+
+  // Thana / upazila drill-down inside the selected district
+  function renderThanaSelect() {
+    const sel = $("#thana");
+    sel.hidden = !state.district;
+    if (!state.district) { fill(sel); return; }
+    const byName = (a, b) => (state.lang === "bn" ? a.name_bn.localeCompare(b.name_bn, "bn") : a.name_en.localeCompare(b.name_en));
+    fill(sel, el("option", { value: "" }, t("allAreas")),
+      ...state.meta.thanas.filter((p) => p.district === state.district).sort(byName)
+        .map((p) => el("option", { value: p.id }, state.lang === "bn" ? p.name_bn : p.name_en)));
+    sel.value = state.thana;
   }
 
   function renderChips() {
@@ -368,7 +388,7 @@
 
   function renderTiles() {
     const s = state.stats;
-    const topThana = s.by_thana[0];
+    const topThana = state.district ? s.by_thana[0] : s.by_district[0] && { name_bn: s.by_district[0].bn, name_en: s.by_district[0].en };
     const topCat = Object.entries(s.by_category).sort((a, b) => b[1] - a[1])[0];
     const tile = (v, k, txt) => el("div", { class: "tile" }, el("div", { class: txt ? "v txt" : "v", title: v }, v), el("div", { class: "k" }, k));
     fill($("#tiles"), 
@@ -380,11 +400,22 @@
   }
 
   function renderRank() {
+    if (!state.district) {   // all districts: rank the districts
+      const ds = state.stats.by_district;
+      const mx = Math.max(1, ...ds.map((r) => r.count));
+      fill($("#rank"), ...(ds.length ? ds.map((r, i) => el("li", {}, el("button", {
+        type: "button", onclick: () => selectDistrict(r.id),
+      }, el("span", { class: "pos" }, num(i + 1)),
+        el("span", { class: "name" }, el("b", {}, state.lang === "bn" ? r.bn : r.en),
+          el("span", { class: "bar", style: `width:${(r.count / mx) * 100}%` }, el("i", { style: "flex:1;background:var(--accent)" }))),
+        el("span", { class: "cnt" }, num(r.count))))) : [el("li", { class: "empty" }, t("noData"))]));
+      return;
+    }
     const rows = state.stats.by_thana.slice(0, 10);
     const max = Math.max(1, ...rows.map((r) => r.count));
     fill($("#rank"), ...(rows.length ? rows.map((r, i) => el("li", {}, el("button", {
       type: "button", class: state.thana === r.id ? "on" : "",
-      onclick: () => { state.thana = state.thana === r.id ? "" : r.id; $("#thana").value = state.thana; refresh({ fit: true, fallback: { lat: r.lat || DHAKA.lat, lng: r.lng || DHAKA.lng, zoom: 14 } }); },
+      onclick: () => { state.thana = state.thana === r.id ? "" : r.id; $("#thana").value = state.thana; refresh({ fit: true, fallback: r.lat ? { lat: r.lat, lng: r.lng, zoom: 13 } : null }); },
     },
       el("span", { class: "pos" }, num(i + 1)),
       el("span", { class: "name" }, el("b", {}, state.lang === "bn" ? r.name_bn : r.name_en),
@@ -494,9 +525,11 @@
     };
     $("#start").addEventListener("change", onDate); $("#end").addEventListener("change", onDate);
     $("#cats-all").addEventListener("click", () => { state.cats = new Set(CAT_ORDER); refresh({ fit: true }); });
+    $("#district").addEventListener("change", (e) => selectDistrict(e.target.value));
     $("#thana").addEventListener("change", (e) => {
       state.thana = e.target.value; const p = state.meta.thanas.find((x) => x.id === state.thana);
-      refresh({ fit: true, fallback: { lat: p ? p.lat : DHAKA.lat, lng: p ? p.lng : DHAKA.lng, zoom: p ? 14 : 12 } });
+      if (!state.thana) { refresh(); fitArea(); return; }
+      refresh({ fit: true, fallback: p && p.lat ? { lat: p.lat, lng: p.lng, zoom: 13 } : null });
     });
     document.querySelectorAll("#mode button").forEach((b) => b.addEventListener("click", () => {
       state.mode = b.dataset.mode; document.querySelectorAll("#mode button").forEach((x) => x.classList.toggle("on", x === b));
@@ -511,6 +544,12 @@
     });
     matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { if (!state.theme) { engine?.theme(); renderAll(); } });
     document.querySelectorAll("#tabs button").forEach((b) => b.addEventListener("click", () => setTab(b.dataset.tab)));
+  }
+
+  function selectDistrict(id) {
+    state.district = id || ""; state.thana = "";
+    $("#district").value = state.district; renderThanaSelect();
+    refresh(); fitArea();
   }
 
   /* ---------- live updates ----------
@@ -550,6 +589,7 @@
     applyI18n(); wire();
     await initMap();
     engine.render();                       // the base map appears at once; data follows
+    if (!new URLSearchParams(location.hash.slice(1)).get("ll")) fitArea();
     loadVersion().catch(console.warn);
     await refresh();
     seenVersion = state.version?.data_version ?? null;

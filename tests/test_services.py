@@ -542,7 +542,7 @@ def test_exact_spot_geocoding_after_publication(monkeypatch):
     import dataclasses
     import app.store as store_mod
     hits = {"Mirpur 11 metro station, Dhaka": (23.8191, 90.3653), "Somewhere far, Dhaka": (22.33, 91.83)}
-    monkeypatch.setattr(store_mod, "geocode", lambda q: hits[q])
+    monkeypatch.setattr(store_mod, "geocode", lambda q, viewbox=None: hits[q])
     monkeypatch.setattr(store_mod, "settings", dataclasses.replace(store_mod.settings, geocode_enabled=True))
     from app.gazetteer import load
     rev = q1("SELECT rev FROM data_revision")["rev"]

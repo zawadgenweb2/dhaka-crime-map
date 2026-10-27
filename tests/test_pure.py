@@ -403,7 +403,9 @@ def test_streaming_measures_prefill_and_decode(monkeypatch):
 def test_referral_hospital_is_not_dhaka_evidence():
     from app.scraper import belongs_to_dhaka
     g = load()
-    assert not belongs_to_dhaka("bangladesh", "চট্টগ্রামে ছুরিকাঘাত, আহত ব্যক্তিকে ঢাকা মেডিকেলে নেওয়া হয়", g)
+    # Chattogram is a supported district now: Gemma decides (the Dhaka Medical referral still does not count as Dhaka)
+    assert belongs_to_dhaka("bangladesh", "চট্টগ্রামে ছুরিকাঘাত, আহত ব্যক্তিকে ঢাকা মেডিকেলে নেওয়া হয়", g)
+    assert not belongs_to_dhaka("bangladesh", "ফেনীতে ছুরিকাঘাত, আহত ব্যক্তিকে ঢাকা মেডিকেলে নেওয়া হয়", g)
     assert belongs_to_dhaka("bangladesh/crime", "চট্টগ্রামে ছুরিকাঘাত, ঢাকা মেডিকেলে নেওয়া হয়", g)   # crime section: Gemma decides
     assert belongs_to_dhaka("bangladesh", "মিরপুরে ছিনতাই, ঢাকা মেডিকেলে নেওয়া হয়", g)
 
@@ -412,7 +414,7 @@ def test_referral_hospital_is_not_dhaka_evidence():
 # ---- publication grounding (council review, 26 Oct) ---------------------------------------------
 def test_namesake_through_connector_words():
     g = load()
-    assert [p.id for p in g.find_all("চট্টগ্রাম নগরের চকবাজারে ছিনতাই")] == []
+    assert [p.id for p in g.find_all("চট্টগ্রাম নগরের চকবাজারে ছিনতাই")] == ["chattogram:chawkbazar"]
     assert [p.id for p in g.find_all("কুষ্টিয়া সদর উপজেলার মিরপুরে হামলা")] == []
     assert "chawkbazar" in [p.id for p in g.find_all("পুরান ঢাকার চকবাজারে ছিনতাই")]
 
@@ -482,3 +484,39 @@ def test_crime_in_another_district_with_a_dhaka_home_in_the_same_sentence():
                 evidence="মাদারীপুরের এক যুবককে মিরপুর ১১ নম্বর মেট্রোরেল স্টেশনের নিচে ছুরিকাঘাত করা হয়েছে")
     assert build_rows(art2, ArticleAnalysis(is_crime_report=True, in_dhaka=True, incidents=[inc2], note=""),
                       g, {}, "auto")[0]["published"]
+
+
+
+# ---- six districts (27 Oct) ---------------------------------------------------------------------
+def test_shared_place_names_resolve_by_district():
+    g = load()
+    ids = lambda t: [p.id for p in g.find_all(t)]                                 # noqa: E731
+    assert ids("সিলেটের কোতোয়ালী থানায় ছিনতাই") == ["sylhet:kotwali"]
+    assert ids("রাজধানীর কোতোয়ালী থানায় ছিনতাই") == ["kotwali"]
+    assert ids("কোতোয়ালী থানায় ছিনতাই") == []                                   # five districts have one: unused
+    # the rest of the text settles an unqualified shared name
+    assert set(ids("খুলনার খালিশপুরে হত্যা। কোতোয়ালী থানার ওসি জানান")) == {"khulna:khalishpur", "khulna:khulna_kotwali"}
+    assert ids("কুষ্টিয়ার মিরপুরে হামলা") == []                                   # unsupported district's namesake
+    assert ids("চট্টগ্রামের মিরপুরে হামলা") == []                                  # no Mirpur in Chattogram
+
+
+def test_incident_in_chattogram_is_published_with_its_district():
+    g = load()
+    art = {**ARTICLE, "title": "পাঁচলাইশে ছিনতাই", "body": "চট্টগ্রাম নগরের পাঁচলাইশ এলাকায় গতকাল রাতে এক ব্যবসায়ীর কাছ থেকে টাকা ছিনিয়ে নেওয়া হয়েছে।"}
+    inc = _inc(category="robbery", place_id="chattogram:panchlaish", district="chattogram", location_text="পাঁচলাইশ এলাকায়",
+               evidence="চট্টগ্রাম নগরের পাঁচলাইশ এলাকায় গতকাল রাতে এক ব্যবসায়ীর কাছ থেকে টাকা ছিনিয়ে নেওয়া হয়েছে")
+    rows = build_rows(art, ArticleAnalysis(is_crime_report=True, in_scope=True, incidents=[inc], note=""), g, {}, "auto")
+    assert rows[0]["published"] and rows[0]["district"] == "chattogram" and rows[0]["thana_id"] == "chattogram:panchlaish"
+    wrong = _inc(category="robbery", place_id="chattogram:panchlaish", district="dhaka", location_text="পাঁচলাইশ এলাকায়",
+                 evidence="চট্টগ্রাম নগরের পাঁচলাইশ এলাকায় গতকাল রাতে এক ব্যবসায়ীর কাছ থেকে টাকা ছিনিয়ে নেওয়া হয়েছে")
+    assert not build_rows(art, ArticleAnalysis(is_crime_report=True, in_scope=True, incidents=[wrong], note=""),
+                          g, {}, "auto")[0]["published"]                          # model district disagrees with the place
+
+
+def test_old_saved_answers_still_load_as_dhaka():
+    old = {"is_crime_report": True, "in_dhaka": True, "note": "",
+           "incidents": [{"category": "theft", "headline_bn": "চুরি", "headline_en": "Theft", "location_text": "মিরপুর",
+                          "place_id": "mirpur", "geocode_query": None, "precision": "thana", "incident_date": None,
+                          "time_of_day": "unknown", "victims": 0, "evidence": "মিরপুরে চুরি"}]}
+    a = ArticleAnalysis.model_validate(old)
+    assert a.in_scope and a.incidents[0].district == "dhaka"

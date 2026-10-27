@@ -36,14 +36,15 @@ def locate(inc: Incident, gaz: Gazetteer, geocoded: dict[str, tuple[float, float
            source_text: str | None = None) -> dict:
     """Gazetteer first; an exact geocode is used only if it agrees with the chosen place."""
     place = gaz.get(inc.place_id) or _fallback_place(inc, gaz, source_text)
-    out = {"place_id": None, "thana_id": None, "lat": None, "lng": None, "geocoded": False, "precision": "city"}
+    out = {"place_id": None, "thana_id": None, "lat": None, "lng": None, "geocoded": False, "precision": "city",
+           "district": None}
     if place is None:
         return out
     thana = gaz.thana_of(place)
-    out.update(place_id=place.id, thana_id=thana.id, lat=place.lat, lng=place.lng,
+    out.update(place_id=place.id, thana_id=thana.id, lat=place.lat, lng=place.lng, district=place.district,
                precision={"landmark": "exact", "area": "neighbourhood"}.get(place.kind, "thana"))
     hit = (geocoded or {}).get(inc.geocode_query or "")
-    if hit and distance_km(hit, (place.lat, place.lng)) <= GEOCODE_MAX_KM:
+    if hit and place.lat is not None and distance_km(hit, (place.lat, place.lng)) <= GEOCODE_MAX_KM:
         out.update(lat=hit[0], lng=hit[1], geocoded=True, precision="exact")
     return out
 
@@ -115,13 +116,12 @@ def build_rows(article: dict, analysis: ArticleAnalysis, gaz: Gazetteer,
     pub_day = publication_day(article["published_at"])
     fetched_day = publication_day(article.get("fetched_at"))
     upper = pub_day or fetched_day or datetime.now(DHAKA_TZ).date()   # never accept dates in the future
-    consistent = analysis.is_crime_report and analysis.in_dhaka
+    consistent = analysis.is_crime_report and analysis.in_scope
     rows = []
     if not consistent:
         return rows
     source = f"{article['title'] or ''}\n{article.get('keywords') or ''}\n{article['body'] or ''}"
-    grounded = gaz.grounded_places(source)                   # Dhaka places the article really names
-    elsewhere = gaz.lead_in_other_district(article["body"] or "")
+    grounded = gaz.grounded_places(source)                   # places the article really names
     seen = set()
     for inc in analysis.incidents:
         if inc.category not in CATEGORIES:
@@ -133,21 +133,22 @@ def build_rows(article: dict, analysis: ArticleAnalysis, gaz: Gazetteer,
         loc = locate(inc, gaz, geocoded, source)
         inc_date = clean_incident_date(inc.incident_date, upper)
         quoted = evidence_ok(inc.evidence, article["title"] or "", article["body"] or "")
-        # Auto-publishing also needs a located incident whose place (or its thana) the article itself names, and a
-        # lead that does not put the story in another district. Gemma's in_dhaka alone is not enough.
-        # Auto-publish only if the place is one the article names (the shortlist), and neither the first sentence,
-        # the quote's own sentence, nor the location phrase puts the incident in another district.
-        in_dhaka = bool(loc["place_id"]) and (loc["place_id"] in grounded or loc["thana_id"] in grounded) \
-            and not elsewhere \
-            and not gaz.names_other_district(gaz.quote_sentence(article["body"] or "", inc.evidence)) \
-            and not gaz.names_other_district(inc.location_text)
-        ok = quoted and in_dhaka
+        # Auto-publish only if the place is one the article names (the shortlist), its district agrees with the
+        # model's district, and neither the first sentence, the quote's own sentence, nor the location phrase puts
+        # the incident in another district. The model's district alone is never enough.
+        d = loc["district"]
+        located = bool(loc["place_id"]) and (loc["place_id"] in grounded or loc["thana_id"] in grounded) \
+            and (inc.district is None or inc.district == d) \
+            and not gaz.lead_in_other_district(article["body"] or "", d) \
+            and not gaz.names_other_district(gaz.quote_sentence(article["body"] or "", inc.evidence), d) \
+            and not gaz.names_other_district(inc.location_text, d)
+        ok = quoted and located
         rows.append({
             **loc, "category": inc.category, "headline_bn": inc.headline_bn, "headline_en": inc.headline_en,
             "location_text": inc.location_text, "incident_date": inc_date, "event_date": inc_date or pub_day or fetched_day or upper,
             "time_of_day": inc.time_of_day, "victims": max(0, inc.victims), "evidence": inc.evidence,
             # passes = automatic checks OK. Published now only in auto mode; review mode waits for a human.
-            "evidence_ok": quoted, "located_in_dhaka": in_dhaka, "passes": ok,
+            "evidence_ok": quoted, "located": located, "passes": ok,
             "published": ok and publish_mode == "auto",
             "review_status": ("auto" if publish_mode == "auto" else "pending") if ok else "failed",
             "geocode_query": inc.geocode_query if inc.geocode_query and loc["place_id"] else None,
@@ -169,12 +170,12 @@ def materialize(conn, article: dict, analysis_id: int | None, analysis: ArticleA
         conn.execute(
             """INSERT INTO incidents (article_id, analysis_id, category, headline_bn, headline_en, location_text,
                  place_id, thana_id, lat, lng, precision, geocoded, incident_date, event_date, time_of_day, victims,
-                 evidence, evidence_ok, published, review_status, classifier, geocode_query, geocode_state)
-               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                 evidence, evidence_ok, published, review_status, classifier, geocode_query, geocode_state, district_id)
+               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
             (article["id"], analysis_id, r["category"], r["headline_bn"], r["headline_en"], r["location_text"],
              r["place_id"], r["thana_id"], r["lat"], r["lng"], r["precision"], r["geocoded"], r["incident_date"],
              r["event_date"], r["time_of_day"], r["victims"], r["evidence"], r["evidence_ok"], r["published"],
-             r["review_status"], classifier, r["geocode_query"], r["geocode_state"]))
+             r["review_status"], classifier, r["geocode_query"], r["geocode_state"], r["district"]))
         if r["place_id"] and r["event_date"]:
             keys.add((r["category"], r["place_id"], r["event_date"]))
     rebuild_groups(conn, keys)
@@ -201,10 +202,11 @@ def enrich_next(gaz: Gazetteer) -> str | None:
     if place is None or not settings.geocode_enabled:
         state, hit = "miss", None
     else:
-        hit = geocode(row["geocode_query"])                       # may wait on the shared lane; no transaction open
+        from .geocode import viewbox_for
+        hit = geocode(row["geocode_query"], viewbox_for(gaz.bounds(place.district)))   # shared lane; no transaction
         if hit is None and not is_cached(row["geocode_query"]):
             return "error"                                        # network problem: leave it waiting
-        state = "miss" if hit is None else (
+        state = "miss" if hit is None or place.lat is None else (
             "done" if distance_km(hit, (place.lat, place.lng)) <= GEOCODE_MAX_KM else "far")
     with db.tx() as c:
         if state == "done":

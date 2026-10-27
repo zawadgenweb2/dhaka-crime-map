@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ঢাকা অপরাধ মানচিত্র</title>
+<title>বাংলাদেশ অপরাধ মানচিত্র</title>
 <meta name="description" content="Prothom Alo crime reports in Dhaka, classified and mapped by neighbourhood.">
 <link rel="stylesheet" href="/static/styles.css">
 </head>
@@ -12,7 +12,7 @@
   <div class="brand">
     <span class="logo" aria-hidden="true"></span>
     <div>
-      <h1 data-i18n="title">ঢাকা অপরাধ মানচিত্র</h1>
+      <h1 data-i18n="title">বাংলাদেশ অপরাধ মানচিত্র</h1>
       <p class="sub" id="status-line">…</p>
     </div>
   </div>
@@ -45,8 +45,9 @@
       <div class="chips" id="cats"></div>
     </section>
     <section>
-      <h2 data-i18n="area">থানা / এলাকা</h2>
-      <select id="thana"><option value="" data-i18n="allDhaka">সমগ্র ঢাকা</option></select>
+      <h2 data-i18n="district">জেলা</h2>
+      <select id="district" aria-label="District"></select>
+      <select id="thana" aria-label="Thana / upazila" hidden style="margin-top:8px"></select>
     </section>
     <section>
       <h2 data-i18n="mapView">মানচিত্র</h2>

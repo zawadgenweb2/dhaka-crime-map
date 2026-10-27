@@ -106,7 +106,7 @@ def is_candidate(c: Candidate, gaz: Gazetteer) -> bool:
 
     - crime and capital sections: always
     - any other section (sports, business, district, ...): when the title or keywords contain a crime word.
-      Dhaka is NOT required in the title; the full text decides that after download (belongs_to_dhaka).
+      Dhaka is NOT required in the title; the full text decides that after download (belongs_to_districts).
     - no title known (daily-sitemap entry): only in TITLE_AFTER_DOWNLOAD sections; the title is checked after download
     - videos, photo galleries and Prothom Alo's sister sites (other hosts): never"""
     if (urlsplit(c.url).hostname or "").lower() not in ALLOWED_HOSTS:
@@ -125,18 +125,21 @@ def is_candidate(c: Candidate, gaz: Gazetteer) -> bool:
 CAPITAL_TERMS = [normalize(t) for t in ("রাজধানী", "ডিএমপি", "ঢাকা মহানগর")]
 
 
-def belongs_to_dhaka(section: str, text: str, gaz: Gazetteer) -> bool:
-    """Stage 2, after download: does the full text place it in Dhaka district?
-    Crime/capital sections: any Dhaka mention (as before). Other sections: a Dhaka-district place (not a
-    referral hospital) or, outside district news, an explicit capital term. Gemma makes the final call."""
+def belongs_to_districts(section: str, text: str, gaz: Gazetteer) -> bool:
+    """Stage 2, after download: could the story be in one of the supported districts? Gemma makes the final call.
+    Crime/capital sections: any supported district or place named. Other sections: a place of a supported district
+    (not a referral hospital) or, outside district news, a capital term or another supported district's name."""
     if section in CRIME_SECTIONS:
-        return gaz.mentions_dhaka(text)
+        return gaz.mentions_supported(text)
     if gaz.grounded_places(text):
         return True
     if section == "bangladesh/district":
         return False
     n = normalize(text)
-    return any(t in n for t in CAPITAL_TERMS)
+    return any(t in n for t in CAPITAL_TERMS) or bool(gaz.district_mentions(text) - {"dhaka"})
+
+
+belongs_to_dhaka = belongs_to_districts      # old name
 
 
 def parse_article(page: str, url: str) -> Article:

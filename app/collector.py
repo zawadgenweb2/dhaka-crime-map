@@ -16,7 +16,7 @@ from . import db
 from .config import settings
 from .gazetteer import Gazetteer, load as load_gazetteer
 from .scheduler import next_run, previous_slot
-from .scraper import CRIME_SECTIONS, DHAKA_TZ, Candidate, ProthomAloClient, belongs_to_dhaka, is_candidate
+from .scraper import CRIME_SECTIONS, DHAKA_TZ, Candidate, ProthomAloClient, belongs_to_districts, is_candidate
 from .text import crime_signal
 
 log = logging.getLogger(__name__)
@@ -124,11 +124,11 @@ def collect(trigger: str, days_back: int = 1, client=None, gaz: Gazetteer | None
             # Stage 2 (full text). Entries that came without a title (daily sitemaps) get the title rule now.
             title_ok = (cand.section in CRIME_SECTIONS or crime_signal(f"{cand.title} {cand.keywords}") > 0
                         or crime_signal(f"{art.title} {art.keywords}") > 0)
-            in_dhaka = belongs_to_dhaka(cand.section, text, gaz)
-            relevant = not outside and title_ok and crime_signal(text) > 0 and in_dhaka
+            in_scope = belongs_to_districts(cand.section, text, gaz)
+            relevant = not outside and title_ok and crime_signal(text) > 0 and in_scope
             why = None if relevant else ("outside the window" if outside
                                          else "pre-filter: no crime word in the title" if not title_ok
-                                         else "pre-filter: no Dhaka district place in the text" if not in_dhaka
+                                         else "pre-filter: no supported district in the text" if not in_scope
                                          else "pre-filter: no crime word in the text")
             with db.tx() as c:
                 row = c.execute(

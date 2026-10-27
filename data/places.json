@@ -1,0 +1,3121 @@
+{
+ "districts": [
+  {
+   "id": "dhaka",
+   "name_bn": "ঢাকা",
+   "name_en": "Dhaka",
+   "lat": 23.785,
+   "lng": 90.395
+  },
+  {
+   "id": "chattogram",
+   "name_bn": "চট্টগ্রাম",
+   "name_en": "Chattogram",
+   "lat": 22.3475,
+   "lng": 91.8123
+  },
+  {
+   "id": "sylhet",
+   "name_bn": "সিলেট",
+   "name_en": "Sylhet",
+   "lat": 24.8949,
+   "lng": 91.8687
+  },
+  {
+   "id": "khulna",
+   "name_bn": "খুলনা",
+   "name_en": "Khulna",
+   "lat": 22.8456,
+   "lng": 89.5403
+  },
+  {
+   "id": "barishal",
+   "name_bn": "বরিশাল",
+   "name_en": "Barishal",
+   "lat": 22.701,
+   "lng": 90.3535
+  },
+  {
+   "id": "rangpur",
+   "name_bn": "রংপুর",
+   "name_en": "Rangpur",
+   "lat": 25.7439,
+   "lng": 89.2752
+  }
+ ],
+ "places": [
+  {
+   "id": "adabor",
+   "name_en": "Adabor",
+   "name_bn": "আদাবর",
+   "aliases": [],
+   "kind": "thana",
+   "parent": null,
+   "lat": 23.7745,
+   "lng": 90.356,
+   "district": "dhaka"
+  },
+  {
+   "id": "badda",
+   "name_en": "Badda",
+   "name_bn": "বাড্ডা",
+   "aliases": [
+    "উত্তর বাড্ডা",
+    "মধ্য বাড্ডা",
+    "দক্ষিণ বাড্ডা"
+   ],
+   "kind": "thana",
+   "parent": null,
+   "lat": 23.7806,
+   "lng": 90.4265,
+   "district": "dhaka"
+  },
+  {
+   "id": "banani",
+   "name_en": "Banani",
+   "name_bn": "বনানী",
+   "aliases": [],
+   "kind": "thana",
+   "parent": null,
+   "lat": 23.794,
+   "lng": 90.4043,
+   "district": "dhaka"
+  },
+  {
+   "id": "bangshal",
+   "name_en": "Bangshal",
+   "name_bn": "বংশাল",
+   "aliases": [],
+   "kind": "thana",
+   "parent": null,
+   "lat": 23.7173,
+   "lng": 90.4047,
+   "district": "dhaka"
+  },
+  {
+   "id": "bhashantek",
+   "name_en": "Bhashantek",
+   "name_bn": "ভাষানটেক",
+   "aliases": [
+    "ভাসানটেক"
+   ],
+   "kind": "thana",
+   "parent": null,
+   "lat": 23.813,
+   "lng": 90.3895,
+   "district": "dhaka"
+  },
+  {
+   "id": "vatara",
+   "name_en": "Vatara",
+   "name_bn": "ভাটারা",
+   "aliases": [
+    "নূরেরচালা",
+    "নুরেরচালা"
+   ],
+   "kind": "thana",
+   "parent": null,
+   "lat": 23.807,
+   "lng": 90.433,
+   "district": "dhaka"
+  },
+  {
+   "id": "airport",
+   "name_en": "Airport (Bimanbandar)",
+   "name_bn": "বিমানবন্দর",
+   "aliases": [
+    "হযরত শাহজালাল আন্তর্জাতিক বিমানবন্দর",
+    "শাহজালাল বিমানবন্দর",
+    "বিমানবন্দর থানা"
+   ],
+   "kind": "thana",
+   "parent": null,
+   "lat": 23.846,
+   "lng": 90.4045,
+   "district": "dhaka"
+  },
+  {
+   "id": "cantonment",
+   "name_en": "Cantonment",
+   "name_bn": "ক্যান্টনমেন্ট",
+   "aliases": [
+    "ঢাকা সেনানিবাস",
+    "সেনানিবাস"
+   ],
+   "kind": "thana",
+   "parent": null,
+   "lat": 23.8225,
+   "lng": 90.399,
+   "district": "dhaka"
+  },
+  {
+   "id": "chawkbazar",
+   "name_en": "Chawkbazar",
+   "name_bn": "চকবাজার",
+   "aliases": [
+    "চক বাজার"
+   ],
+   "kind": "thana",
+   "parent": null,
+   "lat": 23.717,
+   "lng": 90.3965,
+   "district": "dhaka"
+  },
+  {
+   "id": "dakshinkhan",
+   "name_en": "Dakshinkhan",
+   "name_bn": "দক্ষিণখান",
+   "aliases": [],
+   "kind": "thana",
+   "parent": null,
+   "lat": 23.86,
+   "lng": 90.427,
+   "district": "dhaka"
+  },
+  {
+   "id": "darussalam",
+   "name_en": "Darus Salam",
+   "name_bn": "দারুস সালাম",
+   "aliases": [
+    "দারুসসালাম"
+   ],
+   "kind": "thana",
+   "parent": null,
+   "lat": 23.787,
+   "lng": 90.349,
+   "district": "dhaka"
+  },
+  {
+   "id": "demra",
+   "name_en": "Demra",
+   "name_bn": "ডেমরা",
+   "aliases": [
+    "সারুলিয়া",
+    "স্টাফ কোয়ার্টার"
+   ],
+   "kind": "thana",
+   "parent": null,
+   "lat": 23.723,
+   "lng": 90.496,
+   "district": "dhaka"
+  },
+  {
+   "id": "dhanmondi",
+   "name_en": "Dhanmondi",
+   "name_bn": "ধানমন্ডি",
+   "aliases": [
+    "ধানমণ্ডি"
+   ],
+   "kind": "thana",
+   "parent": null,
+   "lat": 23.7461,
+   "lng": 90.3742,
+   "district": "dhaka"
+  },
+  {
+   "id": "gendaria",
+   "name_en": "Gendaria",
+   "name_bn": "গেন্ডারিয়া",
+   "aliases": [],
+   "kind": "thana",
+   "parent": null,
+   "lat": 23.704,
+   "lng": 90.425,
+   "district": "dhaka"
+  },
+  {
+   "id": "gulshan",
+   "name_en": "Gulshan",
+   "name_bn": "গুলশান",
+   "aliases": [],
+   "kind": "thana",
+   "parent": null,
+   "lat": 23.7925,
+   "lng": 90.414,
+   "district": "dhaka"
+  },
+  {
+   "id": "hatirjheel",
+   "name_en": "Hatirjheel",
+   "name_bn": "হাতিরঝিল",
+   "aliases": [
+    "হাতির ঝিল"
+   ],
+   "kind": "thana",
+   "parent": null,
+   "lat": 23.756,
+   "lng": 90.406,
+   "district": "dhaka"
+  },
+  {
+   "id": "hazaribagh",
+   "name_en": "Hazaribagh",
+   "name_bn": "হাজারীবাগ",
+   "aliases": [
+    "হাজারিবাগ"
+   ],
+   "kind": "thana",
+   "parent": null,
+   "lat": 23.733,
+   "lng": 90.364,
+   "district": "dhaka"
+  },
+  {
+   "id": "jatrabari",
+   "name_en": "Jatrabari",
+   "name_bn": "যাত্রাবাড়ী",
+   "aliases": [
+    "যাত্রাবাড়ি"
+   ],
+   "kind": "thana",
+   "parent": null,
+   "lat": 23.71,
+   "lng": 90.434,
+   "district": "dhaka"
+  },
+  {
+   "id": "kadamtali",
+   "name_en": "Kadamtali",
+   "name_bn": "কদমতলী",
+   "aliases": [
+    "কদমতলি"
+   ],
+   "kind": "thana",
+   "parent": null,
+   "lat": 23.696,
+   "lng": 90.44,
+   "district": "dhaka"
+  },
+  {
+   "id": "kafrul",
+   "name_en": "Kafrul",
+   "name_bn": "কাফরুল",
+   "aliases": [],
+   "kind": "thana",
+   "parent": null,
+   "lat": 23.793,
+   "lng": 90.384,
+   "district": "dhaka"
+  },
+  {
+   "id": "kalabagan",
+   "name_en": "Kalabagan",
+   "name_bn": "কলাবাগান",
+   "aliases": [],
+   "kind": "thana",
+   "parent": null,
+   "lat": 23.749,
+   "lng": 90.383,
+   "district": "dhaka"
+  },
+  {
+   "id": "kamrangirchar",
+   "name_en": "Kamrangirchar",
+   "name_bn": "কামরাঙ্গীরচর",
+   "aliases": [
+    "কামরাঙ্গিরচর"
+   ],
+   "kind": "thana",
+   "parent": null,
+   "lat": 23.714,
+   "lng": 90.374,
+   "district": "dhaka"
+  },
+  {
+   "id": "khilgaon",
+   "name_en": "Khilgaon",
+   "name_bn": "খিলগাঁও",
+   "aliases": [
+    "খিলগাও"
+   ],
+   "kind": "thana",
+   "parent": null,
+   "lat": 23.751,
+   "lng": 90.43,
+   "district": "dhaka"
+  },
+  {
+   "id": "khilkhet",
+   "name_en": "Khilkhet",
+   "name_bn": "খিলক্ষেত",
+   "aliases": [],
+   "kind": "thana",
+   "parent": null,
+   "lat": 23.831,
+   "lng": 90.4225,
+   "district": "dhaka"
+  },
+  {
+   "id": "kotwali",
+   "name_en": "Kotwali",
+   "name_bn": "কোতোয়ালি",
+   "aliases": [
+    "কোতোয়ালী"
+   ],
+   "kind": "thana",
+   "parent": null,
+   "lat": 23.7085,
+   "lng": 90.409,
+   "district": "dhaka"
+  },
+  {
+   "id": "lalbagh",
+   "name_en": "Lalbagh",
+   "name_bn": "লালবাগ",
+   "aliases": [],
+   "kind": "thana",
+   "parent": null,
+   "lat": 23.719,
+   "lng": 90.388,
+   "district": "dhaka"
+  },
+  {
+   "id": "mirpur",
+   "name_en": "Mirpur",
+   "name_bn": "মিরপুর",
+   "aliases": [
+    "মিরপুর মডেল থানা"
+   ],
+   "kind": "thana",
+   "parent": null,
+   "lat": 23.8,
+   "lng": 90.358,
+   "district": "dhaka"
+  },
+  {
+   "id": "mohammadpur",
+   "name_en": "Mohammadpur",
+   "name_bn": "মোহাম্মদপুর",
+   "aliases": [],
+   "kind": "thana",
+   "parent": null,
+   "lat": 23.765,
+   "lng": 90.358,
+   "district": "dhaka"
+  },
+  {
+   "id": "motijheel",
+   "name_en": "Motijheel",
+   "name_bn": "মতিঝিল",
+   "aliases": [],
+   "kind": "thana",
+   "parent": null,
+   "lat": 23.733,
+   "lng": 90.418,
+   "district": "dhaka"
+  },
+  {
+   "id": "mugda",
+   "name_en": "Mugda",
+   "name_bn": "মুগদা",
+   "aliases": [
+    "মুগদাপাড়া"
+   ],
+   "kind": "thana",
+   "parent": null,
+   "lat": 23.731,
+   "lng": 90.431,
+   "district": "dhaka"
+  },
+  {
+   "id": "newmarket",
+   "name_en": "New Market",
+   "name_bn": "নিউমার্কেট",
+   "aliases": [
+    "নিউ মার্কেট"
+   ],
+   "kind": "thana",
+   "parent": null,
+   "lat": 23.733,
+   "lng": 90.385,
+   "district": "dhaka"
+  },
+  {
+   "id": "pallabi",
+   "name_en": "Pallabi",
+   "name_bn": "পল্লবী",
+   "aliases": [],
+   "kind": "thana",
+   "parent": null,
+   "lat": 23.824,
+   "lng": 90.364,
+   "district": "dhaka"
+  },
+  {
+   "id": "paltan",
+   "name_en": "Paltan",
+   "name_bn": "পল্টন",
+   "aliases": [
+    "পুরানা পল্টন",
+    "নয়াপল্টন",
+    "নয়া পল্টন",
+    "বিজয়নগর"
+   ],
+   "kind": "thana",
+   "parent": null,
+   "lat": 23.735,
+   "lng": 90.412,
+   "district": "dhaka"
+  },
+  {
+   "id": "ramna",
+   "name_en": "Ramna",
+   "name_bn": "রমনা",
+   "aliases": [
+    "রমনা মডেল থানা",
+    "বেইলি রোড"
+   ],
+   "kind": "thana",
+   "parent": null,
+   "lat": 23.742,
+   "lng": 90.402,
+   "district": "dhaka"
+  },
+  {
+   "id": "rampura",
+   "name_en": "Rampura",
+   "name_bn": "রামপুরা",
+   "aliases": [],
+   "kind": "thana",
+   "parent": null,
+   "lat": 23.761,
+   "lng": 90.421,
+   "district": "dhaka"
+  },
+  {
+   "id": "rupnagar",
+   "name_en": "Rupnagar",
+   "name_bn": "রূপনগর",
+   "aliases": [],
+   "kind": "thana",
+   "parent": null,
+   "lat": 23.82,
+   "lng": 90.354,
+   "district": "dhaka"
+  },
+  {
+   "id": "sabujbagh",
+   "name_en": "Sabujbagh",
+   "name_bn": "সবুজবাগ",
+   "aliases": [],
+   "kind": "thana",
+   "parent": null,
+   "lat": 23.738,
+   "lng": 90.43,
+   "district": "dhaka"
+  },
+  {
+   "id": "shahali",
+   "name_en": "Shah Ali",
+   "name_bn": "শাহ আলী",
+   "aliases": [
+    "শাহআলী"
+   ],
+   "kind": "thana",
+   "parent": null,
+   "lat": 23.803,
+   "lng": 90.352,
+   "district": "dhaka"
+  },
+  {
+   "id": "shahbagh",
+   "name_en": "Shahbagh",
+   "name_bn": "শাহবাগ",
+   "aliases": [],
+   "kind": "thana",
+   "parent": null,
+   "lat": 23.7385,
+   "lng": 90.396,
+   "district": "dhaka"
+  },
+  {
+   "id": "shahjahanpur",
+   "name_en": "Shahjahanpur",
+   "name_bn": "শাহজাহানপুর",
+   "aliases": [],
+   "kind": "thana",
+   "parent": null,
+   "lat": 23.742,
+   "lng": 90.422,
+   "district": "dhaka"
+  },
+  {
+   "id": "sherebanglanagar",
+   "name_en": "Sher-e-Bangla Nagar",
+   "name_bn": "শেরেবাংলা নগর",
+   "aliases": [
+    "শেরেবাংলানগর",
+    "শেরে বাংলা নগর"
+   ],
+   "kind": "thana",
+   "parent": null,
+   "lat": 23.7735,
+   "lng": 90.376,
+   "district": "dhaka"
+  },
+  {
+   "id": "shyampur",
+   "name_en": "Shyampur",
+   "name_bn": "শ্যামপুর",
+   "aliases": [],
+   "kind": "thana",
+   "parent": null,
+   "lat": 23.689,
+   "lng": 90.434,
+   "district": "dhaka"
+  },
+  {
+   "id": "sutrapur",
+   "name_en": "Sutrapur",
+   "name_bn": "সূত্রাপুর",
+   "aliases": [
+    "সুত্রাপুর"
+   ],
+   "kind": "thana",
+   "parent": null,
+   "lat": 23.71,
+   "lng": 90.417,
+   "district": "dhaka"
+  },
+  {
+   "id": "tejgaon",
+   "name_en": "Tejgaon",
+   "name_bn": "তেজগাঁও",
+   "aliases": [
+    "তেজগাও"
+   ],
+   "kind": "thana",
+   "parent": null,
+   "lat": 23.76,
+   "lng": 90.393,
+   "district": "dhaka"
+  },
+  {
+   "id": "tejgaonind",
+   "name_en": "Tejgaon Industrial Area",
+   "name_bn": "তেজগাঁও শিল্পাঞ্চল",
+   "aliases": [
+    "তেজগাঁও শিল্প এলাকা"
+   ],
+   "kind": "thana",
+   "parent": null,
+   "lat": 23.765,
+   "lng": 90.4005,
+   "district": "dhaka"
+  },
+  {
+   "id": "turag",
+   "name_en": "Turag",
+   "name_bn": "তুরাগ",
+   "aliases": [],
+   "kind": "thana",
+   "parent": null,
+   "lat": 23.88,
+   "lng": 90.37,
+   "district": "dhaka"
+  },
+  {
+   "id": "uttaraeast",
+   "name_en": "Uttara East",
+   "name_bn": "উত্তরা পূর্ব",
+   "aliases": [],
+   "kind": "thana",
+   "parent": null,
+   "lat": 23.87,
+   "lng": 90.404,
+   "district": "dhaka"
+  },
+  {
+   "id": "uttarawest",
+   "name_en": "Uttara West",
+   "name_bn": "উত্তরা পশ্চিম",
+   "aliases": [],
+   "kind": "thana",
+   "parent": null,
+   "lat": 23.872,
+   "lng": 90.388,
+   "district": "dhaka"
+  },
+  {
+   "id": "uttarkhan",
+   "name_en": "Uttarkhan",
+   "name_bn": "উত্তরখান",
+   "aliases": [],
+   "kind": "thana",
+   "parent": null,
+   "lat": 23.882,
+   "lng": 90.434,
+   "district": "dhaka"
+  },
+  {
+   "id": "wari",
+   "name_en": "Wari",
+   "name_bn": "ওয়ারী",
+   "aliases": [
+    "ওয়ারি"
+   ],
+   "kind": "thana",
+   "parent": null,
+   "lat": 23.718,
+   "lng": 90.422,
+   "district": "dhaka"
+  },
+  {
+   "id": "savar",
+   "name_en": "Savar",
+   "name_bn": "সাভার",
+   "aliases": [],
+   "kind": "upazila",
+   "parent": null,
+   "lat": 23.845,
+   "lng": 90.258,
+   "district": "dhaka"
+  },
+  {
+   "id": "ashulia",
+   "name_en": "Ashulia",
+   "name_bn": "আশুলিয়া",
+   "aliases": [],
+   "kind": "upazila",
+   "parent": null,
+   "lat": 23.897,
+   "lng": 90.329,
+   "district": "dhaka"
+  },
+  {
+   "id": "dhamrai",
+   "name_en": "Dhamrai",
+   "name_bn": "ধামরাই",
+   "aliases": [],
+   "kind": "upazila",
+   "parent": null,
+   "lat": 23.915,
+   "lng": 90.216,
+   "district": "dhaka"
+  },
+  {
+   "id": "keraniganj",
+   "name_en": "Keraniganj",
+   "name_bn": "কেরানীগঞ্জ",
+   "aliases": [
+    "কেরানিগঞ্জ",
+    "দক্ষিণ কেরানীগঞ্জ",
+    "কেরানীগঞ্জ মডেল থানা"
+   ],
+   "kind": "upazila",
+   "parent": null,
+   "lat": 23.7005,
+   "lng": 90.3826,
+   "district": "dhaka"
+  },
+  {
+   "id": "dohar",
+   "name_en": "Dohar",
+   "name_bn": "দোহার",
+   "aliases": [],
+   "kind": "upazila",
+   "parent": null,
+   "lat": 23.6174,
+   "lng": 90.1209,
+   "district": "dhaka"
+  },
+  {
+   "id": "nawabganj",
+   "name_en": "Nawabganj (Dhaka)",
+   "name_bn": "নবাবগঞ্জ",
+   "aliases": [],
+   "kind": "upazila",
+   "parent": null,
+   "lat": 23.664,
+   "lng": 90.152,
+   "district": "dhaka"
+  },
+  {
+   "id": "mirpur1",
+   "name_en": "Mirpur 1",
+   "name_bn": "মিরপুর ১",
+   "aliases": [
+    "মিরপুর এক"
+   ],
+   "kind": "area",
+   "parent": "shahali",
+   "lat": 23.7957,
+   "lng": 90.3537,
+   "district": "dhaka"
+  },
+  {
+   "id": "mirpur2",
+   "name_en": "Mirpur 2",
+   "name_bn": "মিরপুর ২",
+   "aliases": [
+    "মিরপুর দুই"
+   ],
+   "kind": "area",
+   "parent": "mirpur",
+   "lat": 23.804,
+   "lng": 90.364,
+   "district": "dhaka"
+  },
+  {
+   "id": "mirpur6",
+   "name_en": "Mirpur 6",
+   "name_bn": "মিরপুর ৬",
+   "aliases": [],
+   "kind": "area",
+   "parent": "pallabi",
+   "lat": 23.8165,
+   "lng": 90.36,
+   "district": "dhaka"
+  },
+  {
+   "id": "mirpur10",
+   "name_en": "Mirpur 10",
+   "name_bn": "মিরপুর ১০",
+   "aliases": [
+    "মিরপুর দশ",
+    "মিরপুর ১০ গোলচত্বর"
+   ],
+   "kind": "area",
+   "parent": "kafrul",
+   "lat": 23.8069,
+   "lng": 90.3687,
+   "district": "dhaka"
+  },
+  {
+   "id": "mirpur11",
+   "name_en": "Mirpur 11",
+   "name_bn": "মিরপুর ১১",
+   "aliases": [
+    "মিরপুর এগারো"
+   ],
+   "kind": "area",
+   "parent": "pallabi",
+   "lat": 23.819,
+   "lng": 90.3655,
+   "district": "dhaka"
+  },
+  {
+   "id": "mirpur12",
+   "name_en": "Mirpur 12",
+   "name_bn": "মিরপুর ১২",
+   "aliases": [
+    "মিরপুর বারো"
+   ],
+   "kind": "area",
+   "parent": "pallabi",
+   "lat": 23.828,
+   "lng": 90.364,
+   "district": "dhaka"
+  },
+  {
+   "id": "mirpur13",
+   "name_en": "Mirpur 13",
+   "name_bn": "মিরপুর ১৩",
+   "aliases": [],
+   "kind": "area",
+   "parent": "kafrul",
+   "lat": 23.807,
+   "lng": 90.379,
+   "district": "dhaka"
+  },
+  {
+   "id": "mirpur14",
+   "name_en": "Mirpur 14",
+   "name_bn": "মিরপুর ১৪",
+   "aliases": [],
+   "kind": "area",
+   "parent": "kafrul",
+   "lat": 23.799,
+   "lng": 90.387,
+   "district": "dhaka"
+  },
+  {
+   "id": "kazipara",
+   "name_en": "Kazipara",
+   "name_bn": "কাজীপাড়া",
+   "aliases": [
+    "কাজিপাড়া"
+   ],
+   "kind": "area",
+   "parent": "kafrul",
+   "lat": 23.798,
+   "lng": 90.3725,
+   "district": "dhaka"
+  },
+  {
+   "id": "shewrapara",
+   "name_en": "Shewrapara",
+   "name_bn": "শেওড়াপাড়া",
+   "aliases": [],
+   "kind": "area",
+   "parent": "kafrul",
+   "lat": 23.7905,
+   "lng": 90.3755,
+   "district": "dhaka"
+  },
+  {
+   "id": "agargaon",
+   "name_en": "Agargaon",
+   "name_bn": "আগারগাঁও",
+   "aliases": [
+    "আগারগাও"
+   ],
+   "kind": "area",
+   "parent": "sherebanglanagar",
+   "lat": 23.778,
+   "lng": 90.379,
+   "district": "dhaka"
+  },
+  {
+   "id": "shyamoli",
+   "name_en": "Shyamoli",
+   "name_bn": "শ্যামলী",
+   "aliases": [],
+   "kind": "area",
+   "parent": "adabor",
+   "lat": 23.774,
+   "lng": 90.365,
+   "district": "dhaka"
+  },
+  {
+   "id": "kallyanpur",
+   "name_en": "Kallyanpur",
+   "name_bn": "কল্যাণপুর",
+   "aliases": [],
+   "kind": "area",
+   "parent": "mirpur",
+   "lat": 23.781,
+   "lng": 90.36,
+   "district": "dhaka"
+  },
+  {
+   "id": "gabtoli",
+   "name_en": "Gabtoli",
+   "name_bn": "গাবতলী",
+   "aliases": [
+    "গাবতলী বাস টার্মিনাল"
+   ],
+   "kind": "landmark",
+   "parent": "darussalam",
+   "lat": 23.7835,
+   "lng": 90.344,
+   "district": "dhaka"
+  },
+  {
+   "id": "technical",
+   "name_en": "Technical Mor",
+   "name_bn": "টেকনিক্যাল মোড়",
+   "aliases": [
+    "টেকনিক্যাল"
+   ],
+   "kind": "landmark",
+   "parent": "darussalam",
+   "lat": 23.783,
+   "lng": 90.353,
+   "district": "dhaka"
+  },
+  {
+   "id": "beribadh",
+   "name_en": "Beribadh",
+   "name_bn": "বেড়িবাঁধ",
+   "aliases": [],
+   "kind": "area",
+   "parent": "mohammadpur",
+   "lat": 23.757,
+   "lng": 90.347,
+   "district": "dhaka"
+  },
+  {
+   "id": "bosila",
+   "name_en": "Bosila",
+   "name_bn": "বছিলা",
+   "aliases": [],
+   "kind": "area",
+   "parent": "mohammadpur",
+   "lat": 23.757,
+   "lng": 90.345,
+   "district": "dhaka"
+  },
+  {
+   "id": "jenevacamp",
+   "name_en": "Geneva Camp",
+   "name_bn": "জেনেভা ক্যাম্প",
+   "aliases": [],
+   "kind": "landmark",
+   "parent": "mohammadpur",
+   "lat": 23.7615,
+   "lng": 90.3625,
+   "district": "dhaka"
+  },
+  {
+   "id": "townhall",
+   "name_en": "Mohammadpur Town Hall",
+   "name_bn": "টাউন হল",
+   "aliases": [
+    "মোহাম্মদপুর টাউন হল"
+   ],
+   "kind": "landmark",
+   "parent": "mohammadpur",
+   "lat": 23.762,
+   "lng": 90.359,
+   "district": "dhaka"
+  },
+  {
+   "id": "asadgate",
+   "name_en": "Asad Gate",
+   "name_bn": "আসাদগেট",
+   "aliases": [
+    "আসাদ গেট"
+   ],
+   "kind": "landmark",
+   "parent": "mohammadpur",
+   "lat": 23.7595,
+   "lng": 90.373,
+   "district": "dhaka"
+  },
+  {
+   "id": "lalmatia",
+   "name_en": "Lalmatia",
+   "name_bn": "লালমাটিয়া",
+   "aliases": [],
+   "kind": "area",
+   "parent": "mohammadpur",
+   "lat": 23.755,
+   "lng": 90.368,
+   "district": "dhaka"
+  },
+  {
+   "id": "jigatola",
+   "name_en": "Jigatola",
+   "name_bn": "জিগাতলা",
+   "aliases": [],
+   "kind": "area",
+   "parent": "dhanmondi",
+   "lat": 23.739,
+   "lng": 90.372,
+   "district": "dhaka"
+  },
+  {
+   "id": "science_lab",
+   "name_en": "Science Lab",
+   "name_bn": "সায়েন্স ল্যাব",
+   "aliases": [
+    "সায়েন্সল্যাব"
+   ],
+   "kind": "landmark",
+   "parent": "newmarket",
+   "lat": 23.7385,
+   "lng": 90.3835,
+   "district": "dhaka"
+  },
+  {
+   "id": "nilkhet",
+   "name_en": "Nilkhet",
+   "name_bn": "নীলক্ষেত",
+   "aliases": [],
+   "kind": "landmark",
+   "parent": "newmarket",
+   "lat": 23.733,
+   "lng": 90.388,
+   "district": "dhaka"
+  },
+  {
+   "id": "azimpur",
+   "name_en": "Azimpur",
+   "name_bn": "আজিমপুর",
+   "aliases": [],
+   "kind": "area",
+   "parent": "lalbagh",
+   "lat": 23.727,
+   "lng": 90.386,
+   "district": "dhaka"
+  },
+  {
+   "id": "du",
+   "name_en": "Dhaka University",
+   "name_bn": "ঢাকা বিশ্ববিদ্যালয়",
+   "aliases": [
+    "ঢাবি",
+    "টিএসসি"
+   ],
+   "kind": "landmark",
+   "parent": "shahbagh",
+   "lat": 23.734,
+   "lng": 90.3925,
+   "district": "dhaka"
+  },
+  {
+   "id": "dmch",
+   "name_en": "Dhaka Medical College Hospital",
+   "name_bn": "ঢাকা মেডিকেল কলেজ হাসপাতাল",
+   "aliases": [
+    "ঢাকা মেডিকেল"
+   ],
+   "kind": "landmark",
+   "parent": "shahbagh",
+   "lat": 23.7255,
+   "lng": 90.3975,
+   "district": "dhaka"
+  },
+  {
+   "id": "farmgate",
+   "name_en": "Farmgate",
+   "name_bn": "ফার্মগেট",
+   "aliases": [],
+   "kind": "landmark",
+   "parent": "tejgaon",
+   "lat": 23.757,
+   "lng": 90.3895,
+   "district": "dhaka"
+  },
+  {
+   "id": "karwanbazar",
+   "name_en": "Karwan Bazar",
+   "name_bn": "কারওয়ান বাজার",
+   "aliases": [
+    "কাওরান বাজার",
+    "কারওয়ানবাজার"
+   ],
+   "kind": "landmark",
+   "parent": "tejgaon",
+   "lat": 23.751,
+   "lng": 90.393,
+   "district": "dhaka"
+  },
+  {
+   "id": "panthapath",
+   "name_en": "Panthapath",
+   "name_bn": "পান্থপথ",
+   "aliases": [],
+   "kind": "area",
+   "parent": "kalabagan",
+   "lat": 23.752,
+   "lng": 90.385,
+   "district": "dhaka"
+  },
+  {
+   "id": "green_road",
+   "name_en": "Green Road",
+   "name_bn": "গ্রিন রোড",
+   "aliases": [],
+   "kind": "area",
+   "parent": "kalabagan",
+   "lat": 23.75,
+   "lng": 90.388,
+   "district": "dhaka"
+  },
+  {
+   "id": "mogbazar",
+   "name_en": "Moghbazar",
+   "name_bn": "মগবাজার",
+   "aliases": [],
+   "kind": "area",
+   "parent": "ramna",
+   "lat": 23.749,
+   "lng": 90.407,
+   "district": "dhaka"
+  },
+  {
+   "id": "eskaton",
+   "name_en": "Eskaton",
+   "name_bn": "ইস্কাটন",
+   "aliases": [],
+   "kind": "area",
+   "parent": "ramna",
+   "lat": 23.746,
+   "lng": 90.401,
+   "district": "dhaka"
+  },
+  {
+   "id": "kakrail",
+   "name_en": "Kakrail",
+   "name_bn": "কাকরাইল",
+   "aliases": [],
+   "kind": "area",
+   "parent": "ramna",
+   "lat": 23.7385,
+   "lng": 90.4065,
+   "district": "dhaka"
+  },
+  {
+   "id": "shantinagar",
+   "name_en": "Shantinagar",
+   "name_bn": "শান্তিনগর",
+   "aliases": [],
+   "kind": "area",
+   "parent": "paltan",
+   "lat": 23.74,
+   "lng": 90.414,
+   "district": "dhaka"
+  },
+  {
+   "id": "malibagh",
+   "name_en": "Malibagh",
+   "name_bn": "মালিবাগ",
+   "aliases": [],
+   "kind": "area",
+   "parent": "rampura",
+   "lat": 23.748,
+   "lng": 90.417,
+   "district": "dhaka"
+  },
+  {
+   "id": "mouchak",
+   "name_en": "Mouchak",
+   "name_bn": "মৌচাক",
+   "aliases": [],
+   "kind": "landmark",
+   "parent": "ramna",
+   "lat": 23.7453,
+   "lng": 90.4119,
+   "district": "dhaka"
+  },
+  {
+   "id": "banasree",
+   "name_en": "Banasree",
+   "name_bn": "বনশ্রী",
+   "aliases": [],
+   "kind": "area",
+   "parent": "rampura",
+   "lat": 23.762,
+   "lng": 90.434,
+   "district": "dhaka"
+  },
+  {
+   "id": "aftabnagar",
+   "name_en": "Aftabnagar",
+   "name_bn": "আফতাবনগর",
+   "aliases": [],
+   "kind": "area",
+   "parent": "badda",
+   "lat": 23.768,
+   "lng": 90.444,
+   "district": "dhaka"
+  },
+  {
+   "id": "merul",
+   "name_en": "Merul Badda",
+   "name_bn": "মেরুল বাড্ডা",
+   "aliases": [
+    "মেরুল"
+   ],
+   "kind": "area",
+   "parent": "badda",
+   "lat": 23.772,
+   "lng": 90.427,
+   "district": "dhaka"
+  },
+  {
+   "id": "hatirjheel_lake",
+   "name_en": "Hatirjheel Lake",
+   "name_bn": "হাতিরঝিল লেক",
+   "aliases": [],
+   "kind": "landmark",
+   "parent": "hatirjheel",
+   "lat": 23.757,
+   "lng": 90.404,
+   "district": "dhaka"
+  },
+  {
+   "id": "mohakhali",
+   "name_en": "Mohakhali",
+   "name_bn": "মহাখালী",
+   "aliases": [
+    "মহাখালী বাস টার্মিনাল"
+   ],
+   "kind": "area",
+   "parent": "banani",
+   "lat": 23.778,
+   "lng": 90.4,
+   "district": "dhaka"
+  },
+  {
+   "id": "niketan",
+   "name_en": "Niketan",
+   "name_bn": "নিকেতন",
+   "aliases": [],
+   "kind": "area",
+   "parent": "gulshan",
+   "lat": 23.773,
+   "lng": 90.41,
+   "district": "dhaka"
+  },
+  {
+   "id": "gulshan1",
+   "name_en": "Gulshan 1",
+   "name_bn": "গুলশান ১",
+   "aliases": [],
+   "kind": "area",
+   "parent": "gulshan",
+   "lat": 23.78,
+   "lng": 90.416,
+   "district": "dhaka"
+  },
+  {
+   "id": "gulshan2",
+   "name_en": "Gulshan 2",
+   "name_bn": "গুলশান ২",
+   "aliases": [],
+   "kind": "area",
+   "parent": "gulshan",
+   "lat": 23.7945,
+   "lng": 90.4145,
+   "district": "dhaka"
+  },
+  {
+   "id": "baridhara",
+   "name_en": "Baridhara",
+   "name_bn": "বারিধারা",
+   "aliases": [],
+   "kind": "area",
+   "parent": "gulshan",
+   "lat": 23.801,
+   "lng": 90.421,
+   "district": "dhaka"
+  },
+  {
+   "id": "korail",
+   "name_en": "Korail",
+   "name_bn": "কড়াইল",
+   "aliases": [
+    "কড়াইল বস্তি"
+   ],
+   "kind": "area",
+   "parent": "banani",
+   "lat": 23.784,
+   "lng": 90.405,
+   "district": "dhaka"
+  },
+  {
+   "id": "bashundhara",
+   "name_en": "Bashundhara R/A",
+   "name_bn": "বসুন্ধরা",
+   "aliases": [
+    "বসুন্ধরা আবাসিক এলাকা"
+   ],
+   "kind": "area",
+   "parent": "vatara",
+   "lat": 23.815,
+   "lng": 90.431,
+   "district": "dhaka"
+  },
+  {
+   "id": "kuril",
+   "name_en": "Kuril",
+   "name_bn": "কুড়িল",
+   "aliases": [
+    "কুড়িল বিশ্বরোড"
+   ],
+   "kind": "landmark",
+   "parent": "khilkhet",
+   "lat": 23.82,
+   "lng": 90.421,
+   "district": "dhaka"
+  },
+  {
+   "id": "nadda",
+   "name_en": "Notun Bazar / Nadda",
+   "name_bn": "নতুন বাজার",
+   "aliases": [
+    "নদ্দা"
+   ],
+   "kind": "area",
+   "parent": "vatara",
+   "lat": 23.798,
+   "lng": 90.425,
+   "district": "dhaka"
+  },
+  {
+   "id": "uttara",
+   "name_en": "Uttara",
+   "name_bn": "উত্তরা",
+   "aliases": [],
+   "kind": "area",
+   "parent": null,
+   "lat": 23.874,
+   "lng": 90.399,
+   "district": "dhaka"
+  },
+  {
+   "id": "abdullahpur",
+   "name_en": "Abdullahpur",
+   "name_bn": "আবদুল্লাহপুর",
+   "aliases": [
+    "আব্দুল্লাহপুর"
+   ],
+   "kind": "landmark",
+   "parent": "uttaraeast",
+   "lat": 23.8807,
+   "lng": 90.4018,
+   "district": "dhaka"
+  },
+  {
+   "id": "azampur",
+   "name_en": "Azampur",
+   "name_bn": "আজমপুর",
+   "aliases": [],
+   "kind": "landmark",
+   "parent": "uttaraeast",
+   "lat": 23.868,
+   "lng": 90.4,
+   "district": "dhaka"
+  },
+  {
+   "id": "house_building",
+   "name_en": "House Building",
+   "name_bn": "হাউস বিল্ডিং",
+   "aliases": [],
+   "kind": "landmark",
+   "parent": "uttaraeast",
+   "lat": 23.874,
+   "lng": 90.4005,
+   "district": "dhaka"
+  },
+  {
+   "id": "diabari",
+   "name_en": "Diabari",
+   "name_bn": "দিয়াবাড়ী",
+   "aliases": [
+    "দিয়াবাড়ি"
+   ],
+   "kind": "area",
+   "parent": "turag",
+   "lat": 23.88,
+   "lng": 90.37,
+   "district": "dhaka"
+  },
+  {
+   "id": "kamarpara",
+   "name_en": "Kamarpara",
+   "name_bn": "কামারপাড়া",
+   "aliases": [],
+   "kind": "area",
+   "parent": "turag",
+   "lat": 23.892,
+   "lng": 90.383,
+   "district": "dhaka"
+  },
+  {
+   "id": "ashkona",
+   "name_en": "Ashkona",
+   "name_bn": "আশকোনা",
+   "aliases": [],
+   "kind": "area",
+   "parent": "dakshinkhan",
+   "lat": 23.852,
+   "lng": 90.419,
+   "district": "dhaka"
+  },
+  {
+   "id": "kawla",
+   "name_en": "Kawla",
+   "name_bn": "কাওলা",
+   "aliases": [],
+   "kind": "area",
+   "parent": "dakshinkhan",
+   "lat": 23.848,
+   "lng": 90.414,
+   "district": "dhaka"
+  },
+  {
+   "id": "motijheel_ca",
+   "name_en": "Motijheel C/A",
+   "name_bn": "মতিঝিল বাণিজ্যিক এলাকা",
+   "aliases": [
+    "দিলকুশা"
+   ],
+   "kind": "area",
+   "parent": "motijheel",
+   "lat": 23.729,
+   "lng": 90.419,
+   "district": "dhaka"
+  },
+  {
+   "id": "arambagh",
+   "name_en": "Arambagh",
+   "name_bn": "আরামবাগ",
+   "aliases": [],
+   "kind": "area",
+   "parent": "motijheel",
+   "lat": 23.733,
+   "lng": 90.423,
+   "district": "dhaka"
+  },
+  {
+   "id": "fakirapool",
+   "name_en": "Fakirapool",
+   "name_bn": "ফকিরাপুল",
+   "aliases": [],
+   "kind": "area",
+   "parent": "motijheel",
+   "lat": 23.736,
+   "lng": 90.418,
+   "district": "dhaka"
+  },
+  {
+   "id": "kamalapur",
+   "name_en": "Kamalapur",
+   "name_bn": "কমলাপুর",
+   "aliases": [
+    "কমলাপুর রেলস্টেশন",
+    "কমলাপুর স্টেশন"
+   ],
+   "kind": "landmark",
+   "parent": "shahjahanpur",
+   "lat": 23.732,
+   "lng": 90.426,
+   "district": "dhaka"
+  },
+  {
+   "id": "gulistan",
+   "name_en": "Gulistan",
+   "name_bn": "গুলিস্তান",
+   "aliases": [],
+   "kind": "landmark",
+   "parent": "paltan",
+   "lat": 23.724,
+   "lng": 90.412,
+   "district": "dhaka"
+  },
+  {
+   "id": "baitul_mukarram",
+   "name_en": "Baitul Mukarram",
+   "name_bn": "বায়তুল মোকাররম",
+   "aliases": [
+    "বায়তুল মোকাররম"
+   ],
+   "kind": "landmark",
+   "parent": "paltan",
+   "lat": 23.729,
+   "lng": 90.413,
+   "district": "dhaka"
+  },
+  {
+   "id": "press_club",
+   "name_en": "National Press Club",
+   "name_bn": "জাতীয় প্রেসক্লাব",
+   "aliases": [
+    "প্রেসক্লাব"
+   ],
+   "kind": "landmark",
+   "parent": "shahbagh",
+   "lat": 23.731,
+   "lng": 90.408,
+   "district": "dhaka"
+  },
+  {
+   "id": "secretariat",
+   "name_en": "Secretariat",
+   "name_bn": "সচিবালয়",
+   "aliases": [],
+   "kind": "landmark",
+   "parent": "shahbagh",
+   "lat": 23.73,
+   "lng": 90.4065,
+   "district": "dhaka"
+  },
+  {
+   "id": "high_court",
+   "name_en": "High Court",
+   "name_bn": "হাইকোর্ট",
+   "aliases": [
+    "সুপ্রিম কোর্ট"
+   ],
+   "kind": "landmark",
+   "parent": "shahbagh",
+   "lat": 23.7311,
+   "lng": 90.4029,
+   "district": "dhaka"
+  },
+  {
+   "id": "bangabhaban",
+   "name_en": "Bangabhaban area",
+   "name_bn": "বঙ্গভবন",
+   "aliases": [],
+   "kind": "landmark",
+   "parent": "motijheel",
+   "lat": 23.7275,
+   "lng": 90.42,
+   "district": "dhaka"
+  },
+  {
+   "id": "sayedabad",
+   "name_en": "Sayedabad",
+   "name_bn": "সায়েদাবাদ",
+   "aliases": [
+    "সায়েদাবাদ বাস টার্মিনাল"
+   ],
+   "kind": "landmark",
+   "parent": "jatrabari",
+   "lat": 23.717,
+   "lng": 90.428,
+   "district": "dhaka"
+  },
+  {
+   "id": "tikatuli",
+   "name_en": "Tikatuli",
+   "name_bn": "টিকাটুলী",
+   "aliases": [],
+   "kind": "area",
+   "parent": "wari",
+   "lat": 23.721,
+   "lng": 90.421,
+   "district": "dhaka"
+  },
+  {
+   "id": "rajdhani_market",
+   "name_en": "Rajdhani Super Market",
+   "name_bn": "রাজধানী সুপার মার্কেট",
+   "aliases": [],
+   "kind": "landmark",
+   "parent": "wari",
+   "lat": 23.72,
+   "lng": 90.4235,
+   "district": "dhaka"
+  },
+  {
+   "id": "dholaikhal",
+   "name_en": "Dholaikhal",
+   "name_bn": "ধোলাইখাল",
+   "aliases": [],
+   "kind": "area",
+   "parent": "sutrapur",
+   "lat": 23.7065,
+   "lng": 90.415,
+   "district": "dhaka"
+  },
+  {
+   "id": "sadarghat",
+   "name_en": "Sadarghat",
+   "name_bn": "সদরঘাট",
+   "aliases": [
+    "সদরঘাট লঞ্চ টার্মিনাল"
+   ],
+   "kind": "landmark",
+   "parent": "kotwali",
+   "lat": 23.705,
+   "lng": 90.411,
+   "district": "dhaka"
+  },
+  {
+   "id": "islampur",
+   "name_en": "Islampur",
+   "name_bn": "ইসলামপুর",
+   "aliases": [],
+   "kind": "area",
+   "parent": "kotwali",
+   "lat": 23.708,
+   "lng": 90.406,
+   "district": "dhaka"
+  },
+  {
+   "id": "babubazar",
+   "name_en": "Babubazar",
+   "name_bn": "বাবুবাজার",
+   "aliases": [
+    "বাবুবাজার সেতু"
+   ],
+   "kind": "landmark",
+   "parent": "kotwali",
+   "lat": 23.7095,
+   "lng": 90.4005,
+   "district": "dhaka"
+  },
+  {
+   "id": "old_dhaka",
+   "name_en": "Old Dhaka",
+   "name_bn": "পুরান ঢাকা",
+   "aliases": [
+    "পুরোনো ঢাকা"
+   ],
+   "kind": "area",
+   "parent": null,
+   "lat": 23.713,
+   "lng": 90.405,
+   "district": "dhaka"
+  },
+  {
+   "id": "nazimuddin_road",
+   "name_en": "Nazimuddin Road",
+   "name_bn": "নাজিমুদ্দিন রোড",
+   "aliases": [
+    "কেন্দ্রীয় কারাগার"
+   ],
+   "kind": "landmark",
+   "parent": "chawkbazar",
+   "lat": 23.7185,
+   "lng": 90.4,
+   "district": "dhaka"
+  },
+  {
+   "id": "postogola",
+   "name_en": "Postogola",
+   "name_bn": "পোস্তগোলা",
+   "aliases": [],
+   "kind": "area",
+   "parent": "shyampur",
+   "lat": 23.687,
+   "lng": 90.429,
+   "district": "dhaka"
+  },
+  {
+   "id": "dayaganj",
+   "name_en": "Dayaganj",
+   "name_bn": "দয়াগঞ্জ",
+   "aliases": [],
+   "kind": "area",
+   "parent": "gendaria",
+   "lat": 23.71,
+   "lng": 90.428,
+   "district": "dhaka"
+  },
+  {
+   "id": "shonir_akhra",
+   "name_en": "Shonir Akhra",
+   "name_bn": "শনির আখড়া",
+   "aliases": [
+    "শনিরআখড়া"
+   ],
+   "kind": "landmark",
+   "parent": "jatrabari",
+   "lat": 23.703,
+   "lng": 90.45,
+   "district": "dhaka"
+  },
+  {
+   "id": "kajla",
+   "name_en": "Kajla",
+   "name_bn": "কাজলা",
+   "aliases": [],
+   "kind": "area",
+   "parent": "jatrabari",
+   "lat": 23.706,
+   "lng": 90.444,
+   "district": "dhaka"
+  },
+  {
+   "id": "matuail",
+   "name_en": "Matuail",
+   "name_bn": "মাতুয়াইল",
+   "aliases": [],
+   "kind": "area",
+   "parent": "jatrabari",
+   "lat": 23.704,
+   "lng": 90.461,
+   "district": "dhaka"
+  },
+  {
+   "id": "rayerbagh",
+   "name_en": "Rayerbagh",
+   "name_bn": "রায়েরবাগ",
+   "aliases": [],
+   "kind": "area",
+   "parent": "kadamtali",
+   "lat": 23.698,
+   "lng": 90.4571,
+   "district": "dhaka"
+  },
+  {
+   "id": "dhalpur",
+   "name_en": "Dhalpur",
+   "name_bn": "ধলপুর",
+   "aliases": [],
+   "kind": "area",
+   "parent": "jatrabari",
+   "lat": 23.713,
+   "lng": 90.437,
+   "district": "dhaka"
+  },
+  {
+   "id": "konapara",
+   "name_en": "Konapara",
+   "name_bn": "কোনাপাড়া",
+   "aliases": [],
+   "kind": "area",
+   "parent": "demra",
+   "lat": 23.7158,
+   "lng": 90.4673,
+   "district": "dhaka"
+  },
+  {
+   "id": "goran",
+   "name_en": "Goran",
+   "name_bn": "গোড়ান",
+   "aliases": [],
+   "kind": "area",
+   "parent": "khilgaon",
+   "lat": 23.7479,
+   "lng": 90.4336,
+   "district": "dhaka"
+  },
+  {
+   "id": "taltola",
+   "name_en": "Taltola",
+   "name_bn": "তালতলা",
+   "aliases": [],
+   "kind": "area",
+   "parent": "khilgaon",
+   "lat": 23.7527,
+   "lng": 90.423,
+   "district": "dhaka"
+  },
+  {
+   "id": "manda",
+   "name_en": "Manda",
+   "name_bn": "মান্ডা",
+   "aliases": [],
+   "kind": "area",
+   "parent": "mugda",
+   "lat": 23.729,
+   "lng": 90.443,
+   "district": "dhaka"
+  },
+  {
+   "id": "basabo",
+   "name_en": "Basabo",
+   "name_bn": "বাসাবো",
+   "aliases": [],
+   "kind": "area",
+   "parent": "sabujbagh",
+   "lat": 23.74,
+   "lng": 90.431,
+   "district": "dhaka"
+  },
+  {
+   "id": "hazaribagh_tannery",
+   "name_en": "Hazaribagh Tannery",
+   "name_bn": "ট্যানারি মোড়",
+   "aliases": [
+    "ট্যানারি"
+   ],
+   "kind": "landmark",
+   "parent": "hazaribagh",
+   "lat": 23.733,
+   "lng": 90.363,
+   "district": "dhaka"
+  },
+  {
+   "id": "rayer_bazar",
+   "name_en": "Rayer Bazar",
+   "name_bn": "রায়েরবাজার",
+   "aliases": [],
+   "kind": "area",
+   "parent": "hazaribagh",
+   "lat": 23.744,
+   "lng": 90.36,
+   "district": "dhaka"
+  },
+  {
+   "id": "buriganga_bank",
+   "name_en": "Buriganga riverbank",
+   "name_bn": "বুড়িগঙ্গা",
+   "aliases": [
+    "বুড়িগঙ্গা নদী"
+   ],
+   "kind": "landmark",
+   "parent": null,
+   "lat": 23.703,
+   "lng": 90.398,
+   "district": "dhaka"
+  },
+  {
+   "id": "airport_rail",
+   "name_en": "Airport Railway Station",
+   "name_bn": "বিমানবন্দর রেলস্টেশন",
+   "aliases": [
+    "বিমানবন্দর রেলওয়ে স্টেশন"
+   ],
+   "kind": "landmark",
+   "parent": "airport",
+   "lat": 23.851,
+   "lng": 90.408,
+   "district": "dhaka"
+  },
+  {
+   "id": "cantonment_station",
+   "name_en": "Dhaka Cantonment Station",
+   "name_bn": "ক্যান্টনমেন্ট রেলস্টেশন",
+   "aliases": [],
+   "kind": "landmark",
+   "parent": "cantonment",
+   "lat": 23.808,
+   "lng": 90.405,
+   "district": "dhaka"
+  },
+  {
+   "id": "tejgaon_station",
+   "name_en": "Tejgaon Railway Station",
+   "name_bn": "তেজগাঁও রেলস্টেশন",
+   "aliases": [],
+   "kind": "landmark",
+   "parent": "tejgaon",
+   "lat": 23.763,
+   "lng": 90.394,
+   "district": "dhaka"
+  },
+  {
+   "id": "mohakhali_flyover",
+   "name_en": "Mohakhali Flyover",
+   "name_bn": "মহাখালী ফ্লাইওভার",
+   "aliases": [],
+   "kind": "landmark",
+   "parent": "banani",
+   "lat": 23.779,
+   "lng": 90.399,
+   "district": "dhaka"
+  },
+  {
+   "id": "bijoy_sarani",
+   "name_en": "Bijoy Sarani",
+   "name_bn": "বিজয় সরণি",
+   "aliases": [],
+   "kind": "landmark",
+   "parent": "tejgaon",
+   "lat": 23.764,
+   "lng": 90.388,
+   "district": "dhaka"
+  },
+  {
+   "id": "bangla_motor",
+   "name_en": "Bangla Motor",
+   "name_bn": "বাংলামোটর",
+   "aliases": [],
+   "kind": "landmark",
+   "parent": "ramna",
+   "lat": 23.747,
+   "lng": 90.395,
+   "district": "dhaka"
+  },
+  {
+   "id": "begunbari",
+   "name_en": "Begunbari",
+   "name_bn": "বেগুনবাড়ী",
+   "aliases": [
+    "বেগুনবাড়ি"
+   ],
+   "kind": "area",
+   "parent": "hatirjheel",
+   "lat": 23.76,
+   "lng": 90.404,
+   "district": "dhaka"
+  },
+  {
+   "id": "hanif_flyover",
+   "name_en": "Mayor Hanif Flyover",
+   "name_bn": "মেয়র হানিফ ফ্লাইওভার",
+   "aliases": [
+    "হানিফ ফ্লাইওভার"
+   ],
+   "kind": "landmark",
+   "parent": "jatrabari",
+   "lat": 23.715,
+   "lng": 90.428,
+   "district": "dhaka"
+  },
+  {
+   "id": "savar_bazar",
+   "name_en": "Savar Bazar",
+   "name_bn": "সাভার বাজার",
+   "aliases": [],
+   "kind": "area",
+   "parent": "savar",
+   "lat": 23.848,
+   "lng": 90.256,
+   "district": "dhaka"
+  },
+  {
+   "id": "hemayetpur",
+   "name_en": "Hemayetpur",
+   "name_bn": "হেমায়েতপুর",
+   "aliases": [],
+   "kind": "area",
+   "parent": "savar",
+   "lat": 23.795,
+   "lng": 90.27,
+   "district": "dhaka"
+  },
+  {
+   "id": "baipail",
+   "name_en": "Baipail",
+   "name_bn": "বাইপাইল",
+   "aliases": [],
+   "kind": "landmark",
+   "parent": "ashulia",
+   "lat": 23.944,
+   "lng": 90.284,
+   "district": "dhaka"
+  },
+  {
+   "id": "zirabo",
+   "name_en": "Zirabo",
+   "name_bn": "জিরাবো",
+   "aliases": [],
+   "kind": "area",
+   "parent": "ashulia",
+   "lat": 23.922,
+   "lng": 90.305,
+   "district": "dhaka"
+  },
+  {
+   "id": "jinjira",
+   "name_en": "Jinjira",
+   "name_bn": "জিনজিরা",
+   "aliases": [
+    "জিঞ্জিরা"
+   ],
+   "kind": "area",
+   "parent": "keraniganj",
+   "lat": 23.7064,
+   "lng": 90.396,
+   "district": "dhaka"
+  },
+  {
+   "id": "aganagar",
+   "name_en": "Aganagar",
+   "name_bn": "আগানগর",
+   "aliases": [],
+   "kind": "area",
+   "parent": "keraniganj",
+   "lat": 23.702,
+   "lng": 90.402,
+   "district": "dhaka"
+  },
+  {
+   "id": "keraniganj_jail",
+   "name_en": "Keraniganj Central Jail",
+   "name_bn": "কেন্দ্রীয় কারাগার কেরানীগঞ্জ",
+   "aliases": [
+    "কেরানীগঞ্জ কেন্দ্রীয় কারাগার"
+   ],
+   "kind": "landmark",
+   "parent": "keraniganj",
+   "lat": 23.6624,
+   "lng": 90.3843,
+   "district": "dhaka"
+  },
+  {
+   "id": "chattogram:akbar_shah",
+   "name_en": "Akbar Shah",
+   "name_bn": "আকবর শাহ",
+   "aliases": [],
+   "kind": "thana",
+   "parent": null,
+   "lat": 22.3737,
+   "lng": 91.781,
+   "district": "chattogram",
+   "wikidata": "Q4700487"
+  },
+  {
+   "id": "chattogram:bayazid",
+   "name_en": "Bayazid",
+   "name_bn": "বায়েজীদ",
+   "aliases": [],
+   "kind": "thana",
+   "parent": null,
+   "lat": 22.38667,
+   "lng": 91.82,
+   "district": "chattogram",
+   "wikidata": "Q4848779"
+  },
+  {
+   "id": "chattogram:bakalia",
+   "name_en": "Bakalia",
+   "name_bn": "বাকলিয়া",
+   "aliases": [],
+   "kind": "thana",
+   "parent": null,
+   "lat": null,
+   "lng": null,
+   "district": "chattogram",
+   "wikidata": "Q4849500"
+  },
+  {
+   "id": "chattogram:bandar",
+   "name_en": "Bandar",
+   "name_bn": "বন্দর",
+   "aliases": [],
+   "kind": "thana",
+   "parent": null,
+   "lat": 22.2806,
+   "lng": 91.7917,
+   "district": "chattogram",
+   "wikidata": "Q4854429"
+  },
+  {
+   "id": "chattogram:chandgaon",
+   "name_en": "Chandgaon",
+   "name_bn": "চান্দগাঁও",
+   "aliases": [],
+   "kind": "thana",
+   "parent": null,
+   "lat": 22.3833,
+   "lng": 91.8667,
+   "district": "chattogram",
+   "wikidata": "Q5071033"
+  },
+  {
+   "id": "chattogram:chawkbazar",
+   "name_en": "Chawkbazar",
+   "name_bn": "চকবাজার",
+   "aliases": [],
+   "kind": "thana",
+   "parent": null,
+   "lat": 22.35833,
+   "lng": 91.8375,
+   "district": "chattogram",
+   "wikidata": "Q5088566"
+  },
+  {
+   "id": "chattogram:chittagong_kotwali",
+   "name_en": "Chittagong Kotwali",
+   "name_bn": "কোতোয়ালী",
+   "aliases": [
+    "কোতোয়ালি"
+   ],
+   "kind": "thana",
+   "parent": null,
+   "lat": 22.3375,
+   "lng": 91.8389,
+   "district": "chattogram",
+   "wikidata": "Q5102399"
+  },
+  {
+   "id": "chattogram:double_mooring",
+   "name_en": "Double Mooring",
+   "name_bn": "ডবলমুরিং",
+   "aliases": [],
+   "kind": "thana",
+   "parent": null,
+   "lat": 22.3375,
+   "lng": 91.8083,
+   "district": "chattogram",
+   "wikidata": "Q5299850"
+  },
+  {
+   "id": "chattogram:epz",
+   "name_en": "EPZ",
+   "name_bn": "ইপিজেড",
+   "aliases": [],
+   "kind": "thana",
+   "parent": null,
+   "lat": 22.38333,
+   "lng": 91.86667,
+   "district": "chattogram",
+   "wikidata": "Q5323931"
+  },
+  {
+   "id": "chattogram:halishahar",
+   "name_en": "Halishahar",
+   "name_bn": "হালিশহর",
+   "aliases": [],
+   "kind": "thana",
+   "parent": null,
+   "lat": 22.3367,
+   "lng": 91.7749,
+   "district": "chattogram",
+   "wikidata": "Q5642461"
+  },
+  {
+   "id": "chattogram:chandanaish",
+   "name_en": "Chandanaish",
+   "name_bn": "চন্দনাইশ",
+   "aliases": [],
+   "kind": "upazila",
+   "parent": null,
+   "lat": 22.2111,
+   "lng": 92.0417,
+   "district": "chattogram",
+   "wikidata": "Q3346057"
+  },
+  {
+   "id": "chattogram:patiya",
+   "name_en": "Patiya",
+   "name_bn": "পটিয়া",
+   "aliases": [],
+   "kind": "upazila",
+   "parent": null,
+   "lat": 22.3,
+   "lng": 91.9833,
+   "district": "chattogram",
+   "wikidata": "Q3346134"
+  },
+  {
+   "id": "chattogram:boalkhali",
+   "name_en": "Boalkhali",
+   "name_bn": "বোয়ালখালী",
+   "aliases": [
+    "বোয়ালখালি"
+   ],
+   "kind": "upazila",
+   "parent": null,
+   "lat": 22.36667,
+   "lng": 91.93333,
+   "district": "chattogram",
+   "wikidata": "Q3346618"
+  },
+  {
+   "id": "chattogram:fatikchhari",
+   "name_en": "Fatikchhari",
+   "name_bn": "ফটিকছড়ি",
+   "aliases": [
+    "ফটিকছড়ী"
+   ],
+   "kind": "upazila",
+   "parent": null,
+   "lat": 22.75,
+   "lng": 91.74,
+   "district": "chattogram",
+   "wikidata": "Q3346665"
+  },
+  {
+   "id": "chattogram:banshkhali",
+   "name_en": "Banshkhali",
+   "name_bn": "বাঁশখালী",
+   "aliases": [
+    "বাঁশখালি"
+   ],
+   "kind": "upazila",
+   "parent": null,
+   "lat": 22.025,
+   "lng": 91.955,
+   "district": "chattogram",
+   "wikidata": "Q3346753"
+  },
+  {
+   "id": "chattogram:sitakunda",
+   "name_en": "Sitakunda",
+   "name_bn": "সীতাকুণ্ড",
+   "aliases": [],
+   "kind": "upazila",
+   "parent": null,
+   "lat": 22.61667,
+   "lng": 91.66167,
+   "district": "chattogram",
+   "wikidata": "Q3346765"
+  },
+  {
+   "id": "chattogram:lohagara",
+   "name_en": "Lohagara",
+   "name_bn": "লোহাগাড়া",
+   "aliases": [],
+   "kind": "upazila",
+   "parent": null,
+   "lat": 22.0,
+   "lng": 92.13,
+   "district": "chattogram",
+   "wikidata": "Q3346777"
+  },
+  {
+   "id": "chattogram:khulshi",
+   "name_en": "Khulshi",
+   "name_bn": "খুলশী",
+   "aliases": [
+    "খুলশি"
+   ],
+   "kind": "thana",
+   "parent": null,
+   "lat": 22.35833,
+   "lng": 91.80833,
+   "district": "chattogram",
+   "wikidata": "Q6402935"
+  },
+  {
+   "id": "chattogram:pahartali",
+   "name_en": "Pahartali",
+   "name_bn": "পাহাড়তলী",
+   "aliases": [
+    "পাহাড়তলি"
+   ],
+   "kind": "thana",
+   "parent": null,
+   "lat": 22.3667,
+   "lng": 91.775,
+   "district": "chattogram",
+   "wikidata": "Q7124541"
+  },
+  {
+   "id": "chattogram:panchlaish",
+   "name_en": "Panchlaish",
+   "name_bn": "পাঁচলাইশ",
+   "aliases": [],
+   "kind": "thana",
+   "parent": null,
+   "lat": 22.3667,
+   "lng": 91.825,
+   "district": "chattogram",
+   "wikidata": "Q7130341"
+  },
+  {
+   "id": "chattogram:raozan",
+   "name_en": "Raozan",
+   "name_bn": "রাউজান",
+   "aliases": [],
+   "kind": "upazila",
+   "parent": null,
+   "lat": 22.5333,
+   "lng": 91.9333,
+   "district": "chattogram",
+   "wikidata": "Q7215298"
+  },
+  {
+   "id": "chattogram:rangunia",
+   "name_en": "Rangunia",
+   "name_bn": "রাঙ্গুনিয়া",
+   "aliases": [],
+   "kind": "upazila",
+   "parent": null,
+   "lat": 22.4667,
+   "lng": 92.0833,
+   "district": "chattogram",
+   "wikidata": "Q7292932"
+  },
+  {
+   "id": "chattogram:satkania",
+   "name_en": "Satkania",
+   "name_bn": "সাতকানিয়া",
+   "aliases": [],
+   "kind": "upazila",
+   "parent": null,
+   "lat": 22.08833,
+   "lng": 92.085,
+   "district": "chattogram",
+   "wikidata": "Q7342161"
+  },
+  {
+   "id": "chattogram:sadarghat",
+   "name_en": "Sadarghat",
+   "name_bn": "সদরঘাট",
+   "aliases": [],
+   "kind": "thana",
+   "parent": null,
+   "lat": 22.325,
+   "lng": 91.825,
+   "district": "chattogram",
+   "wikidata": "Q7397576"
+  },
+  {
+   "id": "chattogram:sandwip",
+   "name_en": "Sandwip",
+   "name_bn": "সন্দ্বীপ",
+   "aliases": [],
+   "kind": "upazila",
+   "parent": null,
+   "lat": 22.4833,
+   "lng": 91.4417,
+   "district": "chattogram",
+   "wikidata": "Q7417108"
+  },
+  {
+   "id": "chattogram:karnaphuli",
+   "name_en": "Karnaphuli",
+   "name_bn": "কর্ণফুলী",
+   "aliases": [
+    "কর্ণফুলি"
+   ],
+   "kind": "upazila",
+   "parent": null,
+   "lat": 22.3,
+   "lng": 91.9,
+   "district": "chattogram",
+   "wikidata": "Q13423629"
+  },
+  {
+   "id": "chattogram:patenga",
+   "name_en": "Patenga",
+   "name_bn": "পতেঙ্গা",
+   "aliases": [],
+   "kind": "thana",
+   "parent": null,
+   "lat": 22.25833,
+   "lng": 91.8,
+   "district": "chattogram",
+   "wikidata": "Q17069656"
+  },
+  {
+   "id": "chattogram:anwara",
+   "name_en": "Anwara",
+   "name_bn": "আনোয়ারা",
+   "aliases": [],
+   "kind": "upazila",
+   "parent": null,
+   "lat": 22.2167,
+   "lng": 91.9111,
+   "district": "chattogram",
+   "wikidata": "Q2365272"
+  },
+  {
+   "id": "chattogram:fatikchhari_north",
+   "name_en": "Fatikchhari North",
+   "name_bn": "ফটিকছড়ি উত্তর",
+   "aliases": [],
+   "kind": "upazila",
+   "parent": null,
+   "lat": null,
+   "lng": null,
+   "district": "chattogram",
+   "wikidata": "Q140605772"
+  },
+  {
+   "id": "chattogram:satkania_north",
+   "name_en": "Satkania North",
+   "name_bn": "সাতকানিয়া উত্তর",
+   "aliases": [],
+   "kind": "upazila",
+   "parent": null,
+   "lat": null,
+   "lng": null,
+   "district": "chattogram",
+   "wikidata": "Q141603549"
+  },
+  {
+   "id": "chattogram:hathazari",
+   "name_en": "Hathazari",
+   "name_bn": "হাটহাজারী",
+   "aliases": [
+    "হাটহাজারি"
+   ],
+   "kind": "upazila",
+   "parent": null,
+   "lat": 22.51667,
+   "lng": 91.8,
+   "district": "chattogram",
+   "wikidata": "Q3347430"
+  },
+  {
+   "id": "chattogram:mirsharai",
+   "name_en": "Mirsharai",
+   "name_bn": "মীরসরাই",
+   "aliases": [],
+   "kind": "upazila",
+   "parent": null,
+   "lat": 22.77699,
+   "lng": 91.56901,
+   "district": "chattogram",
+   "wikidata": "Q3348412"
+  },
+  {
+   "id": "chattogram:bhujpur",
+   "name_en": "Bhujpur",
+   "name_bn": "ভূজপুর",
+   "aliases": [],
+   "kind": "thana",
+   "parent": null,
+   "lat": 22.68333,
+   "lng": 91.805,
+   "district": "chattogram",
+   "wikidata": "Q13365342"
+  },
+  {
+   "id": "chattogram:rangunia_south",
+   "name_en": "Rangunia South",
+   "name_bn": "দক্ষিণ রাঙ্গুনিয়া",
+   "aliases": [],
+   "kind": "thana",
+   "parent": null,
+   "lat": 22.4428,
+   "lng": 92.067,
+   "district": "chattogram",
+   "wikidata": "Q72023402"
+  },
+  {
+   "id": "chattogram:jorarganj",
+   "name_en": "Jorarganj",
+   "name_bn": "জোরারগঞ্জ",
+   "aliases": [],
+   "kind": "thana",
+   "parent": null,
+   "lat": 22.85,
+   "lng": 91.55,
+   "district": "chattogram",
+   "wikidata": "Q30178438"
+  },
+  {
+   "id": "sylhet:golapganj",
+   "name_en": "Golapganj",
+   "name_bn": "গোলাপগঞ্জ",
+   "aliases": [],
+   "kind": "upazila",
+   "parent": null,
+   "lat": 24.8583,
+   "lng": 92.0208,
+   "district": "sylhet",
+   "wikidata": "Q3349114"
+  },
+  {
+   "id": "sylhet:bishwanath",
+   "name_en": "Bishwanath",
+   "name_bn": "বিশ্বনাথ",
+   "aliases": [],
+   "kind": "upazila",
+   "parent": null,
+   "lat": 24.8083,
+   "lng": 91.7639,
+   "district": "sylhet",
+   "wikidata": "Q4918161"
+  },
+  {
+   "id": "sylhet:companiganj",
+   "name_en": "Companiganj",
+   "name_bn": "কোম্পানীগঞ্জ",
+   "aliases": [],
+   "kind": "upazila",
+   "parent": null,
+   "lat": 25.0791,
+   "lng": 91.7542,
+   "district": "sylhet",
+   "wikidata": "Q5155471"
+  },
+  {
+   "id": "sylhet:jaintiapur",
+   "name_en": "Jaintiapur",
+   "name_bn": "জৈন্তাপুর",
+   "aliases": [],
+   "kind": "upazila",
+   "parent": null,
+   "lat": 25.125,
+   "lng": 92.1167,
+   "district": "sylhet",
+   "wikidata": "Q6124105"
+  },
+  {
+   "id": "sylhet:sylhet_sadar",
+   "name_en": "Sylhet Sadar",
+   "name_bn": "সিলেট সদর",
+   "aliases": [],
+   "kind": "upazila",
+   "parent": null,
+   "lat": 24.8917,
+   "lng": 91.8833,
+   "district": "sylhet",
+   "wikidata": "Q7660566"
+  },
+  {
+   "id": "sylhet:zakiganj",
+   "name_en": "Zakiganj",
+   "name_bn": "জকিগঞ্জ",
+   "aliases": [],
+   "kind": "upazila",
+   "parent": null,
+   "lat": 24.8778,
+   "lng": 92.3722,
+   "district": "sylhet",
+   "wikidata": "Q8065098"
+  },
+  {
+   "id": "sylhet:osmani_nagar",
+   "name_en": "Osmani Nagar",
+   "name_bn": "ওসমানীনগর",
+   "aliases": [],
+   "kind": "upazila",
+   "parent": null,
+   "lat": 24.71824,
+   "lng": 91.74657,
+   "district": "sylhet",
+   "wikidata": "Q18129033"
+  },
+  {
+   "id": "sylhet:dakshin_surma",
+   "name_en": "Dakshin Surma",
+   "name_bn": "দক্ষিণ সুরমা",
+   "aliases": [],
+   "kind": "upazila",
+   "parent": null,
+   "lat": 24.82112,
+   "lng": 91.89039,
+   "district": "sylhet",
+   "wikidata": "Q18379786"
+  },
+  {
+   "id": "sylhet:fenchuganj",
+   "name_en": "Fenchuganj",
+   "name_bn": "ফেঞ্চুগঞ্জ",
+   "aliases": [],
+   "kind": "upazila",
+   "parent": null,
+   "lat": 24.7083,
+   "lng": 91.9403,
+   "district": "sylhet",
+   "wikidata": "Q3346846"
+  },
+  {
+   "id": "sylhet:beanibazar",
+   "name_en": "Beanibazar",
+   "name_bn": "বিয়ানীবাজার",
+   "aliases": [],
+   "kind": "upazila",
+   "parent": null,
+   "lat": 24.825,
+   "lng": 92.1625,
+   "district": "sylhet",
+   "wikidata": "Q3346855"
+  },
+  {
+   "id": "sylhet:gowainghat",
+   "name_en": "Gowainghat",
+   "name_bn": "গোয়াইনঘাট",
+   "aliases": [],
+   "kind": "upazila",
+   "parent": null,
+   "lat": 25.08,
+   "lng": 91.97,
+   "district": "sylhet",
+   "wikidata": "Q3347504"
+  },
+  {
+   "id": "sylhet:balaganj",
+   "name_en": "Balaganj",
+   "name_bn": "বালাগঞ্জ",
+   "aliases": [],
+   "kind": "upazila",
+   "parent": null,
+   "lat": 24.71,
+   "lng": 91.8,
+   "district": "sylhet",
+   "wikidata": "Q3348495"
+  },
+  {
+   "id": "sylhet:kanaighat",
+   "name_en": "Kanaighat",
+   "name_bn": "কানাইঘাট",
+   "aliases": [],
+   "kind": "upazila",
+   "parent": null,
+   "lat": 25.0166,
+   "lng": 92.2472,
+   "district": "sylhet",
+   "wikidata": "Q3348537"
+  },
+  {
+   "id": "sylhet:bimanbandar",
+   "name_en": "Bimanbandar",
+   "name_bn": "বিমানবন্দর",
+   "aliases": [],
+   "kind": "thana",
+   "parent": null,
+   "lat": 24.96667,
+   "lng": 91.88333,
+   "district": "sylhet",
+   "wikidata": "Q62430443"
+  },
+  {
+   "id": "sylhet:kotwali",
+   "name_en": "Kotwali",
+   "name_bn": "কোতোয়ালী",
+   "aliases": [
+    "কোতোয়ালি"
+   ],
+   "kind": "thana",
+   "parent": null,
+   "lat": 24.88861,
+   "lng": 91.86594,
+   "district": "sylhet",
+   "wikidata": "Q64348093"
+  },
+  {
+   "id": "sylhet:jalalabad",
+   "name_en": "Jalalabad",
+   "name_bn": "জালালাবাদ",
+   "aliases": [],
+   "kind": "thana",
+   "parent": null,
+   "lat": 24.98333,
+   "lng": 91.76667,
+   "district": "sylhet",
+   "wikidata": "Q98785948"
+  },
+  {
+   "id": "sylhet:shahporan",
+   "name_en": "Shahporan",
+   "name_bn": "শাহপরাণ",
+   "aliases": [],
+   "kind": "thana",
+   "parent": null,
+   "lat": 24.9,
+   "lng": 91.9,
+   "district": "sylhet",
+   "wikidata": "Q98785952"
+  },
+  {
+   "id": "sylhet:moglabazar",
+   "name_en": "Moglabazar",
+   "name_bn": "মোগলাবাজার",
+   "aliases": [],
+   "kind": "thana",
+   "parent": null,
+   "lat": 24.775,
+   "lng": 91.925,
+   "district": "sylhet",
+   "wikidata": "Q98959318"
+  },
+  {
+   "id": "khulna:phultala",
+   "name_en": "Phultala",
+   "name_bn": "ফুলতলা",
+   "aliases": [],
+   "kind": "upazila",
+   "parent": null,
+   "lat": 22.975,
+   "lng": 89.4583,
+   "district": "khulna",
+   "wikidata": "Q3346791"
+  },
+  {
+   "id": "khulna:khan_jahan_ali",
+   "name_en": "Khan Jahan Ali",
+   "name_bn": "খানজাহান আলী",
+   "aliases": [
+    "খানজাহান আলি"
+   ],
+   "kind": "thana",
+   "parent": null,
+   "lat": 22.92,
+   "lng": 89.48,
+   "district": "khulna",
+   "wikidata": "Q6400062"
+  },
+  {
+   "id": "khulna:khulna_kotwali",
+   "name_en": "Khulna Kotwali",
+   "name_bn": "কোতোয়ালী",
+   "aliases": [
+    "কোতোয়ালি"
+   ],
+   "kind": "thana",
+   "parent": null,
+   "lat": 22.81258,
+   "lng": 89.5669,
+   "district": "khulna",
+   "wikidata": "Q6402921"
+  },
+  {
+   "id": "khulna:sonadanga",
+   "name_en": "Sonadanga",
+   "name_bn": "সোনাডাঙ্গা",
+   "aliases": [],
+   "kind": "thana",
+   "parent": null,
+   "lat": 22.8167,
+   "lng": 89.55,
+   "district": "khulna",
+   "wikidata": "Q7560733"
+  },
+  {
+   "id": "khulna:khalishpur",
+   "name_en": "Khalishpur",
+   "name_bn": "খালিশপুর",
+   "aliases": [],
+   "kind": "thana",
+   "parent": null,
+   "lat": 22.85,
+   "lng": 89.5361,
+   "district": "khulna",
+   "wikidata": "Q11003521"
+  },
+  {
+   "id": "khulna:paikgachha",
+   "name_en": "Paikgachha",
+   "name_bn": "পাইকগাছা",
+   "aliases": [],
+   "kind": "upazila",
+   "parent": null,
+   "lat": 22.5889,
+   "lng": 89.3361,
+   "district": "khulna",
+   "wikidata": "Q3346084"
+  },
+  {
+   "id": "khulna:koyra",
+   "name_en": "Koyra",
+   "name_bn": "কয়রা",
+   "aliases": [],
+   "kind": "upazila",
+   "parent": null,
+   "lat": 22.3417,
+   "lng": 89.3,
+   "district": "khulna",
+   "wikidata": "Q3346095"
+  },
+  {
+   "id": "khulna:dighalia",
+   "name_en": "Dighalia",
+   "name_bn": "দিঘলিয়া",
+   "aliases": [],
+   "kind": "upazila",
+   "parent": null,
+   "lat": 22.9083,
+   "lng": 89.5333,
+   "district": "khulna",
+   "wikidata": "Q3346124"
+  },
+  {
+   "id": "khulna:batiaghata",
+   "name_en": "Batiaghata",
+   "name_bn": "বটিয়াঘাটা",
+   "aliases": [],
+   "kind": "upazila",
+   "parent": null,
+   "lat": 22.7417,
+   "lng": 89.5167,
+   "district": "khulna",
+   "wikidata": "Q3346217"
+  },
+  {
+   "id": "khulna:terokhada",
+   "name_en": "Terokhada",
+   "name_bn": "তেরখাদা",
+   "aliases": [],
+   "kind": "upazila",
+   "parent": null,
+   "lat": 22.9417,
+   "lng": 89.6694,
+   "district": "khulna",
+   "wikidata": "Q3346245"
+  },
+  {
+   "id": "khulna:dacope",
+   "name_en": "Dacope",
+   "name_bn": "দাকোপ",
+   "aliases": [],
+   "kind": "upazila",
+   "parent": null,
+   "lat": 22.5722,
+   "lng": 89.5111,
+   "district": "khulna",
+   "wikidata": "Q3346279"
+  },
+  {
+   "id": "khulna:rupsa",
+   "name_en": "Rupsa",
+   "name_bn": "রূপসা",
+   "aliases": [],
+   "kind": "upazila",
+   "parent": null,
+   "lat": 22.8333,
+   "lng": 89.5833,
+   "district": "khulna",
+   "wikidata": "Q3346602"
+  },
+  {
+   "id": "khulna:dumuria",
+   "name_en": "Dumuria",
+   "name_bn": "ডুমুরিয়া",
+   "aliases": [],
+   "kind": "upazila",
+   "parent": null,
+   "lat": 22.8083,
+   "lng": 89.425,
+   "district": "khulna",
+   "wikidata": "Q3346736"
+  },
+  {
+   "id": "khulna:khulna_sadar",
+   "name_en": "Khulna Sadar",
+   "name_bn": "খুলনা সদর",
+   "aliases": [],
+   "kind": "thana",
+   "parent": null,
+   "lat": null,
+   "lng": null,
+   "district": "khulna",
+   "wikidata": "Q64796847"
+  },
+  {
+   "id": "khulna:daulatpur",
+   "name_en": "Daulatpur",
+   "name_bn": "দৌলতপুর",
+   "aliases": [],
+   "kind": "thana",
+   "parent": null,
+   "lat": 22.8875,
+   "lng": 89.5167,
+   "district": "khulna",
+   "wikidata": "Q5228019"
+  },
+  {
+   "id": "barishal:agailjhara",
+   "name_en": "Agailjhara",
+   "name_bn": "আগৈলঝাড়া",
+   "aliases": [],
+   "kind": "upazila",
+   "parent": null,
+   "lat": 22.9667,
+   "lng": 90.15,
+   "district": "barishal",
+   "wikidata": "Q3346000"
+  },
+  {
+   "id": "barishal:babuganj",
+   "name_en": "Babuganj",
+   "name_bn": "বাবুগঞ্জ",
+   "aliases": [],
+   "kind": "upazila",
+   "parent": null,
+   "lat": 22.8319,
+   "lng": 90.3222,
+   "district": "barishal",
+   "wikidata": "Q3346112"
+  },
+  {
+   "id": "barishal:bakerganj",
+   "name_en": "Bakerganj",
+   "name_bn": "বাকেরগঞ্জ",
+   "aliases": [],
+   "kind": "upazila",
+   "parent": null,
+   "lat": 22.55,
+   "lng": 90.3389,
+   "district": "barishal",
+   "wikidata": "Q3346608"
+  },
+  {
+   "id": "barishal:banaripara",
+   "name_en": "Banaripara",
+   "name_bn": "বানারীপাড়া",
+   "aliases": [],
+   "kind": "upazila",
+   "parent": null,
+   "lat": 22.7819,
+   "lng": 90.1667,
+   "district": "barishal",
+   "wikidata": "Q3346626"
+  },
+  {
+   "id": "barishal:gournadi",
+   "name_en": "Gournadi",
+   "name_bn": "গৌরনদী",
+   "aliases": [
+    "গৌরনদি"
+   ],
+   "kind": "upazila",
+   "parent": null,
+   "lat": 22.9736,
+   "lng": 90.2306,
+   "district": "barishal",
+   "wikidata": "Q3346713"
+  },
+  {
+   "id": "barishal:wazirpur",
+   "name_en": "Wazirpur",
+   "name_bn": "উজিরপুর",
+   "aliases": [],
+   "kind": "upazila",
+   "parent": null,
+   "lat": 22.8111,
+   "lng": 90.2444,
+   "district": "barishal",
+   "wikidata": "Q3351221"
+  },
+  {
+   "id": "barishal:kotwali",
+   "name_en": "Kotwali",
+   "name_bn": "কোতোয়ালী",
+   "aliases": [
+    "কোতোয়ালি"
+   ],
+   "kind": "thana",
+   "parent": null,
+   "lat": 22.8,
+   "lng": 90.5,
+   "district": "barishal",
+   "wikidata": "Q30178466"
+  },
+  {
+   "id": "barishal:airport",
+   "name_en": "Airport",
+   "name_bn": "বিমানবন্দর",
+   "aliases": [],
+   "kind": "thana",
+   "parent": null,
+   "lat": 22.78333,
+   "lng": 90.3,
+   "district": "barishal",
+   "wikidata": "Q62439921"
+  },
+  {
+   "id": "barishal:kaunia",
+   "name_en": "Kaunia",
+   "name_bn": "কাউনিয়া",
+   "aliases": [],
+   "kind": "thana",
+   "parent": null,
+   "lat": 22.71667,
+   "lng": 90.36667,
+   "district": "barishal",
+   "wikidata": "Q89592768"
+  },
+  {
+   "id": "barishal:bandar",
+   "name_en": "Bandar",
+   "name_bn": "বন্দর",
+   "aliases": [],
+   "kind": "thana",
+   "parent": null,
+   "lat": 22.68333,
+   "lng": 90.4,
+   "district": "barishal",
+   "wikidata": "Q89593168"
+  },
+  {
+   "id": "barishal:hizla",
+   "name_en": "Hizla",
+   "name_bn": "হিজলা",
+   "aliases": [],
+   "kind": "upazila",
+   "parent": null,
+   "lat": 22.9,
+   "lng": 90.5083,
+   "district": "barishal",
+   "wikidata": "Q3346800"
+  },
+  {
+   "id": "barishal:muladi",
+   "name_en": "Muladi",
+   "name_bn": "মুলাদী",
+   "aliases": [
+    "মুলাদি"
+   ],
+   "kind": "upazila",
+   "parent": null,
+   "lat": 22.915,
+   "lng": 90.415,
+   "district": "barishal",
+   "wikidata": "Q3347563"
+  },
+  {
+   "id": "barishal:barisal_sadar",
+   "name_en": "Barisal Sadar",
+   "name_bn": "বরিশাল সদর",
+   "aliases": [],
+   "kind": "upazila",
+   "parent": null,
+   "lat": 22.7,
+   "lng": 90.3667,
+   "district": "barishal",
+   "wikidata": "Q3347579"
+  },
+  {
+   "id": "barishal:mehendiganj",
+   "name_en": "Mehendiganj",
+   "name_bn": "মেহেন্দিগঞ্জ",
+   "aliases": [],
+   "kind": "upazila",
+   "parent": null,
+   "lat": 22.8319,
+   "lng": 90.5333,
+   "district": "barishal",
+   "wikidata": "Q3347614"
+  },
+  {
+   "id": "barishal:kazirhat",
+   "name_en": "Kazirhat",
+   "name_bn": "কাজিরহাট",
+   "aliases": [],
+   "kind": "thana",
+   "parent": null,
+   "lat": null,
+   "lng": null,
+   "district": "barishal",
+   "wikidata": "Q89466449"
+  },
+  {
+   "id": "rangpur:badarganj",
+   "name_en": "Badarganj",
+   "name_bn": "বদরগঞ্জ",
+   "aliases": [],
+   "kind": "upazila",
+   "parent": null,
+   "lat": 25.66667,
+   "lng": 89.05,
+   "district": "rangpur",
+   "wikidata": "Q4840618"
+  },
+  {
+   "id": "rangpur:gangachara",
+   "name_en": "Gangachara",
+   "name_bn": "গংগাচড়া",
+   "aliases": [],
+   "kind": "upazila",
+   "parent": null,
+   "lat": 25.87,
+   "lng": 89.22,
+   "district": "rangpur",
+   "wikidata": "Q5521012"
+  },
+  {
+   "id": "rangpur:kaunia",
+   "name_en": "Kaunia",
+   "name_bn": "কাউনিয়া",
+   "aliases": [],
+   "kind": "upazila",
+   "parent": null,
+   "lat": 25.7708,
+   "lng": 89.4167,
+   "district": "rangpur",
+   "wikidata": "Q6378832"
+  },
+  {
+   "id": "rangpur:mithapukur",
+   "name_en": "Mithapukur",
+   "name_bn": "মিঠাপুকুর",
+   "aliases": [],
+   "kind": "upazila",
+   "parent": null,
+   "lat": 25.5417,
+   "lng": 89.2833,
+   "district": "rangpur",
+   "wikidata": "Q6881592"
+  },
+  {
+   "id": "rangpur:pirganj",
+   "name_en": "Pirganj",
+   "name_bn": "পীরগঞ্জ",
+   "aliases": [],
+   "kind": "upazila",
+   "parent": null,
+   "lat": 25.4153,
+   "lng": 89.3167,
+   "district": "rangpur",
+   "wikidata": "Q7197966"
+  },
+  {
+   "id": "rangpur:pirgachha",
+   "name_en": "Pirgachha",
+   "name_bn": "পীরগাছা",
+   "aliases": [],
+   "kind": "upazila",
+   "parent": null,
+   "lat": 25.67,
+   "lng": 89.42,
+   "district": "rangpur",
+   "wikidata": "Q7197965"
+  },
+  {
+   "id": "rangpur:rangpur_sadar",
+   "name_en": "Rangpur Sadar",
+   "name_bn": "রংপুর সদর",
+   "aliases": [],
+   "kind": "upazila",
+   "parent": null,
+   "lat": 25.7583,
+   "lng": 89.2333,
+   "district": "rangpur",
+   "wikidata": "Q7292912"
+  },
+  {
+   "id": "rangpur:taraganj",
+   "name_en": "Taraganj",
+   "name_bn": "তারাগঞ্জ",
+   "aliases": [],
+   "kind": "upazila",
+   "parent": null,
+   "lat": 25.8111,
+   "lng": 89.0167,
+   "district": "rangpur",
+   "wikidata": "Q7685293"
+  }
+ ],
+ "sources": [
+  "data/dhaka_places.json (curated)",
+  "wikidata-bd-admin-2026-10-26.json (Wikidata, CC0)"
+ ]
+}

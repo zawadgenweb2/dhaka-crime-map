@@ -24,7 +24,7 @@ from . import auth, db
 from .config import ROOT, settings
 from .gazetteer import load as load_gazetteer
 from .scheduler import next_run
-from .schema import CATEGORIES, TIME_OF_DAY
+from .schema import CATEGORIES, DISTRICTS, TIME_OF_DAY
 from .scraper import DHAKA_TZ
 
 log = logging.getLogger(__name__)
@@ -53,7 +53,7 @@ MAX_WAITING_PREVIEWS = 5
 
 
 def _filters(start: str | None, end: str | None, days: int | None, categories: str | None,
-             thana: str | None) -> tuple[str, list, date, date]:
+             thana: str | None, district: str | None = None) -> tuple[str, list, date, date]:
     today = datetime.now(DHAKA_TZ).date()
     try:
         end_d = date.fromisoformat(end) if end else today
@@ -76,7 +76,17 @@ def _filters(start: str | None, end: str | None, days: int | None, categories: s
         if cats:
             where.append("i.category = ANY(%s)")
             params.append(cats)
+    if district:
+        if district not in DISTRICTS:
+            raise HTTPException(400, f"unknown district: {district}")
+        where.append("i.district_id = %s")
+        params.append(district)
     if thana:
+        place = load_gazetteer().get(thana)
+        if place is None:
+            raise HTTPException(400, f"unknown area: {thana}")
+        if district and place.district != district:     # never silently widen or empty a query
+            raise HTTPException(400, f"{thana} is not in {district}")
         where.append("i.thana_id = %s")
         params.append(thana)
     return " AND ".join(where), params, start_d, end_d
@@ -239,9 +249,9 @@ def create_app() -> FastAPI:
     @app.get("/api/incidents")
     def incidents(response: Response, start: str | None = None, end: str | None = None,
                   days: int | None = Query(None, ge=1, le=3650), categories: str | None = None,
-                  thana: str | None = None, limit: int = Query(10000, ge=1, le=20000)):
+                  thana: str | None = None, district: str | None = None, limit: int = Query(10000, ge=1, le=20000)):
         """Published, non-duplicate Gemma incidents. X-Total-Count / X-Truncated tell clients when `limit` cut it."""
-        where, params, _, _ = _filters(start, end, days, categories, thana)
+        where, params, _, _ = _filters(start, end, days, categories, thana, district)
         with db.connect() as c:
             total = c.execute(f"SELECT count(*) n FROM incidents i WHERE {where}", params).fetchone()["n"]
             response.headers["X-Total-Count"] = str(total)
@@ -264,8 +274,9 @@ def create_app() -> FastAPI:
 
     @app.get("/api/stats")
     def stats(start: str | None = None, end: str | None = None, days: int | None = Query(None, ge=1, le=3650),
-              categories: str | None = None, thana: str | None = None):
-        where, params, start_d, end_d = _filters(start, end, days, categories, thana)
+              categories: str | None = None, thana: str | None = None,
+              district: str | None = None):
+        where, params, start_d, end_d = _filters(start, end, days, categories, thana, district)
         gaz = load_gazetteer()
         with db.connect() as c:
             def q(sql):
