@@ -108,9 +108,14 @@
       px[c * 4 + 3] = Math.round(255 * 0.9 * (2 * t - t * t));
     }
     state.grid = { W, H, CELL, D, on };
-    const small = document.createElement("canvas"); small.width = W; small.height = H;   // a new image each time
+    const small = document.createElement("canvas"); small.width = W; small.height = H;
     small.getContext("2d").putImageData(img, 0, 0);
-    return small;
+    // smooth upscale in the browser (the GPU's texture filtering left a grain); a new image each time
+    const big = document.createElement("canvas"); big.width = W * CELL; big.height = H * CELL;
+    const ctx = big.getContext("2d");
+    ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(small, 0, 0, big.width, big.height);
+    return big;
   }
 
   function clear() { state.grid = null; }

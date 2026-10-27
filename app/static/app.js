@@ -552,9 +552,8 @@
       HeatPaint.setHidden(CAT_ORDER.filter((k) => !state.cats.has(k)));
       const image = HeatPaint.paint(w, h, v.zoom, v.project, isDark(), moving);
       if (!image) { state.heat = null; engine.render(); return; }
-      // image covers whole grid cells, so its bottom-right corner can sit slightly past the view
-      const [x1, y1] = [image.width * (moving ? 6 : 3), image.height * (moving ? 6 : 3)];
-      const [west, north] = v.unproject(0, 0), [east, south] = v.unproject(x1, y1);
+      // the image covers whole grid cells, so its bottom-right corner can sit slightly past the view
+      const [west, north] = v.unproject(0, 0), [east, south] = v.unproject(image.width, image.height);
       state.heat = { image, bounds: [west, south, east, north] };
       engine.render();
     });
