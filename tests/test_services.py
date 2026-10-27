@@ -287,9 +287,10 @@ def test_api_reads_and_guards_trigger():
     assert api.get("/api/runs", params={"limit": 0}).status_code == 422
     assert api.get("/api/stats", params={"end": "0001-01-01", "days": 30}).status_code == 400
     # "collect now" is an admin action: the old dashboard header alone is not enough
-    assert api.post("/api/scrape").status_code == 403
-    assert api.post("/api/scrape", headers={"x-dcm-ui": "1"}).status_code == 403
-    assert api.post("/api/scrape", headers={"x-dcm-ui": "1", "origin": "http://testserver"}).status_code == 403
+    anon = _anon()
+    assert anon.post("/api/scrape").status_code == 401
+    assert anon.post("/api/scrape", headers={"x-dcm-ui": "1", "origin": "https://testserver"}).status_code == 401
+    assert api.post("/api/scrape").status_code == 202                       # the machine token may
 
 
 def test_review_flow(monkeypatch):
