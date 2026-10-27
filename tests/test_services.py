@@ -858,3 +858,13 @@ def test_a_changed_page_layout_stops_the_paper_instead_of_skipping_everything():
     assert r["status"] == "failed" and "layout probably changed" in r["message"]
     with db.connect() as c:
         assert c.execute("SELECT count(*) n FROM articles").fetchone()["n"] == 8        # stopped after 8 in a row
+
+
+def test_command_line_migrate_and_stats_run(monkeypatch, capsys):
+    """Every deploy runs `migrate` through the CLI; a broken entry point takes all services down."""
+    import sys
+    from app.__main__ import main
+    for argv in (["app", "migrate"], ["app", "stats"]):
+        monkeypatch.setattr(sys, "argv", argv)
+        main()
+    assert "applied" in capsys.readouterr().out
