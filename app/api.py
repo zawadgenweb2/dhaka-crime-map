@@ -52,6 +52,17 @@ class ArticleIn(BaseModel):
     url: str | None = Field(None, max_length=500, description="Optional, for your own reference")
 
 
+class SplitIn(BaseModel):
+    """A report to take out of its event."""
+    report_key: str = Field(max_length=80)
+
+
+class MergeIn(BaseModel):
+    """Two events to combine: every report of `other` moves into `keep`."""
+    keep: int
+    other: int
+
+
 MAX_WAITING_PREVIEWS = 5
 
 
@@ -442,13 +453,6 @@ def create_app() -> FastAPI:
                    JOIN articles a ON a.id = i.article_id WHERE er.event_id = %s ORDER BY a.published_at""",
                 (event_id,)).fetchall()
         return {**{k: _iso(v) for k, v in e.items()}, "reports": [{k: _iso(v) for k, v in r.items()} for r in reports]}
-
-    class SplitIn(BaseModel):
-        report_key: str = Field(max_length=80)
-
-    class MergeIn(BaseModel):
-        keep: int
-        other: int
 
     @app.post("/api/events/split")
     def events_split(body: SplitIn, request: Request):
