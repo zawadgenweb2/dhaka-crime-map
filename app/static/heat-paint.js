@@ -3,9 +3,11 @@
 
    - density: one triweight kernel (same size for every type) per incident, in screen space on a coarse grid
    - colour: OKLab mean of the types' (a, b) vectors weighted by their densities; tone from the total only:
-       t = 1 - exp(-T / D0),  alpha = 0.9 (2t - t^2),  L* = 0.78 - 0.18 t (light) / 0.60 + 0.18 t (dark),
+       t = 1 - exp(-3 sqrt(T / Q95)),  alpha = 0.9 (2t - t^2),  L* = 0.78 - 0.18 t (light) / 0.60 + 0.18 t (dark),
      with the foreground's luminance fixed at L*^3 so the mix of types never changes how strong a place looks
-   - D0 = Q95 / ln 20 of the density at every incident, for the current zoom (held while panning or hiding types)
+   - Q95 = 95th percentile of the density at every incident, for the current zoom (held while panning or hiding
+     types). The square root compresses the total only (never a type's share): the busiest place still reaches
+     t = 0.95, while a city with a tenth of its density shows at t = 0.6 instead of 0.15.
    Exposed as window.HeatPaint. */
 (() => {
   "use strict";
@@ -71,7 +73,7 @@
     });
     const sorted = Array.from(dens).sort((a, b) => a - b);
     const q95 = sorted.length ? sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.95))] : 1;
-    return Math.max(q95, 1) / Math.log(20);
+    return Math.max(q95, 1);
   }
 
   /* Paint the view (CSS size w x h) into a small image; the map shows it stretched over the view's bounds.
@@ -100,7 +102,7 @@
       let T = 0, a = 0, b = 0;
       for (let k = 0; k < K; k++) { if (!on[k]) continue; const d = D[c * K + k]; if (d) { T += d; a += d * AB[k][0]; b += d * AB[k][1]; } }
       if (T < 1e-3) continue;
-      const t = 1 - Math.exp(-T / D0);
+      const t = 1 - Math.exp(-3 * Math.sqrt(T / D0));
       foreground(a / T, b / T, t, dark, rgb);
       px[c * 4] = rgb[0]; px[c * 4 + 1] = rgb[1]; px[c * 4 + 2] = rgb[2];
       px[c * 4 + 3] = Math.round(255 * 0.9 * (2 * t - t * t));
