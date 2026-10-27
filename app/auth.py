@@ -7,6 +7,8 @@ CSRF exposure). Accounts are created on the server with `python -m app admin-use
 """
 from __future__ import annotations
 
+import os
+
 import hashlib
 import hmac
 import secrets
@@ -33,8 +35,9 @@ _DUMMY_HASH = _hasher.hash(secrets.token_urlsafe(16))   # keeps unknown-user log
 
 
 def hash_password(password: str) -> str:
-    if len(password) < 12:
-        raise ValueError("use at least 12 characters")
+    minimum = int(os.getenv("ADMIN_PASSWORD_MIN", "12"))     # in-house deployments may lower it in .env
+    if len(password) < minimum:
+        raise ValueError(f"use at least {minimum} characters")
     return _hasher.hash(password)
 
 
