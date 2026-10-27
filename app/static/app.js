@@ -38,8 +38,6 @@
     },
   };
   const CAT_ORDER = ["murder", "assault", "robbery", "theft", "sexual_violence", "kidnapping", "drugs_arms", "fraud_extortion", "other"];
-  // Light pink where there are few incidents, deep red where there are many (the busiest area is the darkest).
-  // The lightest step must stay visible: one incident is only a small fraction of the busiest spot.
   const DHAKA = { lat: 23.785, lng: 90.395 };
 
   const $ = (s) => document.querySelector(s);
@@ -59,7 +57,7 @@
   };
 
   const state = {
-    lang: store.get("dcm.lang", "bn"), theme: store.get("dcm.theme", ""), days: 7, start: "", end: "",
+    lang: store.get("dcm.lang", "bn"), days: 7, start: "", end: "",
     cats: new Set(CAT_ORDER), district: "", thana: "", mode: "heat", meta: null, incidents: [], stats: null, selected: null, mix: null, heat: null,
   };
   let engine = null;
@@ -71,7 +69,6 @@
   const fmtTime = (s) => s ? new Intl.DateTimeFormat(locale(), { day: "numeric", month: "short", hour: "numeric", minute: "2-digit", timeZone: "Asia/Dhaka" }).format(new Date(s)) : "";
   const catLabel = (k) => { const c = state.meta?.categories.find((x) => x.key === k); return c ? c[state.lang] : k; };
   const todLabel = (k) => { const c = state.meta?.time_of_day.find((x) => x.key === k); return c ? c[state.lang] : k; };
-  const isDark = () => state.theme === "dark" || (!state.theme && matchMedia("(prefers-color-scheme: dark)").matches);
   const cssColor = (k) => getComputedStyle(document.documentElement).getPropertyValue(`--c-${k}`).trim() || "#898781";
   const rgb = (hex) => { const h = hex.replace("#", ""); return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16)); };
   // Public summary: crime type and area (no model headline, no quote).
@@ -96,14 +93,14 @@
                                       textureParameters: { minFilter: "linear", magFilter: "linear" } }));
     }
     if (state.mode !== "heat") {
-      const ring = isDark() ? [26, 26, 25] : [252, 252, 251];
+      const ring = [252, 252, 251];
       const colors = Object.fromEntries(CAT_ORDER.map((k) => [k, rgb(cssColor(k))]));
       const sel = state.selected?.id;
       out.push(new deck.ScatterplotLayer({
         id: "points", data: pts, pickable: true, stroked: true, radiusUnits: "pixels", lineWidthUnits: "pixels",
         getPosition: jitter, getRadius: (d) => (d.id === sel ? 10 : 6), getLineWidth: (d) => (d.id === sel ? 3 : 2),
         getFillColor: (d) => [...(colors[d.category] || colors.other), 235], getLineColor: ring,
-        radiusMinPixels: 4, updateTriggers: { getRadius: sel, getLineWidth: sel, getFillColor: isDark(), getLineColor: isDark() },
+        radiusMinPixels: 4, updateTriggers: { getRadius: sel, getLineWidth: sel },
         onHover: hover, onClick: (info) => info.object && select(info.object, false),
       }));
     }
@@ -137,12 +134,6 @@
     { featureType: "poi", stylers: [{ visibility: "off" }] }, { featureType: "transit", elementType: "labels.icon", stylers: [{ visibility: "off" }] },
     { elementType: "geometry", stylers: [{ saturation: -60 }, { lightness: 8 }] },
   ];
-  const MAP_STYLE_DARK = [
-    { elementType: "geometry", stylers: [{ color: "#1d1d1c" }] }, { elementType: "labels.text.fill", stylers: [{ color: "#9a9890" }] },
-    { elementType: "labels.text.stroke", stylers: [{ color: "#1a1a19" }] }, { featureType: "poi", stylers: [{ visibility: "off" }] },
-    { featureType: "road", elementType: "geometry", stylers: [{ color: "#2e2e2c" }] }, { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#3a3a37" }] },
-    { featureType: "water", elementType: "geometry", stylers: [{ color: "#0f1a24" }] }, { featureType: "transit", stylers: [{ visibility: "off" }] },
-  ];
 
   async function googleEngine(key, mapId) {
     await loadGoogle(key);
@@ -150,9 +141,9 @@
     const opts = {
       center: startView().center, zoom: startView().zoom, minZoom: 6, maxZoom: 18, mapTypeControl: false,
       streetViewControl: false, fullscreenControl: false, zoomControl: false,
-      clickableIcons: false, gestureHandling: "greedy", backgroundColor: isDark() ? "#1a1a19" : "#f2f1ed",
+      clickableIcons: false, gestureHandling: "greedy", backgroundColor: "#f2f1ed",
     };
-    if (mapId) { opts.mapId = mapId; opts.colorScheme = isDark() ? "DARK" : "LIGHT"; } else { opts.styles = isDark() ? MAP_STYLE_DARK : MAP_STYLE_LIGHT; }
+    if (mapId) { opts.mapId = mapId; opts.colorScheme = "LIGHT"; } else { opts.styles = MAP_STYLE_LIGHT; }
     const map = new Map($("#map"), opts);
     const overlay = new deck.GoogleMapsOverlay({ interleaved: Boolean(mapId), layers: [] });
     overlay.setMap(map);
@@ -188,7 +179,6 @@
         map.fitBounds({ south: b.s, west: b.w, north: b.n, east: b.e }, FIT_PADDING);
         google.maps.event.addListenerOnce(map, "idle", () => { if (map.getZoom() > 16) map.setZoom(16); });
       },
-      theme() { if (!mapId) map.setOptions({ styles: isDark() ? MAP_STYLE_DARK : MAP_STYLE_LIGHT, backgroundColor: isDark() ? "#1a1a19" : "#f2f1ed" }); },
       destroy() { try { overlay.setMap(null); overlay.finalize(); } catch (e) { /* map never initialised */ } fill($("#map")); },
     };
   }
@@ -196,12 +186,12 @@
   function tileEngine() {
     const tiles = () => "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
     const base = () => new deck.TileLayer({
-      id: `base-${isDark() ? "d" : "l"}`, data: tiles(), minZoom: 0, maxZoom: 19, tileSize: 256,
+      id: "base", data: tiles(), minZoom: 0, maxZoom: 19, tileSize: 256,
       renderSubLayers: (props) => {
         const [[w, s], [e, n]] = props.tile.boundingBox;
         return new deck.BitmapLayer(props, {
           data: null, image: props.data, bounds: [w, s, e, n],
-          desaturate: isDark() ? 0.9 : 0.55, tintColor: isDark() ? [95, 95, 100] : [255, 255, 255],
+          desaturate: 0.55, tintColor: [255, 255, 255],
         });
       },
     });
@@ -243,7 +233,6 @@
         const { longitude, latitude, zoom } = vp.fitBounds([[b.w, b.s], [b.e, b.n]], { padding: FIT_PADDING, maxZoom: 16 });
         this.flyTo(latitude, longitude, zoom);
       },
-      theme() { baseLayer = base(); this.render(); },
       destroy() { d.finalize(); fill($("#map"), ); },
     };
   }
@@ -486,12 +475,12 @@
   }
 
   function renderLegend() {
-    const s = state.stats, dark = isDark();
+    const s = state.stats;
     const mapped = CAT_ORDER.filter((k) => state.cats.has(k) && !(state.meta?.area_totals_only || []).includes(k));
     const totalsOnly = CAT_ORDER.filter((k) => state.cats.has(k) && (state.meta?.area_totals_only || []).includes(k));
     fill($("#legend"),
       state.mode !== "points" ? el("div", {},
-        el("div", { class: "cats" }, ...mapped.map((k) => el("span", {}, el("i", { style: `background:${HeatPaint.swatch(k, dark)}` }), catLabel(k)))),
+        el("div", { class: "cats" }, ...mapped.map((k) => el("span", {}, el("i", { style: `background:${HeatPaint.swatch(k)}` }), catLabel(k)))),
         el("div", { class: "muted" }, t("blendNote"))) : null,
       state.mode !== "heat" ? el("div", { class: "cats" }, ...mapped.map((k) => el("span", {}, el("i", { style: `background:${cssColor(k)}` }), catLabel(k)))) : null,
       !mapped.length && totalsOnly.length ? el("div", { class: "muted" }, t("totalsOnlyNote")) : null,
@@ -526,14 +515,13 @@
 
   // Tap on the heat: the approximate mix of crime types that makes up the glow there (shares, not counts)
   function renderMixCard(card, rows) {
-    const dark = isDark();
     fill(card,
       el("button", { class: "close", type: "button", "aria-label": "Close", onclick: () => { state.mix = null; renderSelected(); } }, "×"),
       el("h3", {}, t("localMix")),
       el("div", { class: "muted", style: "font-size:12px;margin-bottom:6px" }, t("localMixNote")),
       el("ul", { class: "mix" }, ...rows.map(([k, v]) => el("li", {},
-        el("span", { class: "name" }, el("span", { class: "dot", style: `background:${HeatPaint.swatch(k, dark)}` }), catLabel(k)),
-        el("span", { class: "bar" }, el("i", { style: `width:${v * 100}%;background:${HeatPaint.swatch(k, dark)}` })),
+        el("span", { class: "name" }, el("span", { class: "dot", style: `background:${HeatPaint.swatch(k)}` }), catLabel(k)),
+        el("span", { class: "bar" }, el("i", { style: `width:${v * 100}%;background:${HeatPaint.swatch(k)}` })),
         el("span", { class: "cnt" }, `${num(Math.round(v * 100))}%`)))));
     card.hidden = false;
   }
@@ -550,7 +538,7 @@
       const v = engine.view(), box = $("#map"); if (!v) return;
       const w = box.clientWidth, h = box.clientHeight;
       HeatPaint.setHidden(CAT_ORDER.filter((k) => !state.cats.has(k)));
-      const image = HeatPaint.paint(w, h, v.zoom, v.project, isDark(), moving);
+      const image = HeatPaint.paint(w, h, v.zoom, v.project, moving);
       if (!image) { state.heat = null; engine.render(); return; }
       // the image covers whole grid cells, so its bottom-right corner can sit slightly past the view
       const [west, north] = v.unproject(0, 0), [east, south] = v.unproject(image.width, image.height);
@@ -570,10 +558,6 @@
   function setTab(tab) {
     document.body.dataset.tab = tab;
     document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("on", b.dataset.tab === tab));
-  }
-
-  function applyTheme() {
-    if (state.theme) document.documentElement.dataset.theme = state.theme; else delete document.documentElement.dataset.theme;
   }
 
   /* ---------- wiring ---------- */
@@ -603,10 +587,6 @@
     $("#zoom-out").addEventListener("click", () => engine?.zoomBy(-1));
     $("#zoom-reset").addEventListener("click", () => engine?.reset());
     $("#lang-btn").addEventListener("click", () => { state.lang = state.lang === "bn" ? "en" : "bn"; store.set("dcm.lang", state.lang); applyI18n(); renderAll(); });
-    $("#theme-btn").addEventListener("click", () => {
-      state.theme = isDark() ? "light" : "dark"; store.set("dcm.theme", state.theme); applyTheme(); engine?.theme(); renderAll();
-    });
-    matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { if (!state.theme) { engine?.theme(); renderAll(); } });
     document.querySelectorAll("#tabs button").forEach((b) => b.addEventListener("click", () => setTab(b.dataset.tab)));
   }
 
@@ -638,7 +618,7 @@
   }
 
   async function main() {
-    applyTheme(); setTab("map");
+    setTab("map");
     const hd = +new URLSearchParams(location.hash.slice(1)).get("d");
     const hm = new URLSearchParams(location.hash.slice(1)).get("m");
     if (["heat", "points", "both"].includes(hm)) {

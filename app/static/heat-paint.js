@@ -3,7 +3,7 @@
 
    - density: one triweight kernel (same size for every type) per incident, in screen space on a coarse grid
    - colour: OKLab mean of the types' (a, b) vectors weighted by their densities; tone from the total only:
-       t = 1 - exp(-3 sqrt(T / Q95)),  alpha = 0.9 (2t - t^2),  L* = 0.78 - 0.18 t (light) / 0.60 + 0.18 t (dark),
+       t = 1 - exp(-3 sqrt(T / Q95)),  alpha = 0.9 (2t - t^2),  L* = 0.78 - 0.18 t (light map only),
      with the foreground's luminance fixed at L*^3 so the mix of types never changes how strong a place looks
    - Q95 = 95th percentile of the density at every incident, for the current zoom (held while panning or hiding
      types). The square root compresses the total only (never a type's share): the busiest place still reaches
@@ -25,8 +25,8 @@
             -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s];
   }
   // Foreground colour for a mixture direction (a, b) at strength t; luminance normalised to L*^3, gamut by shrinking (a, b)
-  function foreground(a, b, t, dark, out) {
-    const L = dark ? 0.60 + 0.18 * t : 0.78 - 0.18 * t, Y0 = L * L * L;
+  function foreground(a, b, t, out) {
+    const L = 0.78 - 0.18 * t, Y0 = L * L * L;              // light map: more crime = deeper
     let k = 1, V;
     for (let i = 0; i < 6; i++) {
       V = labToLin(L, a * k, b * k);
@@ -78,7 +78,7 @@
 
   /* Paint the view (CSS size w x h) into a small image; the map shows it stretched over the view's bounds.
      `project(lng, lat)` -> [x, y] CSS pixels; `fast` = coarser grid while moving. Returns a canvas or null. */
-  function paint(w, h, zoom, project, dark, fast) {
+  function paint(w, h, zoom, project, fast) {
     if (!w || !h || !state.pts.length) { state.grid = null; return null; }
     if (state.d0 == null || Math.abs(state.d0zoom - zoom) > 0.25) { state.d0 = computeD0(zoom); state.d0zoom = zoom; }
     const CELL = fast ? 6 : 3, W = Math.ceil(w / CELL), H = Math.ceil(h / CELL);
@@ -103,7 +103,7 @@
       for (let k = 0; k < K; k++) { if (!on[k]) continue; const d = D[c * K + k]; if (d) { T += d; a += d * AB[k][0]; b += d * AB[k][1]; } }
       if (T < 1e-3) continue;
       const t = 1 - Math.exp(-3 * Math.sqrt(T / D0));
-      foreground(a / T, b / T, t, dark, rgb);
+      foreground(a / T, b / T, t, rgb);
       px[c * 4] = rgb[0]; px[c * 4 + 1] = rgb[1]; px[c * 4 + 2] = rgb[2];
       px[c * 4 + 3] = Math.round(255 * 0.9 * (2 * t - t * t));
     }
@@ -132,7 +132,7 @@
   }
 
   // Solid colour of a type at full strength (legend swatches)
-  const swatch = (key, dark) => { const [a, b] = AB[IDX[key]]; return `rgb(${foreground(a, b, 1, dark, [0, 0, 0]).join(",")})`; };
+  const swatch = (key) => { const [a, b] = AB[IDX[key]]; return `rgb(${foreground(a, b, 1, [0, 0, 0]).join(",")})`; };
 
   window.HeatPaint = { KEYS, setData, setHidden, paint, clear, sample, swatch };
 })();

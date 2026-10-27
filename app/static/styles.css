@@ -24,26 +24,7 @@
   --c-fraud_extortion: #577cdc; --c-other: #c35ba0;
   --heat-1: #fde0d9; --heat-6: #7f1416;
 }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    color-scheme: dark;
-    --page: #0d0d0d; --surface: #1a1a19; --surface-2: #232321; --ink: #f0efec; --ink-2: #c3c2b7;
-    --muted: #898781; --line: #2c2c2a; --ring: rgba(255,255,255,.10); --accent: #3987e5;
-    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.5);
-    --c-murder: #f3a2a2; --c-assault: #e3b028; --c-robbery: #cda7fa; --c-theft: #90c75e;
-    --c-sexual_violence: #d55181; --c-kidnapping: #3bc8db; --c-drugs_arms: #23cfa1;
-    --c-fraud_extortion: #9bb7f6; --c-other: #f29cd2;
-  }
-}
-:root[data-theme="dark"] {
-  color-scheme: dark;
-  --page: #0d0d0d; --surface: #1a1a19; --surface-2: #232321; --ink: #f0efec; --ink-2: #c3c2b7;
-  --muted: #898781; --line: #2c2c2a; --ring: rgba(255,255,255,.10); --accent: #3987e5;
-  --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.5);
-  --c-murder: #f3a2a2; --c-assault: #e3b028; --c-robbery: #cda7fa; --c-theft: #90c75e;
-  --c-sexual_violence: #d55181; --c-kidnapping: #3bc8db; --c-drugs_arms: #23cfa1;
-  --c-fraud_extortion: #9bb7f6; --c-other: #f29cd2;
-}
+:root { color-scheme: light; }        /* light only (owner, 27 Oct): colours are tuned for a light map */
 
 * { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; }
