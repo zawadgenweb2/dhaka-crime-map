@@ -392,6 +392,11 @@ def create_app() -> FastAPI:
         """The authenticated account (checked by the middleware); recorded on every review decision."""
         return _actor(request)[:60]
 
+    @app.get("/heat-lab", include_in_schema=False)
+    def heat_lab():
+        """Compare ways of painting crime types on the heatmap, with real data (admins only)."""
+        return FileResponse(ADMIN_STATIC / "heat-lab.html")
+
     @app.get("/review", include_in_schema=False)
     def review_page():
         return FileResponse(ADMIN_STATIC / "review.html")
