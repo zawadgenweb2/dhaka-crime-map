@@ -21,6 +21,35 @@ FIXTURE = Path(__file__).parent / "fixtures" / "prothom_alo_crime.html"
 URL = "https://www.prothomalo.com/bangladesh/crime/n8b6mizawc"
 
 
+TOKEN = "t" * 24
+
+
+@pytest.fixture(autouse=True)
+def admin_token(monkeypatch):
+    """Every test runs with a known machine token on the admin app."""
+    import dataclasses
+    import app.api as api_mod
+    import app.auth as auth_mod
+    monkeypatch.setattr(auth_mod, "settings", dataclasses.replace(auth_mod.settings, admin_token=TOKEN))
+    monkeypatch.setattr(api_mod, "settings", dataclasses.replace(api_mod.settings, admin_token=TOKEN))
+
+
+def _admin():
+    """Admin app client authenticated with the machine token."""
+    from app.api import create_app
+    return TestClient(create_app(), base_url="https://testserver", headers={"x-admin-token": TOKEN})
+
+
+def _anon():
+    from app.api import create_app
+    return TestClient(create_app(), base_url="https://testserver")
+
+
+def _public():
+    from app.public import create_public_app
+    return TestClient(create_public_app())
+
+
 @pytest.fixture(autouse=True)
 def fresh_db():
     with db.connect(autocommit=True) as c:
@@ -233,7 +262,7 @@ def test_sqlite_import_preserves_results_without_queueing(tmp_path):
     assert q1("SELECT duplicate_of FROM incidents WHERE id = 8")["duplicate_of"] == 7
     assert Worker(classifier=FakeClassifier()).drain() == {}            # nothing re-sent to a model
     from app.api import create_app
-    assert TestClient(create_app()).get("/api/incidents", params={"days": 3650}).json() == []  # never served
+    assert _admin().get("/api/incidents", params={"days": 3650}).json() == []  # never served
     with pytest.raises(RuntimeError):
         import_sqlite(str(p))                                           # refuses to run twice
     with db.tx() as c:                                                  # new ids continue after imported ones
@@ -246,7 +275,7 @@ def test_api_reads_and_guards_trigger():
     collect("test", client=FakeSite())
     Worker(classifier=FakeClassifier(), use_geocoder=False).drain()
     from app.api import create_app
-    api = TestClient(create_app())
+    api = _admin()
     assert api.get("/").status_code == 200
     meta = api.get("/api/meta").json()
     assert meta["running"] is False and meta["queue"] == {"done": 1}
@@ -273,8 +302,8 @@ def test_review_flow(monkeypatch):
     Worker(classifier=FakeClassifier(), use_geocoder=False).drain()
     inc = q1("SELECT id, published, review_status FROM incidents")
     assert inc["review_status"] == "pending" and not inc["published"]
-    api = TestClient(api_mod.create_app())
-    assert api.get("/api/review/queue").status_code == 401
+    api = _admin()
+    assert _anon().get("/api/review/queue").status_code == 401
     h = {"x-admin-token": "t" * 24, "x-reviewer": "zawad"}
     queue = api.get("/api/review/queue", headers=h).json()
     assert [i["id"] for i in queue["items"]] == [inc["id"]]
@@ -283,7 +312,7 @@ def test_review_flow(monkeypatch):
     assert r.status_code == 200
     row = q1("SELECT published, review_status, place_id, thana_id, reviewed_by FROM incidents")
     assert row["published"] and row["review_status"] == "approved" and row["thana_id"] == "badda"
-    assert row["reviewed_by"] == "zawad"
+    assert row["reviewed_by"] == "token"                                  # the authenticated identity, not a header
     assert api.get("/api/stats", params={"start": "2026-10-01", "end": "2026-10-31"}).json()["total"] == 1
     api.post(f"/api/review/incidents/{inc['id']}", headers=h, json={"action": "reject"})
     assert not q1("SELECT published FROM incidents")["published"]
@@ -322,7 +351,7 @@ def test_review_keeps_duplicate_chains_and_exact_points(monkeypatch):
     with db.tx() as c:
         rebuild_groups(c, {("murder", "mirpur11")})
     assert q1("SELECT duplicate_of FROM incidents WHERE id = %s", second)["duplicate_of"] == first
-    api = TestClient(api_mod.create_app())
+    api = _admin()
     h = {"x-admin-token": "t" * 24}
     # approving with the unchanged place keeps the exact geocode and does not break the 1→2 Oct chain
     assert api.post(f"/api/review/incidents/{third}", headers=h,
@@ -342,7 +371,7 @@ def test_failed_article_retry_and_dismiss(monkeypatch):
     with db.tx() as c:
         c.execute("UPDATE articles SET status = 'failed' WHERE id IN (%s, %s)", (a1, a2))
         c.execute("INSERT INTO jobs (article_id, state) VALUES (%s, 'failed')", (a1,))
-    api = TestClient(api_mod.create_app())
+    api = _admin()
     h = {"x-admin-token": "t" * 24}
     assert api.post(f"/api/review/articles/{a1}", headers=h, json={"verdict": "retry"}).status_code == 200
     assert q1("SELECT count(*) n FROM jobs WHERE article_id = %s AND state = 'queued' AND analysis_version = 2",
@@ -405,7 +434,7 @@ def test_meta_data_version_changes_on_approval(monkeypatch):
     monkeypatch.setattr(store_mod, "settings", dataclasses.replace(store_mod.settings, publish_mode="review"))
     collect("test", client=FakeSite())
     Worker(classifier=FakeClassifier(), use_geocoder=False).drain()
-    api = TestClient(api_mod.create_app())
+    api = _admin()
     before = api.get("/api/meta").json()["data_version"]
     inc = q1("SELECT id FROM incidents")["id"]
     api.post(f"/api/review/incidents/{inc}", headers={"x-admin-token": "t" * 24}, json={"action": "approve"})
@@ -418,7 +447,7 @@ def test_api_fixes_from_endpoint_review(monkeypatch):
     monkeypatch.setattr(api_mod, "settings", dataclasses.replace(api_mod.settings, admin_token="t" * 24))
     collect("test", client=FakeSite(urls=(URL, URL + "b")))
     Worker(classifier=FakeClassifier(), use_geocoder=False).run_once()          # one done, one still queued
-    api = TestClient(api_mod.create_app())
+    api = _admin()
     h = {"x-admin-token": "t" * 24}
     # Swagger can authorize: the token is declared as a security scheme
     spec = api.get("/openapi.json").json()
@@ -441,8 +470,7 @@ def test_api_fixes_from_endpoint_review(monkeypatch):
 
 # ---- Gemma-only live data (migration 005) -------------------------------------------------------
 def _api():
-    from app.api import create_app
-    return TestClient(create_app())
+    return _admin()
 
 
 def test_only_gemma_incidents_are_served():
@@ -537,7 +565,7 @@ def test_dismiss_hides_incidents_and_failed_ones_cannot_be_approved(monkeypatch)
             self.incidents = next(answers)
             return super().classify_with_meta(article)
     Worker(classifier=Seq(), use_geocoder=False).drain()
-    api = TestClient(api_mod.create_app())
+    api = _admin()
     h = {"x-admin-token": "t" * 24}
     failed = q1("SELECT id FROM incidents WHERE review_status = 'failed'")["id"]
     assert api.post(f"/api/review/incidents/{failed}", headers=h, json={"action": "approve"}).status_code == 409
@@ -565,10 +593,10 @@ def test_try_an_article_answers_without_saving(monkeypatch):
     import time
     import app.api as api_mod
     monkeypatch.setattr(api_mod, "settings", dataclasses.replace(api_mod.settings, admin_token="t" * 24))
-    api = TestClient(api_mod.create_app())
+    api = _admin()
     body = {"title": "পিস্তলসহ গ্রেপ্তার", "published_at": "2026-10-24T20:00:00+06:00",
             "body": "রাজধানীর মিরপুর ১১ নম্বর মেট্রোরেল স্টেশনের নিচে পিস্তলসহ একজনকে গ্রেপ্তার করা হয়েছে।"}
-    assert api.post("/api/classify", json=body).status_code == 401           # uses the GPU: token required
+    assert _anon().post("/api/classify", json=body).status_code == 401       # uses the GPU: login required
     w, stop = Worker(classifier=FakeClassifier(), use_geocoder=False), threading.Event()
 
     def loop():
@@ -589,18 +617,6 @@ def test_try_an_article_answers_without_saving(monkeypatch):
     assert inc["would_be_published"] and out["gemma_answer"]["incidents"][0]["category"] == "drugs_arms"
     assert q1("SELECT count(*) n FROM articles")["n"] == 0 and q1("SELECT count(*) n FROM incidents")["n"] == 0
     assert api.get(f"/api/classify/{out['id']}", headers={"x-admin-token": "t" * 24}).json()["status"] == "done"
-
-
-def test_swagger_preauthorize_only_when_enabled(monkeypatch):
-    import dataclasses
-    import app.api as api_mod
-    on = dataclasses.replace(api_mod.settings, admin_token="t" * 24, swagger_preauthorize=True)
-    monkeypatch.setattr(api_mod, "settings", on)
-    page = TestClient(api_mod.create_app()).get("/docs").text
-    assert "preauthorizeApiKey('APIKeyHeader', \"" + "t" * 24 in page and "persistAuthorization" in page
-    monkeypatch.setattr(api_mod, "settings", dataclasses.replace(on, swagger_preauthorize=False))
-    page = TestClient(api_mod.create_app()).get("/docs").text
-    assert "preauthorizeApiKey" not in page and "t" * 24 not in page
 
 
 def test_coverage_marks_each_day(monkeypatch):
@@ -626,7 +642,7 @@ def test_coverage_marks_each_day(monkeypatch):
     site = DailySite(urls=(URL, URL + "b"))
     collect("test", days_back=3, client=site, max_articles=1)           # cap: one of two candidates downloaded
     from app.api import create_app
-    api = TestClient(create_app())
+    api = _admin()
     cov = api.get("/api/coverage", params={"days": 6}).json()
     by = {d["date"]: d for d in cov["days"]}
     assert by[yday.isoformat()]["status"] == "partial" and by[yday.isoformat()]["candidates"] == 2
@@ -681,7 +697,7 @@ def test_rejected_backfill_changes_nothing(monkeypatch):
         c.execute("""UPDATE articles SET status = 'skipped', note = 'outside the window', published_at = now()
                      WHERE id = %s""", (a1,))
         c.execute("INSERT INTO run_requests (source, days_back) VALUES ('cli', 1)")       # one already active
-    api = TestClient(api_mod.create_app())
+    api = _admin()
     r = api.post("/api/scrape", params={"days_back": 29}, headers={"x-admin-token": "t" * 24})
     assert r.status_code == 409
     assert q1("SELECT status FROM articles WHERE id = %s", a1)["status"] == "skipped"       # nothing re-queued
@@ -699,3 +715,73 @@ def test_late_answer_after_lost_lease_is_not_saved():
     job = w.claim()
     assert w.process(job) == "lost"
     assert q1("SELECT count(*) n FROM analyses")["n"] == 0 and q1("SELECT count(*) n FROM incidents")["n"] == 0
+
+
+
+# ---- public site / admin panel (27 Oct) ----------------------------------------------------------
+def test_admin_login_session_csrf_and_logout():
+    from app import auth
+    auth.add_user("rahim", "correct horse battery")
+    c = _anon()
+    assert c.get("/", follow_redirects=False).status_code == 303                     # not logged in -> /login
+    assert c.get("/api/meta").status_code == 401
+    page = c.get("/login")
+    pre = page.text.split('name="pre" content="')[1].split('"')[0]
+    origin = {"origin": "https://testserver"}
+    assert c.post("/api/login", json={"username": "rahim", "password": "correct horse battery"},
+                  headers={"x-csrf-token": "wrong", **origin}).status_code == 403    # pre-login CSRF
+    assert c.post("/api/login", json={"username": "rahim", "password": "nope nope nope"},
+                  headers={"x-csrf-token": pre, **origin}).status_code == 401
+    r = c.post("/api/login", json={"username": "rahim", "password": "correct horse battery"},
+               headers={"x-csrf-token": pre, **origin})
+    assert r.status_code == 200 and auth.COOKIE in r.cookies
+    sess = c.get("/api/session").json()
+    assert sess["user"] == "rahim" and sess["csrf"]
+    assert c.get("/api/meta").status_code == 200
+    assert c.post("/api/scrape", headers=origin).status_code == 403                 # no CSRF token
+    assert c.post("/api/scrape", headers={"x-csrf-token": sess["csrf"]}).status_code == 403   # no Origin
+    assert c.post("/api/scrape", headers={"x-csrf-token": sess["csrf"], "origin": "https://evil.example"}).status_code == 403
+    assert c.post("/api/scrape", headers={"x-csrf-token": sess["csrf"], **origin}).status_code == 202
+    assert q1("SELECT source FROM run_requests")["source"] == "rahim"
+    assert q1("SELECT count(*) n FROM admin_audit WHERE action = 'collect' AND actor = 'rahim'")["n"] == 1
+    assert c.post("/api/logout", headers={"x-csrf-token": sess["csrf"], **origin}).status_code == 200
+    assert c.get("/api/meta").status_code == 401
+    docs = _admin().get("/docs").text
+    assert TOKEN not in docs and "requestInterceptor" in docs                        # no secret in the docs page
+
+
+def test_login_throttling():
+    from app import auth
+    auth.add_user("karim", "correct horse battery")
+    c = _anon()
+    pre = c.get("/login").text.split('name="pre" content="')[1].split('"')[0]
+    h = {"x-csrf-token": pre, "origin": "https://testserver"}
+    for _ in range(5):
+        assert c.post("/api/login", json={"username": "karim", "password": "wrong password!"}, headers=h).status_code == 401
+    assert c.post("/api/login", json={"username": "karim", "password": "correct horse battery"}, headers=h).status_code == 429
+
+
+def test_public_site_has_no_admin_surface_and_safe_fields():
+    a1, a2 = _seed_articles(2)
+    from datetime import date
+    _seed_incident(a1, date(2026, 10, 20), category="murder")
+    _seed_incident(a2, date(2026, 10, 20), place="badda", category="sexual_violence")
+    with db.tx() as c:
+        c.execute("UPDATE articles SET url = 'https://www.prothomalo.com/bangladesh/crime/x1' WHERE id = %s", (a1,))
+        c.execute("UPDATE incidents SET evidence = 'secret quote', headline_bn = 'নাম', victims = 3")
+    pub = _public()
+    for path in ("/docs", "/redoc", "/openapi.json", "/api/meta", "/api/runs", "/api/coverage", "/review",
+                 "/static/review.html", "/api/review/queue", "/login"):
+        assert pub.get(path).status_code == 404, path
+    assert pub.post("/api/scrape").status_code in (404, 405) and pub.post("/api/classify", json={}).status_code in (404, 405)
+    p = {"start": "2026-10-01", "end": "2026-10-31"}
+    inc = pub.get("/api/incidents", params=p).json()
+    assert [i["category"] for i in inc] == ["murder"]                                 # sexual violence: totals only
+    for k in ("evidence", "headline_bn", "headline_en", "victims", "title", "location_text"):
+        assert k not in inc[0]
+    assert inc[0]["url"].startswith("https://www.prothomalo.com/") and inc[0]["publisher_en"] == "Prothom Alo"
+    st = pub.get("/api/stats", params=p).json()
+    assert st["total"] == 2 and st["by_category"]["sexual_violence"] == 1 and "victims" not in st
+    v = pub.get("/api/version").json()
+    assert set(v) == {"data_version", "updated_at", "today"}
+    assert "model" not in str(pub.get("/api/config").json()).lower()

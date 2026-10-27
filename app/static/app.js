@@ -4,51 +4,33 @@
 
   const I18N = {
     bn: {
-      title: "ঢাকা অপরাধ মানচিত্র", runNow: "এখনই সংগ্রহ", period: "সময়কাল", from: "শুরু", to: "শেষ",
+      title: "ঢাকা অপরাধ মানচিত্র", period: "সময়কাল", from: "শুরু", to: "শেষ",
       crimeType: "অপরাধের ধরন", all: "সব", area: "থানা / এলাকা", allDhaka: "সমগ্র ঢাকা", mapView: "মানচিত্র",
       heat: "হিটম্যাপ", both: "দুটোই", points: "ঘটনা", hotspots: "সবচেয়ে বেশি ঘটনা", timeOfDay: "দিনের কোন সময়ে",
       daily: "প্রতিদিনের ঘটনা", reports: "প্রতিবেদন", tabFilters: "ফিল্টার", tabMap: "মানচিত্র", tabFeed: "প্রতিবেদন",
       incidents: "ঘটনা", victims: "হতাহত", topArea: "শীর্ষ এলাকা", topCrime: "প্রধান অপরাধ",
-      lastRun: "সর্বশেষ সংগ্রহ", nextRun: "পরবর্তী", running: "সংগ্রহ ও বিশ্লেষণ চলছে…", never: "এখনো হয়নি",
-      model: "মডেল", read: "প্রথম আলোতে পড়ুন", moreReports: "আরও {n}টি প্রতিবেদন", noData: "এই ফিল্টারে কোনো ঘটনা নেই",
+      updated: "হালনাগাদ", topTime: "বেশি ঘটনার সময়", read: "পড়ুন:", moreReports: "আরও {n}টি প্রতিবেদন", noData: "এই ফিল্টারে কোনো ঘটনা নেই",
       exact: "নির্দিষ্ট স্থান", neighbourhood: "এলাকা", thana: "থানা পর্যায়", city: "স্থান অস্পষ্ট",
       unlocated: "{n}টি ঘটনার স্থান অস্পষ্ট, মানচিত্রে নেই", fewer: "কম", more: "বেশি", density: "ঘটনার ঘনত্ব",
       published: "প্রকাশ", killedInjured: "হতাহত {n}", noKey: "Google Maps কী সেট করা নেই; বিকল্প মানচিত্র দেখানো হচ্ছে।",
-      keyFailed: "Google Maps কী কাজ করছে না; বিকল্প মানচিত্র দেখানো হচ্ছে।", started: "সংগ্রহ শুরু হয়েছে",
-      busy: "একটি সংগ্রহ ইতিমধ্যে চলছে", failed: "শুরু করা যায়নি", days: "দিন", year: "বছর",
-      sourceNote: "সূত্র: প্রথম আলো · শ্রেণিবিন্যাস: Gemma (নিজস্ব সার্ভার) · প্রতিবেদিত ঘটনা, সব অপরাধ নয়",
-      gemmaProgress: "Gemma পড়ছে: {done}/{total}টি প্রতিবেদন", fetching: "প্রতিবেদন সংগ্রহ: {done}/{total}",
-      spotsWaiting: "নির্দিষ্ট স্থান খোঁজা বাকি {n}টি", truncated: "অনেক ঘটনা; প্রথম {n}টি দেখানো হচ্ছে",
-      showing: "{n}/{total}", offline: "সার্ভারে পৌঁছানো যাচ্ছে না; পুরোনো তথ্য দেখানো হচ্ছে", updated: "হালনাগাদ",
-      covDone: "এই সময়ের {done}/{total} দিন সম্পূর্ণ প্রক্রিয়া হয়েছে", covMissing: "{n} দিন এখনো সংগ্রহ হয়নি",
-      covPartial: "{n} দিন আংশিক", covProcessing: "{n} দিন Gemma পড়ছে", covCollect: "বাকি দিন সংগ্রহ করুন",
-      notCollected: "সংগ্রহ হয়নি", processingDay: "Gemma পড়ছে", partialDay: "আংশিক সংগ্রহ",
-      covFailed: "{n} দিনে কিছু প্রতিবেদন ব্যর্থ", failedDay: "কিছু ব্যর্থ",
-      covTooOld: "{n} দিনের বেশি পুরোনো দিন এখান থেকে সংগ্রহ করা যায় না",
+      keyFailed: "Google Maps কী কাজ করছে না; বিকল্প মানচিত্র দেখানো হচ্ছে।", failed: "শুরু করা যায়নি", days: "দিন", year: "বছর",
+      sourceNote: "সূত্র: সংবাদপত্রের প্রতিবেদন · স্বয়ংক্রিয় বিশ্লেষণ, ভুল থাকতে পারে · প্রতিবেদিত ঘটনা, সব অপরাধ নয়", truncated: "অনেক ঘটনা; প্রথম {n}টি দেখানো হচ্ছে",
+      showing: "{n}/{total}", offline: "সার্ভারে পৌঁছানো যাচ্ছে না; পুরোনো তথ্য দেখানো হচ্ছে",
     },
     en: {
-      title: "Dhaka Crime Map", runNow: "Collect now", period: "Period", from: "From", to: "To",
+      title: "Dhaka Crime Map", period: "Period", from: "From", to: "To",
       crimeType: "Crime type", all: "All", area: "Thana / area", allDhaka: "All of Dhaka", mapView: "Map",
       heat: "Heatmap", both: "Both", points: "Incidents", hotspots: "Most incidents", timeOfDay: "Time of day",
       daily: "Incidents per day", reports: "Reports", tabFilters: "Filters", tabMap: "Map", tabFeed: "Reports",
       incidents: "Incidents", victims: "Killed / injured", topArea: "Top area", topCrime: "Top crime",
-      lastRun: "Last collected", nextRun: "next", running: "Collecting and classifying…", never: "not yet",
-      model: "model", read: "Read on Prothom Alo", moreReports: "{n} more reports", noData: "No incidents match these filters",
+      updated: "Updated", topTime: "Most common time", read: "Read on", moreReports: "{n} more reports", noData: "No incidents match these filters",
       exact: "Exact spot", neighbourhood: "Neighbourhood", thana: "Thana level", city: "Location unclear",
       unlocated: "{n} incidents have no clear location and are not on the map", fewer: "fewer", more: "more",
       density: "Incident density", published: "Published", killedInjured: "{n} killed/injured",
       noKey: "No Google Maps key configured; showing the fallback map.",
-      keyFailed: "Google Maps key was rejected; showing the fallback map.", started: "Collection started",
-      busy: "A collection run is already in progress", failed: "Could not start", days: "days", year: "year",
-      sourceNote: "Source: Prothom Alo · classified by Gemma (in-house server) · reported incidents, not all crime",
-      gemmaProgress: "Gemma reading: {done}/{total} articles", fetching: "Collecting articles: {done}/{total}",
-      spotsWaiting: "{n} exact spots still being looked up", truncated: "Many incidents; showing the first {n}",
-      showing: "{n} of {total}", offline: "Server unreachable; showing the last data", updated: "updated",
-      covDone: "{done} of {total} days in this period fully processed", covMissing: "{n} days not collected yet",
-      covPartial: "{n} days partly collected", covProcessing: "{n} days still being read by Gemma",
-      covCollect: "Collect the missing days", notCollected: "not collected", processingDay: "Gemma reading",
-      partialDay: "partly collected", covFailed: "{n} days with failed articles", failedDay: "some failed",
-      covTooOld: "days older than {n} cannot be collected from here",
+      keyFailed: "Google Maps key was rejected; showing the fallback map.", failed: "Could not start", days: "days", year: "year",
+      sourceNote: "Source: newspaper reports · automatically extracted, may contain errors · reported incidents, not all crime", truncated: "Many incidents; showing the first {n}",
+      showing: "{n} of {total}", offline: "Server unreachable; showing the last data",
     },
   };
   const CAT_ORDER = ["murder", "assault", "robbery", "theft", "sexual_violence", "kidnapping", "drugs_arms", "fraud_extortion", "other"];
@@ -90,6 +72,9 @@
   const isDark = () => state.theme === "dark" || (!state.theme && matchMedia("(prefers-color-scheme: dark)").matches);
   const cssColor = (k) => getComputedStyle(document.documentElement).getPropertyValue(`--c-${k}`).trim() || "#898781";
   const rgb = (hex) => { const h = hex.replace("#", ""); return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16)); };
+  // Public summary: crime type and area (no model headline, no quote).
+  const summary = (i) => `${catLabel(i.category)} · ${placeName(i)}`;
+  const publisher = (i) => (state.lang === "bn" ? i.publisher_bn : i.publisher_en) || "";
   const placeName = (i) => (state.lang === "bn" ? i.place_bn || i.thana_bn : i.place_en || i.thana_en) || i.location_text || "—";
   const thanaName = (i) => (state.lang === "bn" ? i.thana_bn : i.thana_en) || "";
 
@@ -146,7 +131,7 @@
     const d = info.object;
     fill(tip, 
       el("div", { class: "tag" }, el("span", { class: "dot", style: `background:${cssColor(d.category)}` }), catLabel(d.category)),
-      el("div", {}, state.lang === "bn" ? d.headline_bn : d.headline_en || d.headline_bn),
+      el("div", {}, summary(d)),
       el("div", { class: "meta" }, `${placeName(d)} · ${fmtDate(d.event_date)}`));
     tip.style.left = `${info.x}px`; tip.style.top = `${info.y}px`; tip.hidden = false;
   }
@@ -321,10 +306,9 @@
     const seq = ++refreshSeq;
     const q = query();
     const qc = new URLSearchParams(q); qc.delete("categories");  // chip counts ignore the category filter itself
-    const [inc, stats, all, cov] = await Promise.all([getJSON(`/api/incidents?${q}`), getJSON(`/api/stats?${q}`),
-      qc.toString() === q ? null : getJSON(`/api/stats?${qc}`), getJSON(`/api/coverage?${rangeQuery()}`)]);
+    const [inc, stats, all] = await Promise.all([getJSON(`/api/incidents?${q}`), getJSON(`/api/stats?${q}`),
+      qc.toString() === q ? null : getJSON(`/api/stats?${qc}`)]);
     if (seq !== refreshSeq) return false;
-    state.coverage = cov.data;
     state.incidents = inc.data; state.stats = stats.data; state.catCounts = (all || stats).data.by_category;
     state.truncated = inc.headers.get("X-Truncated") === "true";
     state.totalCount = +(inc.headers.get("X-Total-Count") || inc.data.length);
@@ -336,67 +320,26 @@
     return true;
   }
 
-  async function loadMeta() {
-    state.meta = (await getJSON("/api/meta")).data;
+  // Public page: labels once (/api/config), then only the small data-version check (/api/version).
+  async function loadConfig() {
+    state.meta = (await getJSON("/api/config")).data;
+  }
+
+  async function loadVersion() {
+    state.version = (await getJSON("/api/version")).data;
     state.offline = false;
     renderStatus();
   }
 
   /* ---------- rendering ---------- */
-  function renderCoverage() {
-    const box = $("#coverage"), c = state.coverage;
-    if (!c) { box.hidden = true; return; }
-    const s = c.summary, total = c.days.length;
-    if (s.complete >= total) { box.hidden = true; return; }      // every day, today included, is complete
-    const parts = [t("covDone", { done: s.complete, total })];
-    if (s.not_collected) parts.push(t("covMissing", { n: s.not_collected }));
-    if (s.partial) parts.push(t("covPartial", { n: s.partial }));
-    if (s.processing) parts.push(t("covProcessing", { n: s.processing }));
-    if (s.failed) parts.push(t("covFailed", { n: s.failed }));
-    const busy = state.meta?.collecting;
-    const tooOld = c.days_to_collect > c.max_days_back;
-    fill(box, el("span", {}, parts.join(" · ")),
-      c.days_to_collect > 0 && !busy ? el("button", { class: "btn", type: "button", onclick: async () => {
-        const r = await fetch(`/api/scrape?days_back=${Math.min(c.max_days_back, c.days_to_collect)}`, { method: "POST", headers: { "X-DCM-UI": "1" } });
-        note(r.status === 202 ? t("started") : r.status === 409 ? t("busy") : `${t("failed")} (${r.status})`);
-        tick();
-      } }, t("covCollect")) : null,
-      tooOld ? el("span", { class: "muted" }, t("covTooOld", { n: c.max_days_back })) : null);
-    box.hidden = false;
-  }
-
-  // Coverage changes with job progress, not only with the map data: refresh it on every active poll.
-  async function refreshCoverage() {
-    try {
-      state.coverage = (await getJSON(`/api/coverage?${rangeQuery()}`)).data;
-      renderCoverage(); renderTrend();
-    } catch (e) { console.warn(e); }
-  }
-
   function renderAll() {
-    renderCoverage(); renderChips(); renderTiles(); renderRank(); renderTod(); renderTrend(); renderFeed(); renderLegend(); renderSelected();
+    renderChips(); renderTiles(); renderRank(); renderTod(); renderTrend(); renderFeed(); renderLegend(); renderSelected();
     engine?.render();
   }
 
   function renderStatus() {
-    const m = state.meta;
-    const parts = [];
-    if (state.offline) parts.push(t("offline"));
-    // Progress of every active batch (a collection run or a reprocess), counted in articles
-    const b = (m.batches || []).reduce((a, x) => ({
-      jobs: a.jobs + x.jobs, processed: a.processed + x.processed,
-      fetch: a.fetch + (x.status === "running" ? Math.max(0, (x.discovered || 0) - (x.fetched || 0)) : 0),
-      fetched: a.fetched + (x.status === "running" ? x.fetched || 0 : 0), discovered: a.discovered + (x.status === "running" ? x.discovered || 0 : 0),
-    }), { jobs: 0, processed: 0, fetch: 0, fetched: 0, discovered: 0 });
-    if (b.fetch) parts.push(t("fetching", { done: b.fetched, total: b.discovered }));
-    if (b.jobs && b.processed < b.jobs) parts.push(t("gemmaProgress", { done: b.processed, total: b.jobs }));
-    else if (m.running) parts.push(t("running"));
-    if (!m.running && !b.jobs) parts.push(`${t("lastRun")}: ${m.last_run ? fmtTime(m.last_run.finished_at || m.last_run.started_at) : t("never")}`);
-    if (m.exact_spots_waiting) parts.push(t("spotsWaiting", { n: m.exact_spots_waiting }));
-    if (m.next_run) parts.push(`${t("nextRun")}: ${fmtTime(m.next_run)}`);
-    parts.push(`${t("model")}: ${m.model_label || m.model}`);
-    $("#status-line").textContent = parts.join(" · ");
-    $("#run-btn").disabled = m.running;
+    const v = state.version;
+    $("#status-line").textContent = state.offline ? t("offline") : v ? `${t("updated")}: ${fmtTime(v.updated_at)}` : "";
   }
 
   function applyI18n() {
@@ -429,7 +372,9 @@
     const topCat = Object.entries(s.by_category).sort((a, b) => b[1] - a[1])[0];
     const tile = (v, k, txt) => el("div", { class: "tile" }, el("div", { class: txt ? "v txt" : "v", title: v }, v), el("div", { class: "k" }, k));
     fill($("#tiles"), 
-      tile(num(s.total), t("incidents")), tile(num(s.victims), t("victims")),
+      tile(num(s.total), t("incidents")),
+      tile((() => { const top = Object.entries(s.by_time_of_day).filter(([k]) => k !== "unknown").sort((a, b) => b[1] - a[1])[0];
+        return top ? todLabel(top[0]) : "—"; })(), t("topTime"), true),
       tile(topThana ? (state.lang === "bn" ? topThana.name_bn : topThana.name_en) : "—", t("topArea"), true),
       tile(topCat ? catLabel(topCat[0]) : "—", t("topCrime"), true));
   }
@@ -465,7 +410,7 @@
     const days = [];
     for (let d = new Date(start + "T00:00:00Z"); d <= new Date(end + "T00:00:00Z"); d.setUTCDate(d.getUTCDate() + 1)) days.push(d.toISOString().slice(0, 10));
     const shown = days.slice(-120);
-    const status = Object.fromEntries((state.coverage?.days || []).map((d) => [d.date, d.status]));
+    const status = {};
     const statusLabel = { not_collected: t("notCollected"), partial: t("partialDay"), processing: t("processingDay"), failed: t("failedDay") };
     const max = Math.max(1, ...shown.map((d) => counts[d] || 0));
     const tip = $("#tooltip");
@@ -490,7 +435,7 @@
       type: "button", class: `item${state.selected?.id === i.id ? " on" : ""}`, onclick: () => select(i, true),
     },
       el("span", { class: "tag" }, el("span", { class: "dot", style: `background:${cssColor(i.category)}` }), catLabel(i.category)),
-      el("h3", {}, state.lang === "bn" ? i.headline_bn : i.headline_en || i.headline_bn),
+      el("h3", {}, summary(i)),
       el("div", { class: "meta" }, el("span", {}, placeName(i)), el("span", {}, fmtDate(i.event_date)),
         i.time_of_day !== "unknown" ? el("span", {}, todLabel(i.time_of_day)) : null, precisionBadge(i.precision))))) : [el("li", { class: "empty" }, t("noData"))]));
   }
@@ -518,12 +463,11 @@
     fill(card, 
       el("button", { class: "close", type: "button", "aria-label": "Close", onclick: () => { state.selected = null; renderSelected(); renderFeed(); engine?.render(); } }, "×"),
       el("span", { class: "tag" }, el("span", { class: "dot", style: `background:${cssColor(i.category)}` }), catLabel(i.category)),
-      el("h3", {}, state.lang === "bn" ? i.headline_bn : i.headline_en || i.headline_bn),
+      el("h3", {}, summary(i)),
       el("div", { class: "meta" }, el("span", {}, loc), precisionBadge(i.precision)),
       el("div", { class: "meta" }, el("span", {}, fmtDate(i.event_date)), i.time_of_day !== "unknown" ? el("span", {}, todLabel(i.time_of_day)) : null,
-        i.victims ? el("span", {}, t("killedInjured", { n: i.victims })) : null),
-      i.evidence && i.evidence_ok ? el("p", { class: "quote" }, `“${i.evidence}”`) : null,
-      el("div", { class: "meta" }, el("a", { href: i.url, target: "_blank", rel: "noopener" }, `${t("read")} ↗`),
+        null),
+      el("div", { class: "meta" }, i.url ? el("a", { href: i.url, target: "_blank", rel: "noopener noreferrer" }, `${t("read")} ${publisher(i)} ↗`) : null,
         el("span", {}, `${t("published")}: ${fmtTime(i.published_at)}`),
         i.more_reports ? el("span", {}, t("moreReports", { n: i.more_reports })) : null));
     card.hidden = false;
@@ -567,38 +511,27 @@
     });
     matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { if (!state.theme) { engine?.theme(); renderAll(); } });
     document.querySelectorAll("#tabs button").forEach((b) => b.addEventListener("click", () => setTab(b.dataset.tab)));
-    $("#run-btn").addEventListener("click", async () => {
-      const r = await fetch("/api/scrape", { method: "POST", headers: { "X-DCM-UI": "1" } });
-      note(r.status === 202 ? t("started") : r.status === 409 ? t("busy") : `${t("failed")} (${r.status})`);
-      tick();
-    });
   }
 
   /* ---------- live updates ----------
-     One loop: read /api/meta every 5 s while anything is being collected, classified or geocoded, every 30 s
-     otherwise. When data_version (a database counter bumped with every visible change) moves, reload the data;
-     the new version counts as seen only after that reload succeeded. */
-  let seenVersion = null, ticking = false, timer = null, lastReload = 0;
+     Every 60 s (and when the tab becomes visible) read the tiny /api/version. When its data_version moves, reload
+     the data; the new version counts as seen only after that reload succeeded. */
+  let seenVersion = null, ticking = false, timer = null;
   async function tick() {
     clearTimeout(timer);
-    if (!ticking) {
+    if (!ticking && !document.hidden) {
       ticking = true;
       try {
-        await loadMeta();
-        const active = state.meta.running || (state.meta.batches || []).length;
-        if (active) refreshCoverage();
-        // at most one data reload per 15 s, even while exact spots arrive one by one
-        if (state.meta.data_version !== seenVersion && Date.now() - lastReload >= 15000) {
-          const v = state.meta.data_version;
-          lastReload = Date.now();
+        await loadVersion();
+        if (state.version.data_version !== seenVersion) {
+          const v = state.version.data_version;
           if (await refresh()) seenVersion = v;
         }
       } catch (e) {
-        console.warn(e); state.offline = true; if (state.meta) renderStatus();
+        console.warn(e); state.offline = true; renderStatus();
       } finally { ticking = false; }
     }
-    const busy = state.meta && (state.meta.running || state.meta.exact_spots_waiting || (state.meta.batches || []).length);
-    timer = setTimeout(tick, busy ? 5000 : 30000);
+    timer = setTimeout(tick, 60000);
   }
 
   async function main() {
@@ -613,11 +546,13 @@
       state.days = hd;
       document.querySelectorAll("#period button").forEach((x) => x.classList.toggle("on", +x.dataset.days === hd));
     }
-    await loadMeta();
+    await loadConfig();
     applyI18n(); wire();
     await initMap();
+    engine.render();                       // the base map appears at once; data follows
+    loadVersion().catch(console.warn);
     await refresh();
-    seenVersion = state.meta.data_version;
+    seenVersion = state.version?.data_version ?? null;
     tick();
     document.addEventListener("visibilitychange", () => { if (!document.hidden) tick(); });
   }

@@ -1,4 +1,6 @@
-"""API service: dashboard + read API. Writes only one thing: 'collect now' requests for the collector."""
+"""Admin app (LAN/VPN only, login required): status, collection and backfills, coverage, review, try-an-article,
+Swagger. The public site is app/public.py. Every route here needs a browser session (with CSRF on changes) or the
+X-Admin-Token machine token; see app/auth.py."""
 from __future__ import annotations
 
 import hmac
@@ -9,14 +11,16 @@ from datetime import date, datetime, timedelta, timezone
 
 import psycopg
 from fastapi import FastAPI, HTTPException, Query, Request, Response, Security
+from fastapi.concurrency import run_in_threadpool
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.security import APIKeyHeader
 from fastapi.openapi.docs import get_swagger_ui_html
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from psycopg.types.json import Jsonb
 from pydantic import BaseModel, Field
 from fastapi.staticfiles import StaticFiles
 
-from . import db
+from . import auth, db
 from .config import ROOT, settings
 from .gazetteer import load as load_gazetteer
 from .scheduler import next_run
@@ -25,8 +29,9 @@ from .scraper import DHAKA_TZ
 
 log = logging.getLogger(__name__)
 STATIC = ROOT / "app" / "static"
+ADMIN_STATIC = ROOT / "app" / "admin_static"
+OPEN_PATHS = {"/login", "/api/login", "/api/health"}
 MIN_DATE, MAX_DATE = date(2000, 1, 1), date(2100, 1, 1)
-UI_HEADER = "x-dcm-ui"
 # Declared in OpenAPI so Swagger's "Authorize" button can send it.
 ADMIN_KEY = APIKeyHeader(name="X-Admin-Token", auto_error=False, description="Team admin token (from the server .env)")
 
@@ -77,37 +82,101 @@ def _filters(start: str | None, end: str | None, days: int | None, categories: s
     return " AND ".join(where), params, start_d, end_d
 
 
-def _authorize_trigger(request: Request, token: str | None = None) -> None:
-    """Collection is an admin action: the admin token is required (no header-only shortcut)."""
-    token = token or request.headers.get("x-admin-token", "")
-    if settings.admin_token and token and hmac.compare_digest(token, settings.admin_token):
-        return
-    raise HTTPException(403, "admin token required")
-
-
 def _iso(v):
     return v.isoformat() if isinstance(v, (date, datetime)) else v
 
 
+def _actor(request: Request) -> str:
+    return getattr(request.state, "actor", "unknown")
+
+
+def _client_ip(request: Request) -> str:
+    return request.client.host if request.client else "unknown"
+
+
 def create_app() -> FastAPI:
-    app = FastAPI(title="Dhaka Crime Map", version="0.2.0", docs_url=None)
-    app.mount("/static", StaticFiles(directory=STATIC), name="static")
+    """The admin app. (The public site is app.public.create_public_app.)"""
+    app = FastAPI(title="Dhaka Crime Map — admin", version="0.3.0", docs_url=None, redoc_url=None, openapi_url=None)
+    app.add_middleware(GZipMiddleware, minimum_size=1000)
+    app.mount("/admin-static", StaticFiles(directory=ADMIN_STATIC), name="admin-static")
+    app.mount("/static", StaticFiles(directory=STATIC), name="static")     # fonts, map styles shared with the public page
+
+    @app.middleware("http")
+    async def require_admin(request: Request, call_next):
+        path = request.url.path
+        if path in OPEN_PATHS or path.startswith("/admin-static/login") or path.startswith("/static/fonts"):
+            return await call_next(request)
+        if auth.machine_token_ok(request.headers.get("x-admin-token")):
+            request.state.actor = "token"
+        else:
+            sess = await run_in_threadpool(auth.session, request.cookies.get(auth.COOKIE))
+            if not sess:
+                if request.method == "GET" and not path.startswith("/api/") and path != "/openapi.json":
+                    return RedirectResponse("/login", status_code=303)
+                return JSONResponse({"detail": "login required"}, status_code=401)
+            if request.method not in ("GET", "HEAD", "OPTIONS") and not (
+                    auth.same_origin(request.headers.get("origin"), request.headers.get("host"))
+                    and auth.csrf_ok(sess, request.headers.get("x-csrf-token"))):
+                return JSONResponse({"detail": "CSRF check failed"}, status_code=403)
+            request.state.actor, request.state.csrf = sess["username"], sess["csrf_token"]
+        response = await call_next(request)
+        response.headers["Cache-Control"] = "private, no-store"
+        return response
+
+    # ---- login ------------------------------------------------------------------------------------
+    @app.get("/login", include_in_schema=False)
+    def login_page():
+        pre = auth.secrets.token_urlsafe(24)
+        html = (ADMIN_STATIC / "login.html").read_text(encoding="utf-8").replace("{{PRE}}", pre)
+        r = HTMLResponse(html, headers={"Cache-Control": "private, no-store"})
+        r.set_cookie(auth.PRE_COOKIE, pre, max_age=900, secure=True, httponly=True, samesite="strict", path="/")
+        return r
+
+    @app.post("/api/login", include_in_schema=False)
+    def login(request: Request, payload: dict):
+        pre = request.cookies.get(auth.PRE_COOKIE)
+        if not (pre and auth.csrf_ok({"csrf_token": pre}, request.headers.get("x-csrf-token"))
+                and auth.same_origin(request.headers.get("origin"), request.headers.get("host"))):
+            raise HTTPException(403, "reload the login page and try again")
+        username, password = str(payload.get("username") or "")[:60], str(payload.get("password") or "")[:200]
+        ip = _client_ip(request)
+        if auth.throttled(username, ip):
+            raise HTTPException(429, "too many failed attempts; wait 15 minutes")
+        user_id = auth.check_password(username, password, ip)
+        if user_id is None:
+            raise HTTPException(401, "wrong username or password")
+        raw, _ = auth.create_session(user_id, ip, request.headers.get("user-agent", ""))
+        auth.audit(username, "login", ip=ip)
+        r = JSONResponse({"ok": True})
+        r.set_cookie(auth.COOKIE, raw, secure=True, httponly=True, samesite="strict", path="/")
+        r.delete_cookie(auth.PRE_COOKIE, path="/", secure=True, httponly=True, samesite="strict")
+        return r
+
+    @app.post("/api/logout", include_in_schema=False)
+    def logout(request: Request):
+        auth.end_session(request.cookies.get(auth.COOKIE))
+        auth.audit(_actor(request), "logout", ip=_client_ip(request))
+        r = JSONResponse({"ok": True})
+        r.delete_cookie(auth.COOKIE, path="/", secure=True, httponly=True, samesite="strict")
+        return r
+
+    @app.get("/api/session", include_in_schema=False)
+    def whoami(request: Request):
+        return {"user": _actor(request), "csrf": getattr(request.state, "csrf", None)}
+
+    # ---- API docs (logged-in admins only; never pre-filled with a secret) ---------------------------
+    @app.get("/openapi.json", include_in_schema=False)
+    def openapi_schema():
+        return app.openapi()
 
     @app.get("/docs", include_in_schema=False)
     def swagger():
-        """Swagger UI. The token, once entered, survives page reloads; with SWAGGER_PREAUTHORIZE it is pre-filled."""
-        page = get_swagger_ui_html(openapi_url=app.openapi_url, title="Dhaka Crime Map — API",
-                                   swagger_ui_parameters={"persistAuthorization": True})
-        if not (settings.swagger_preauthorize and settings.admin_token):
-            return page
-        script = ("<script>const dcmAuth = setInterval(() => { if (typeof ui !== 'undefined' && ui.preauthorizeApiKey) {"
-                  f" ui.preauthorizeApiKey('APIKeyHeader', {json.dumps(settings.admin_token)}); clearInterval(dcmAuth); }}"
-                  " }, 200);</script>")
-        return HTMLResponse(page.body.decode().replace("</body>", script + "</body>"))
+        """Swagger UI for logged-in admins: requests carry the session cookie and its CSRF token automatically."""
+        return HTMLResponse((ADMIN_STATIC / "swagger.html").read_text(encoding="utf-8"))
 
     @app.get("/", include_in_schema=False)
     def index():
-        return FileResponse(STATIC / "index.html")
+        return FileResponse(ADMIN_STATIC / "index.html")
 
     @app.get("/api/health")
     def health():
@@ -288,30 +357,29 @@ def create_app() -> FastAPI:
                max_articles: int | None = Query(None, ge=1, le=5000), token: str | None = Security(ADMIN_KEY)):
         """Queue a "collect now" request for the collector (it never scrapes inside the API). `days_back` up to 90
         fills older days (see /api/coverage); `max_articles` raises the per-run cap (default MAX_ARTICLES_PER_RUN)."""
-        _authorize_trigger(request, token)
         if max_articles is None and days_back > 1:
             max_articles = 5000      # a backfill must not stop at the daily cap
         try:
             with db.tx() as c:
                 rid = c.execute("""INSERT INTO run_requests (source, days_back, max_articles) VALUES (%s, %s, %s)
-                                   RETURNING id""", ("token", days_back, max_articles)).fetchone()["id"]
+                                   RETURNING id""", (_actor(request)[:40], days_back, max_articles)).fetchone()["id"]
         except psycopg.errors.UniqueViolation:  # one active request at a time (migration 004)
             raise HTTPException(409, "a collection is already queued or running")
         if days_back > 1:            # only once the request is accepted: set-aside articles go back to Gemma
             from .reprocess import requeue_set_aside
             requeue_set_aside(days_back)
+        auth.audit(_actor(request), "collect", {"days_back": days_back, "max_articles": max_articles},
+                   _client_ip(request))
         return {"queued": True, "request_id": rid}
 
     # ---- human review (always requires ADMIN_TOKEN) -------------------------------------------
     def _reviewer(request: Request, token: str | None = None) -> str:
-        token = token or request.headers.get("x-admin-token", "")
-        if not settings.admin_token or not hmac.compare_digest(token, settings.admin_token):
-            raise HTTPException(401, "admin token required")
-        return (request.headers.get("x-reviewer") or "reviewer")[:60]
+        """The authenticated account (checked by the middleware); recorded on every review decision."""
+        return _actor(request)[:60]
 
     @app.get("/review", include_in_schema=False)
     def review_page():
-        return FileResponse(STATIC / "review.html")
+        return FileResponse(ADMIN_STATIC / "review.html")
 
     @app.get("/api/review/queue")
     def review_queue(request: Request, status: str = Query("pending", pattern="^(pending|failed|approved|rejected|auto)$"),
@@ -348,6 +416,7 @@ def create_app() -> FastAPI:
         with an id to fetch from `GET /api/classify/{id}`."""
         who = _reviewer(request, token)
         with db.tx() as c:
+            c.execute("SELECT pg_advisory_xact_lock(7000004)")      # concurrent tries cannot both pass the cap
             waiting = c.execute("SELECT count(*) n FROM previews WHERE status IN ('queued','running')").fetchone()["n"]
             if waiting >= MAX_WAITING_PREVIEWS:
                 raise HTTPException(429, "too many previews waiting; try again in a minute")

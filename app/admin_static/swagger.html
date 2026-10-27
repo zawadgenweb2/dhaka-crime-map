@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin API · Dhaka Crime Map</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.17.14/swagger-ui.css">
+</head>
+<body>
+<div id="swagger-ui"></div>
+<script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.17.14/swagger-ui-bundle.js"></script>
+<script>
+// Logged-in admins only (the page itself requires a session). Requests send the session cookie; changes also need the
+// session's CSRF token, added here. No secret is stored in this page.
+fetch("/api/session").then((r) => r.json()).then((s) => {
+  window.ui = SwaggerUIBundle({
+    url: "/openapi.json", dom_id: "#swagger-ui", deepLinking: true,
+    requestInterceptor: (req) => { req.headers["X-CSRF-Token"] = s.csrf || ""; return req; },
+  });
+});
+</script>
+</body>
+</html>

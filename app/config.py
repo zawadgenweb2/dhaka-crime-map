@@ -24,6 +24,7 @@ class Settings:
     database_url: str = os.getenv("DATABASE_URL", "postgresql://dcm:dcm@127.0.0.1:5432/dcm")
     host: str = os.getenv("HOST", "127.0.0.1")
     port: int = int(os.getenv("PORT", "8100"))
+    admin_port: int = int(os.getenv("ADMIN_PORT", "8101"))
 
     # Classifier: gemma (in-house model server, OpenAI-compatible API) | rules (offline keyword baseline)
     classifier: str = os.getenv("CLASSIFIER", "gemma")
@@ -53,12 +54,9 @@ class Settings:
     google_maps_api_key: str = os.getenv("GOOGLE_MAPS_API_KEY", "")
     google_maps_map_id: str = os.getenv("GOOGLE_MAPS_MAP_ID", "")
 
-    # "Collect now": dashboard button (same-origin + custom header) and/or X-Admin-Token for scripts
-    allow_ui_trigger: bool = _bool("ALLOW_UI_TRIGGER", True)
+    # Machine token for scripts (X-Admin-Token) on the admin app only; people log in with their own accounts.
     admin_token: str = os.getenv("ADMIN_TOKEN", "")
-    # In-house convenience: /docs (Swagger) comes already authorized with ADMIN_TOKEN. Anyone who can open /docs
-    # then has admin rights, so turn this off before the site is reachable from outside the office network.
-    swagger_preauthorize: bool = _bool("SWAGGER_PREAUTHORIZE", False)
+
 
 
 settings = Settings()

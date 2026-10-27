@@ -1,7 +1,10 @@
 """Command line: python -m app <command>
 
 Services (one per container):
-  api                     dashboard + read API on HOST:PORT
+  api                     public site + read-only API on HOST:PORT
+  admin                   admin panel (login) on HOST:ADMIN_PORT — keep it on the LAN/VPN only
+  admin-user add NAME     create an admin account or reset its password (asks for the password)
+  admin-user disable NAME disable an account and end its sessions
   collector               the only scheduler: scrapes at SCRAPE_TIMES, queues articles
   classifier              claims queued articles and classifies them with the in-house Gemma model
   migrate [--import-sqlite PATH]   apply schema migrations; optionally import the v0.1 SQLite data once
@@ -30,6 +33,8 @@ def main(argv: list[str] | None = None) -> int:
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("api")
+    sub.add_parser("admin")
+    au = sub.add_parser("admin-user"); au.add_argument("action", choices=["add", "disable"]); au.add_argument("name")
     sub.add_parser("collector")
     sub.add_parser("classifier")
     m = sub.add_parser("migrate"); m.add_argument("--import-sqlite", metavar="PATH")
@@ -48,13 +53,30 @@ def main(argv: list[str] | None = None) -> int:
     for noisy in ("httpx", "httpx2", "uvicorn.access"):
         logging.getLogger(noisy).setLevel(logging.WARNING)
 
-    if args.cmd == "api":
-        import uvicorn
-        from .api import create_app
+    if args.cmd in ("api", "admin"):
         import os
+        import uvicorn
+        if args.cmd == "api":
+            from .public import create_public_app as factory
+            port = settings.port
+        else:
+            from .api import create_app as factory
+            port = settings.admin_port
         tls = {"ssl_certfile": os.getenv("TLS_CERT_FILE"), "ssl_keyfile": os.getenv("TLS_KEY_FILE")}
-        uvicorn.run(create_app(), host=settings.host, port=settings.port, proxy_headers=False,
+        uvicorn.run(factory(), host=settings.host, port=port, proxy_headers=False,
                     **({k: v for k, v in tls.items()} if all(tls.values()) else {}))
+    elif args.cmd == "admin-user":
+        from . import auth
+        if args.action == "disable":
+            auth.disable_user(args.name)
+            print(f"disabled {args.name}")
+        else:
+            import getpass
+            pw = getpass.getpass("New password (12+ characters): ") if sys.stdin.isatty() else sys.stdin.readline().rstrip("\n")
+            if sys.stdin.isatty() and pw != getpass.getpass("Repeat: "):
+                print("passwords differ"); return 2
+            auth.add_user(args.name, pw)
+            print(f"account {args.name} ready (existing sessions ended)")
     elif args.cmd == "collector":
         from .collector import Collector
         Collector().serve()
