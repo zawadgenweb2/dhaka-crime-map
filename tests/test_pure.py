@@ -548,7 +548,7 @@ def test_sections_and_headlines_from_each_papers_urls():
 def test_untitled_archive_entries_use_the_headline_in_the_url():
     g = load()
     ok = Candidate("https://www.ittefaq.com.bd/817537/স্ত্রীকে-হত্যা", "", "স্ত্রীকে হত্যা")
-    sport = Candidate("https://www.ittefaq.com.bd/817538/সাকিবের-সেঞ্চুরি", "", "সাকিবের সেঞ্চুরি")
+    sport = Candidate("https://www.ittefaq.com.bd/817538/সাকিবের-ফিফটি", "", "সাকিবের ফিফটি")
     assert is_candidate(ok, g) and not is_candidate(sport, g)
     assert is_candidate(Candidate("https://www.banglatribune.com/law-and-crime/1/x", "law-and-crime"), g)
     assert is_candidate(Candidate("https://www.ajkerpatrika.com/bangladesh/khulna/ajp1", "bangladesh/khulna"), g)

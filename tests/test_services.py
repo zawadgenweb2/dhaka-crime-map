@@ -4,6 +4,7 @@ import sqlite3
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+import httpx
 import pytest
 
 pytestmark = pytest.mark.skipif(not os.getenv("TEST_DATABASE_URL"), reason="needs TEST_DATABASE_URL (Postgres)")
@@ -14,7 +15,7 @@ from app import db  # noqa: E402
 from app.classifiers.base import Classifier, ClassifierError  # noqa: E402
 from app.collector import Collector, collect  # noqa: E402
 from app.schema import ArticleAnalysis, Incident  # noqa: E402
-from app.scraper import Candidate, parse_article  # noqa: E402
+from app.scraper import DHAKA_TZ, Candidate, parse_article  # noqa: E402
 from app.worker import Worker  # noqa: E402
 
 FIXTURE = Path(__file__).parent / "fixtures" / "prothom_alo_crime.html"
@@ -48,6 +49,12 @@ def _anon():
 def _public():
     from app.public import create_public_app
     return TestClient(create_public_app())
+
+
+@pytest.fixture(autouse=True)
+def one_paper(monkeypatch):
+    """The service tests use one paper (Prothom Alo fixtures); multi-paper behaviour has its own tests."""
+    monkeypatch.setenv("SOURCES_DISABLED", "samakal,ittefaq,banglatribune,ajkerpatrika,deshrupantor")
 
 
 @pytest.fixture(autouse=True)
@@ -579,7 +586,7 @@ def test_dismiss_hides_incidents_and_failed_ones_cannot_be_approved(monkeypatch)
 
 
 def test_backfill_request_cap_and_batch_membership(monkeypatch):
-    monkeypatch.setattr("app.collector.ProthomAloClient", lambda: FakeSite(urls=(URL, URL + "b")))
+    monkeypatch.setattr("app.collector.NewsClient", lambda src: FakeSite(urls=(URL, URL + "b")))
     with db.tx() as c:
         c.execute("INSERT INTO run_requests (source, days_back, max_articles) VALUES ('cli', 90, 1)")
     Collector()._run_request()
@@ -786,3 +793,31 @@ def test_public_site_has_no_admin_surface_and_safe_fields():
     v = pub.get("/api/version").json()
     assert set(v) == {"data_version", "updated_at", "today"}
     assert "model" not in str(pub.get("/api/config").json()).lower()
+
+
+
+def test_coverage_needs_every_paper_and_lanes_record_their_paper(monkeypatch):
+    monkeypatch.delenv("SOURCES_DISABLED")
+    monkeypatch.setenv("SOURCES_DISABLED", "ittefaq,banglatribune,ajkerpatrika,deshrupantor")   # two papers
+    day = datetime.now(DHAKA_TZ).date()
+
+    class Site(FakeSite):
+        def __init__(self, key):
+            super().__init__(urls=(f"https://{'www.prothomalo.com' if key == 'prothomalo' else 'samakal.com'}/bangladesh/crime/{key}",))
+            self.key = key
+
+        def daily_sitemap(self, d):
+            return [Candidate(self.urls[0], "bangladesh/crime")] if d == day else []
+
+        def article(self, url):
+            if self.key == "samakal":
+                raise httpx.ConnectError("down")
+            return super().article(url)
+    monkeypatch.setattr("app.collector.NewsClient", lambda src: Site(src.key))
+    r = collect("test", days_back=0)
+    assert r["status"] == "ok" and r["fetched"] == 1 and r["errors"] == 1          # one paper down, run still ok
+    with db.connect() as c:
+        assert [x["source"] for x in c.execute("SELECT source FROM articles")] == ["prothomalo"]
+        assert {x["source"] for x in c.execute("SELECT source FROM coverage_days")} == {"prothomalo", "samakal"}
+    cov = _admin().get("/api/coverage", params={"days": 1}).json()
+    assert cov["days"][-1]["status"] == "partial"            # Samakal's candidate was not downloaded
