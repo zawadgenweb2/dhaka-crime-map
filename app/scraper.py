@@ -213,6 +213,32 @@ class FetchBlocked(PermissionError):
     """robots.txt, host allowlist or size limit forbids this request."""
 
 
+class PublisherRefused(PermissionError):
+    """The paper answered 403 several times in a row (bot protection): this lane stops for the run."""
+
+
+# Being a good guest: back off when a paper says so, and never hammer one that refuses us.
+RETRY_STATUSES = {429, 503}
+MAX_BACKOFF_SECONDS = 600
+SLOW_RESPONSE_SECONDS = 5.0
+MAX_DELAY_SECONDS = 8.0
+FORBIDDEN_LIMIT = 3
+
+
+def retry_after_seconds(value: str | None, attempt: int) -> float:
+    """Retry-After in seconds or as an HTTP date; otherwise 30 s, 60 s, 120 s ... capped."""
+    if value:
+        try:
+            return min(MAX_BACKOFF_SECONDS, max(1.0, float(value)))
+        except ValueError:
+            try:
+                from email.utils import parsedate_to_datetime
+                return min(MAX_BACKOFF_SECONDS, max(1.0, (parsedate_to_datetime(value) - datetime.now(parsedate_to_datetime(value).tzinfo)).total_seconds()))
+            except (TypeError, ValueError):
+                pass
+    return min(MAX_BACKOFF_SECONDS, 30.0 * 2 ** attempt)
+
+
 class RobotsPolicy:
     """robots.txt per RFC 9309: group by user-agent (else '*'), longest matching rule wins, Allow wins ties,
     '*' and '$' supported, /robots.txt itself always allowed."""
@@ -281,6 +307,8 @@ class NewsClient:
         self.delay = settings.request_delay if delay is None else delay
         self._robots: RobotsPolicy | None = None
         self._last = 0.0
+        self.forbidden_in_a_row = 0
+        self.blocked = False            # the paper refused us repeatedly: stop asking it for the rest of this run
 
     def _download(self, url: str, limit: int) -> httpx.Response:
         """GET with a streamed size cap (Content-Length is not trusted)."""
@@ -297,20 +325,50 @@ class NewsClient:
             return httpx.Response(r.status_code, headers=headers, content=b"".join(chunks), request=r.request)
 
     def _get(self, url: str) -> str:
-        for _ in range(MAX_REDIRECTS + 1):
+        if self.blocked:
+            raise PublisherRefused(f"{self.source.key} refused us earlier in this run")
+        redirects = backoffs = 0
+        while True:
             host = (urlsplit(url).hostname or "").lower()
             if urlsplit(url).scheme != "https" or host not in self.source.hosts:
                 raise FetchBlocked(f"host not allowed: {url}")
             if not self.allowed(url):
                 raise FetchBlocked(f"robots.txt disallows {url}")
             self._pace()
+            started = time.monotonic()
             r = self._download(url, MAX_BYTES)
+            if time.monotonic() - started > SLOW_RESPONSE_SECONDS:      # the site is struggling: ask less often
+                self.slow_down(f"slow response ({time.monotonic() - started:.1f} s)")
             if r.is_redirect:
+                redirects += 1
+                if redirects > MAX_REDIRECTS:
+                    raise FetchBlocked(f"too many redirects: {url}")
                 url = urljoin(url, r.headers.get("location", ""))
                 continue
+            if r.status_code in RETRY_STATUSES and backoffs < 2:          # "too many requests" / "busy"
+                wait = retry_after_seconds(r.headers.get("retry-after"), backoffs)
+                self.slow_down(f"HTTP {r.status_code}; waiting {wait:.0f} s")
+                backoffs += 1
+                time.sleep(wait)
+                continue
+            if r.status_code == 403:
+                self.forbidden_in_a_row += 1
+                if self.forbidden_in_a_row >= FORBIDDEN_LIMIT:
+                    self.blocked = True
+                    log.warning("%s: %d refusals (403) in a row; stopping this paper for the run",
+                                self.source.key, self.forbidden_in_a_row)
+                    raise PublisherRefused(f"{self.source.key} answered 403 {self.forbidden_in_a_row} times in a row")
+            else:
+                self.forbidden_in_a_row = 0
             r.raise_for_status()
             return r.text
-        raise FetchBlocked(f"too many redirects: {url}")
+
+    def slow_down(self, why: str) -> None:
+        """Halve this paper's request rate for the rest of the run (never faster again within a run)."""
+        new = min(MAX_DELAY_SECONDS, max(self.delay, 0.5) * 2)
+        if new != self.delay:
+            log.warning("%s: %s; now one request every %.0f s", self.source.key, why, new)
+        self.delay = new
 
     def _pace(self):
         """One request per second to the publisher, robots.txt included."""

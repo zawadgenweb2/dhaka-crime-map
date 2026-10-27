@@ -169,6 +169,8 @@ def _collect_source(key, client, days_back, gaz, window_start, run_id, by_day, s
         if n % 10 == 0:  # progress is visible on the dashboard while a long backfill runs
             flush()
             db.heartbeat("collector", {"run_id": run_id, "fetched": stats["fetched"]})
+        if getattr(client, "blocked", False):     # the paper refused us repeatedly: stop asking it this run
+            raise RuntimeError(f"{key} refused our requests (HTTP 403); stopped for this run")
         try:
             art = client.article(cand.url)
         except ValueError as e:   # the page downloaded but has no article text (gallery, style page)

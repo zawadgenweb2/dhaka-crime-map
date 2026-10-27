@@ -654,3 +654,31 @@ def test_robots_unreachable_once_is_retried():
         return httpx.Response(200, text="ok")
     c = _client(handler)
     assert c._get("https://www.prothomalo.com/bangladesh/crime/x") == "ok" and len(calls) == 2
+
+
+
+def test_politeness_backs_off_and_stops_on_refusals(monkeypatch):
+    import app.scraper as sc
+    slept = []
+    monkeypatch.setattr(sc.time, "sleep", lambda s: slept.append(s))
+    seq = iter([httpx.Response(429, headers={"retry-after": "7"}), httpx.Response(200, text="ok")])
+
+    def handler(req):
+        if req.url.path == "/robots.txt":
+            return httpx.Response(404)
+        return next(seq)
+    c = _client(handler)
+    assert c._get("https://www.prothomalo.com/bangladesh/crime/a") == "ok"
+    assert 7 in slept and c.delay >= 0.5                               # waited as told, and slowed down
+
+    def refuse(req):
+        return httpx.Response(404) if req.url.path == "/robots.txt" else httpx.Response(403)
+    c = _client(refuse)
+    for i in range(2):
+        with pytest.raises(httpx.HTTPStatusError):
+            c._get(f"https://www.prothomalo.com/bangladesh/crime/{i}")
+    with pytest.raises(sc.PublisherRefused):
+        c._get("https://www.prothomalo.com/bangladesh/crime/3")
+    with pytest.raises(sc.PublisherRefused):                           # no more requests to it this run
+        c._get("https://www.prothomalo.com/bangladesh/crime/4")
+    assert c.blocked
