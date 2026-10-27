@@ -104,8 +104,9 @@
     const vp = new deck.WebMercatorViewport({ ...state.view, width: w, height: h });
     const W = Math.ceil(w / CELL), H = Math.ceil(h / CELL);
     const D = new Float32Array(W * H * K);
-    const sc = sigmaPx(state.view.zoom) / CELL, r = Math.ceil(3 * sc), kern = [];
-    for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) { const q = (dx * dx + dy * dy) / (2 * sc * sc); if (q <= 4.5) kern.push(dx, dy, Math.exp(-q)); }
+    // triweight kernel: Gaussian-like centre that reaches exactly zero at 2.5 sigma, so stacked points leave no rim
+    const sc = sigmaPx(state.view.zoom) / CELL, R = 2.5 * sc, r = Math.ceil(R), kern = [];
+    for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) { const q = (dx * dx + dy * dy) / (R * R); if (q < 1) kern.push(dx, dy, (1 - q) ** 3); }
     for (const p of state.pts) {
       if (state.off.has(p.category)) continue;
       const k = IDX[p.category]; if (k === undefined) continue;
@@ -137,7 +138,7 @@
     for (let c = 0; c < W * H && show; c++) {
       const T = tot[c]; if (T < 0.01) continue;
       const I = Math.min(1, (T / ref) ** 0.6);                       // compressed strength
-      let rgb, alpha = smooth(0.0, 0.45, I) * 0.88;
+      let rgb, alpha = smooth(0.0, 0.6, I) * 0.88;
       if (state.variant === "A" || state.variant === "C") {
         let L = 0, a = 0, b = 0, sw = 0;
         for (let k = 0; k < K; k++) {
