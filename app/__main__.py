@@ -104,8 +104,8 @@ def main(argv: list[str] | None = None) -> int:
         from .reprocess import reprocess_all
         print(reprocess_all())
     elif args.cmd == "requeue-no-text":
-        from . import db
-        with db.tx() as c:
+        from . import db as database
+        with database.tx() as c:
             n = c.execute("""DELETE FROM articles WHERE source = %s AND status = 'skipped' AND note LIKE 'no article text%%'
                              AND NOT EXISTS (SELECT 1 FROM jobs j WHERE j.article_id = articles.id)
                              AND coalesce(published_at, fetched_at) > now() - make_interval(days => %s)""",
