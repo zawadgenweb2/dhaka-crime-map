@@ -1003,3 +1003,25 @@ def test_admin_event_audit_split_and_merge():
     assert api.get("/api/events/status").json()["events"] == 2
     assert api.post("/api/events/merge", json={"keep": linked[0]["event_id"], "other": new}).json()["ok"]
     assert api.get("/api/events/status").json()["events"] == 1
+
+
+def test_a_report_matching_two_fragments_reunites_them():
+    from app.events import build_all, status
+    _news("মিরপুরে যুবক খুন, রাকিব হাসান নিহত", "মিরপুরে যুবক খুন, রাকিব হাসান নিহত। রাতে ঘটনা।", "prothomalo", 9)
+    _news("মিরপুরে যুবক খুন, রাকিব হাসান নিহত হন", "মিরপুরে যুবক খুন, রাকিব হাসান নিহত হন। ওসি জানান।", "samakal", 6)
+    build_all()
+    _drain(Judge("different"))                                   # the first two were (wrongly) kept apart
+    assert status()["events"] == 2
+    _news("মিরপুরে যুবক খুন, রাকিব হাসান নিহত: মামলা", "মিরপুরে যুবক খুন, রাকিব হাসান নিহত: মামলা হয়েছে।", "ittefaq", 2)
+    from app.events import enqueue
+    with db.connect() as c:
+        key = c.execute("SELECT report_key FROM incidents i JOIN articles a ON a.id = i.article_id "
+                        "WHERE a.source = 'ittefaq'").fetchone()
+    if key is None or key["report_key"] is None:
+        build_all()
+    else:
+        with db.tx() as c:
+            enqueue(c, [key["report_key"]])
+    _drain(Judge("same"))                                        # matches both, and the two main reports match
+    st = status()
+    assert st["events"] == 1 and st["decisions"].get("events_merged") == 1

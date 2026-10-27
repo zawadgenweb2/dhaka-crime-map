@@ -91,16 +91,18 @@ def cosine(a: list[float], b: list[float]) -> float:
 # "DMP: 506 arrested in 24 hours" lists many unrelated arrests. Two round-ups are the same only when they carry
 # the same count (two papers printing one press release); a round-up never merges with a single crime. The judge
 # alone wrongly merged two different days' round-ups in our evaluation, so this is a rule, not a model call.
-ROUNDUP = re.compile(r"(২৪ ঘণ্টায়|24 ঘণ্টায়|একদিনে|এক দিনে|অভিযানে).*?(গ্রেপ্তার|গ্রেফতার|আটক)\s*(\d+)|"
-                     r"(গ্রেপ্তার|গ্রেফতার|আটক)\s*(\d{2,})")
+ROUNDUP_MARK = re.compile(r"24 ঘণ্টা|একদিনে|এক দিনে|অভিযানে")
+ARREST_COUNT = re.compile(r"(\d+)\s*(?:জন\s*)?(?:গ্রেপ্তার|গ্রেফতার|আটক)|(?:গ্রেপ্তার|গ্রেফতার|আটক)\s*(\d+)")
 
 
 def roundup_count(title: str | None) -> int | None:
-    m = ROUNDUP.search(normalize(title or ""))
-    if not m:
+    """The arrest count of a police round-up title ("২৪ ঘণ্টায় ৪৩৩ জন গ্রেপ্তার", "অভিযানে গ্রেপ্তার ৫০৬"), else None."""
+    t = normalize(title or "")
+    counts = [int(a or b) for a, b in ARREST_COUNT.findall(t)]
+    big = [n for n in counts if n >= 10]
+    if not big or not (ROUNDUP_MARK.search(t) or big[0] >= 50):
         return None
-    n = int(m.group(3) or m.group(5))
-    return n if n >= 10 else None
+    return big[0]
 
 
 def roundups_compatible(a: dict, b: dict) -> bool:
@@ -269,7 +271,7 @@ def reduce_report(key: str, classifier, embedder=embed) -> str:
             scored = sorted(((cosine(rv, vector(c, x, embedder)), x) for x in cands), key=lambda t: -t[0])
             scored = [(s, x) for s, x in scored if s >= MIN_COSINE][:TOP_K]
             c.commit()                                           # keep the vectors even if the judge fails
-    passed, looked = [], []
+    passed, looked, merged_pair = [], [], None
     for score, cand in scored:                                   # model calls happen outside any transaction
         if not roundups_compatible(r, cand):
             looked.append((score, cand, {"same": False, "facts": [], "calls": [{"verdict": "roundup_rule"}]}))
@@ -280,6 +282,14 @@ def reduce_report(key: str, classifier, embedder=embed) -> str:
             passed.append((score, cand, res))
             if len(passed) > 1:
                 break
+    if len(passed) == 2:
+        # the report matches two events: compare their main reports DIRECTLY (never "A~B and B~C, so A~C").
+        (_, e1, _), (_, e2, _) = passed
+        if roundups_compatible(e1, e2):
+            direct = judge(classifier, e1, e2)
+            if direct["same"]:
+                first, second = sorted([e1, e2], key=lambda x: (x["published_at"] is None, x["published_at"], x["event_id"]))
+                merged_pair = (first["event_id"], second["event_id"], direct)
     with db.tx() as c:
         c.execute("SELECT pg_advisory_xact_lock(%s)", (MATCH_LOCK,))
         for score, cand, res in looked:
@@ -289,6 +299,16 @@ def reduce_report(key: str, classifier, embedder=embed) -> str:
                                                (p[1]["event_id"],)).fetchone()]
         if current:
             _unlink(c, key)                                      # re-read article: decide afresh
+        if len(live) > 1 and merged_pair is not None:            # the two events are one crime after all
+            keep_e, gone_e, pres = merged_pair
+            if all(c.execute("SELECT 1 FROM events WHERE id = %s AND state = 'active'", (e,)).fetchone()
+                   for e in (keep_e, gone_e)):
+                moved = c.execute("UPDATE event_reports SET event_id = %s WHERE event_id = %s RETURNING report_key",
+                                  (keep_e, gone_e)).fetchall()
+                _decide(c, key, keep_e, None, "final", "events_merged", None,
+                        {"from_event": gone_e, "moved": len(moved), "facts": pres["facts"], "calls": pres["calls"]})
+                recompute(c, gone_e)
+                live = [p for p in live if p[1]["event_id"] == keep_e]
         if len(live) == 1:
             score, cand, res = live[0]
             d = _decide(c, key, cand["event_id"], cand["report_key"], "final", "linked", score,
