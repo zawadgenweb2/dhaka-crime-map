@@ -97,7 +97,8 @@
     const key = (p) => `${Math.floor(p.lat / c)},${Math.floor(p.lng / c)}`;
     const n = {};
     for (const p of pts) n[key(p)] = (n[key(p)] || 0) + 1;
-    return new Map(pts.map((p) => [p.id, 1 / Math.sqrt(n[key(p)])]));
+    const keep = zoom < 9 ? 0.25 : 0.5;          // country view: a cell counts n^(1/4), so every city shows
+    return new Map(pts.map((p) => [p.id, n[key(p)] ** (keep - 1)]));
   }
 
   // One warm ramp = how much crime. With exactly one crime type chosen, the ramp takes that type's colour.
@@ -162,7 +163,7 @@
       out.push(new deck.HeatmapLayer({
         id: "heat", data: pts, getPosition: (d) => [d.lng, d.lat], getWeight: (d) => w.get(d.id),
         radiusPixels: heatRadius(zoom), intensity: 1, threshold: 0.05, colorRange: heatRange(), aggregation: "SUM",
-        updateTriggers: { getWeight: [pts.length, heatCell(zoom).toFixed(4)] },
+        updateTriggers: { getWeight: [pts.length, heatCell(zoom).toFixed(4), zoom < 9] },
       }));
     }
     const zoomNow = engine?.zoom ? engine.zoom() : 12;
