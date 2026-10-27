@@ -147,11 +147,13 @@ class GemmaClassifier(Classifier):
             try:
                 status, res = self._send(body)
             except httpx.HTTPError as e:
-                raise ClassifierError(f"local model server unreachable: {type(e).__name__}") from e
+                raise ClassifierError(f"local model server unreachable: {type(e).__name__}", outage=True) from e
             if status in (401, 403):
                 raise ClassifierError("local model server rejected the API key", permanent=True)
             if status == 404:
                 raise ClassifierError(f"local model {self.model!r} or endpoint not found", permanent=True)
+            if status == 503:                                       # "Loading model" after a restart
+                raise ClassifierError(f"local model server error {status}: {str(res)[:200]}", outage=True)
             if status >= 400:
                 raise ClassifierError(f"local model server error {status}: {str(res)[:200]}")
             u = res["usage"]

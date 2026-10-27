@@ -39,6 +39,9 @@ def article_from_row(row: dict) -> Article:
                    published_at=row["published_at"], keywords=row["keywords"] or "")
 
 
+OUTAGE_MAX_WAIT = 60.0   # seconds between probes while the model server is down
+
+
 class Worker:
     def __init__(self, classifier: Classifier | None = None, gaz: Gazetteer | None = None,
                  use_geocoder: bool = True, owner: str | None = None):
@@ -48,6 +51,7 @@ class Worker:
         self.owner = owner or f"{socket.gethostname()}:{os.getpid()}"
         self.stop = threading.Event()
         self.paused_until = 0.0
+        self.outage_wait = 0.0          # grows 5 s -> 60 s while the model server is down; reset on success
 
     @property
     def classifier(self) -> Classifier:
@@ -123,6 +127,14 @@ class Worker:
                 analysis, meta = self.classifier.classify_with_meta(article_from_row(article))
             except ClassifierError as e:
                 self._call_failed(call_id, str(e))
+                if e.outage:     # model down or loading: give the attempt back, wait, and don't touch other articles
+                    with db.tx() as c:
+                        c.execute("UPDATE jobs SET dispatches = greatest(dispatches - 1, 0) WHERE id = %s", (job["id"],))
+                    self.outage_wait = min(OUTAGE_MAX_WAIT, max(5.0, self.outage_wait * 2))
+                    self.paused_until = time.monotonic() + self.outage_wait
+                    self._release(job, "queued", str(e), 0)
+                    log.warning("model server unavailable (%s); waiting %.0f s", e, self.outage_wait)
+                    return "paused"
                 if e.permanent:  # bad key or model alias: pause instead of failing every article
                     self.paused_until = time.monotonic() + 600
                     self._release(job, "queued", str(e), 10)
@@ -135,6 +147,7 @@ class Worker:
                 self._call_failed(call_id, f"{type(e).__name__}: {e}")
                 self._release(job, "failed", f"{type(e).__name__}: {e}")
                 return "failed"
+            self.outage_wait = 0.0
             with db.tx() as c:
                 c.execute("UPDATE llm_calls SET outcome = 'ok', finished_at = now() WHERE id = %s", (call_id,))
                 still_ours = c.execute("""SELECT 1 FROM jobs WHERE id = %s AND generation = %s AND state = 'running'

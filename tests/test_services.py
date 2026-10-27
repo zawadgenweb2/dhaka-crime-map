@@ -868,3 +868,16 @@ def test_command_line_migrate_and_stats_run(monkeypatch, capsys):
         monkeypatch.setattr(sys, "argv", argv)
         main()
     assert "applied" in capsys.readouterr().out
+
+
+def test_model_outage_pauses_without_using_up_attempts():
+    collect("test", client=FakeSite())
+    w = Worker(classifier=FakeClassifier(fail=ClassifierError("local model server unreachable: ConnectError",
+                                                              outage=True)), use_geocoder=False)
+    for _ in range(3):                                                  # e.g. right after a reboot
+        assert w.run_once() == "paused"
+    job = q1("SELECT state, dispatches FROM jobs")
+    assert job["state"] == "queued" and job["dispatches"] == 0         # nothing used up, nothing failed
+    assert w.paused_until > 0 and w.outage_wait >= 5
+    w.classifier.fail = None                                            # the model is back
+    assert w.run_once() == "done" and w.outage_wait == 0

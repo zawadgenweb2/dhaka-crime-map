@@ -11,11 +11,13 @@ from ..scraper import Article
 
 
 class ClassifierError(RuntimeError):
-    """permanent=True: misconfiguration (bad key, unknown model); retrying other articles won't help."""
+    """permanent=True: misconfiguration (bad key, unknown model); retrying other articles won't help.
+    outage=True: the model server is down or still loading (e.g. right after a reboot); nothing is wrong with the article."""
 
-    def __init__(self, message: str, permanent: bool = False):
+    def __init__(self, message: str, permanent: bool = False, outage: bool = False):
         super().__init__(message)
         self.permanent = permanent
+        self.outage = outage
 
 
 class Classifier(ABC):
