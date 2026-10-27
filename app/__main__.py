@@ -19,6 +19,7 @@ Admin:
   rebuild-duplicates      regroup duplicate reports with the current rule (no model calls)
   events-build            queue every published report for the cross-paper matcher (the map switches when done)
   events-status           matcher queue, events and decisions
+  events-verify [--export F]   check the event store: invariants, known stories, residual look-alikes, over-merges
   compare --with gemma    run the model on the frozen reference articles and report agreement (offline only)
   stats                   counts in the terminal
 """
@@ -52,6 +53,7 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("rebuild-duplicates")
     sub.add_parser("events-build")
     sub.add_parser("events-status")
+    ev = sub.add_parser("events-verify"); ev.add_argument("--export", default=None); ev.add_argument("--sample", type=int, default=30)
     cp = sub.add_parser("compare"); cp.add_argument("--with", dest="other", default="gemma")
     cp.add_argument("--limit", type=int, default=1000); cp.add_argument("--out", default=None)
     sub.add_parser("stats")
@@ -127,6 +129,22 @@ def main(argv: list[str] | None = None) -> int:
     elif args.cmd == "events-build":
         from .events import build_all
         print(build_all())
+    elif args.cmd == "events-verify":
+        import json as _json
+        from .eventcheck import verify
+        rep_ = verify(args.sample, args.export)
+        for part in ("invariants", "public"):
+            print(part, _json.dumps(rep_[part], ensure_ascii=False))
+        for s_ in rep_["known_stories"]:
+            print("story", _json.dumps(s_, ensure_ascii=False))
+        r_ = rep_["residual"]
+        print("residual", _json.dumps({k: v for k, v in r_.items() if k != "sample"}))
+        o_ = rep_["overmerge"]
+        print("overmerge", _json.dumps({k: v for k, v in o_.items() if k not in ("flagged_sample", "largest")},
+                                       ensure_ascii=False))
+        for x in o_["largest"]:
+            print("  largest", x["id"], x["report_count"], "reports,", x["papers"], "papers, span", x["day_span"], "days,",
+                  x["thanas"], "thanas:", " | ".join(t[:40] for t in x["titles"]))
     elif args.cmd == "events-status":
         from .events import status
         print(status())

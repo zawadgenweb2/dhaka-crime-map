@@ -1025,3 +1025,16 @@ def test_a_report_matching_two_fragments_reunites_them():
     _drain(Judge("same"))                                        # matches both, and the two main reports match
     st = status()
     assert st["events"] == 1 and st["decisions"].get("events_merged") == 1
+
+
+def test_event_store_verification_report():
+    from app.events import build_all
+    from app.eventcheck import verify
+    _news("মিরপুরে যুবক খুন, রাকিব হাসান নিহত", "মিরপুরে যুবক খুন, রাকিব হাসান নিহত। রাতে ঘটনা।", "prothomalo", 5)
+    _news("মিরপুরে যুবক খুন, রাকিব হাসান নিহত হন", "মিরপুরে যুবক খুন, রাকিব হাসান নিহত হন। ওসি জানান।", "samakal", 2)
+    build_all()
+    _drain(Judge("same"))
+    rep = verify()
+    assert rep["invariants"]["ok"] and rep["invariants"]["eligible_reports"] == 2
+    assert rep["public"]["ok"] and rep["public"]["map_rows"] == 1 and rep["public"]["stats_total"] == 1
+    assert rep["residual"]["remaining_pairs"] == 0 and rep["residual"]["report_level_pairs_before"] == 1
