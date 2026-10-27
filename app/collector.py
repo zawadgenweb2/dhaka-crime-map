@@ -28,6 +28,7 @@ from .text import crime_signal
 log = logging.getLogger(__name__)
 COLLECTOR_LOCK = 7_000_003
 FRESH, BACKFILL = 0, 2      # job priority: Gemma reads fresh news before history
+EXTRACT_FAIL_RUN, EXTRACT_FAIL_SHARE = 8, 0.4   # text-less pages that mean "the paper's layout changed"
 TICK_SECONDS = 20
 SLOT_ATTEMPTS = 3          # a failed scheduled run is retried this many times in total
 SLOT_RETRY_MINUTES = 10
@@ -179,6 +180,7 @@ def _collect_source(key, client, days_back, gaz, window_start, run_id, by_day, s
     progress(f"run {run_id}: {len(candidates)} candidate links, {len(new)} new")
     src = SOURCES.get(key)
     crime_sections = src.crime_sections if src else frozenset()
+    no_text = no_text_in_a_row = downloads = 0
     for n, cand in enumerate(new, 1):
         if n % 10 == 0:  # progress is visible on the dashboard while a long backfill runs
             flush()
@@ -188,16 +190,23 @@ def _collect_source(key, client, days_back, gaz, window_start, run_id, by_day, s
         try:
             art = client.article(cand.url)
         except ValueError as e:   # the page downloaded but has no article text (gallery, style page)
+            downloads += 1; no_text += 1; no_text_in_a_row += 1
             with db.tx() as c:
                 c.execute("""INSERT INTO articles (url, section, source, status, note) VALUES (%s, %s, %s, 'skipped', %s)
                              ON CONFLICT (url) DO NOTHING""", (cand.url, cand.section, key, f"no article text: {e}"[:200]))
             progress(f"no article text {cand.url}: {e}")
+            # Many text-less pages in a row usually means the paper changed its page layout: stop, so the failure is
+            # visible instead of quietly marking every article skipped (fix sources.py, then requeue-no-text).
+            if no_text_in_a_row >= EXTRACT_FAIL_RUN or (downloads >= 25 and no_text / downloads > EXTRACT_FAIL_SHARE):
+                raise RuntimeError(f"{key}: {no_text} of {downloads} pages had no article text; "
+                                   "page layout probably changed (check body_selectors in sources.py)")
             continue
         except Exception as e:    # network or server problem: try again next run
             with lock:
                 stats["errors"] += 1
             progress(f"fetch failed {cand.url}: {e}")
             continue
+        downloads += 1; no_text_in_a_row = 0
         with lock:
             stats["fetched"] += 1
         art.published_at = art.published_at or cand.published_at

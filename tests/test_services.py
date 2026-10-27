@@ -844,3 +844,17 @@ def test_login_page_loaded_twice_still_logs_in():
     r = api.post("/api/login", json={"username": "tester", "password": "a-long-password-1"},
                  headers={"x-csrf-token": first, "origin": "https://testserver"})
     assert r.status_code == 200
+
+
+
+def test_a_changed_page_layout_stops_the_paper_instead_of_skipping_everything():
+    class Redesigned(FakeSite):
+        def __init__(self):
+            super().__init__(urls=tuple(f"{URL}{i}" for i in range(12)))
+
+        def article(self, url):
+            raise ValueError("no JSON-LD article body")
+    r = collect("test", client=Redesigned())
+    assert r["status"] == "failed" and "layout probably changed" in r["message"]
+    with db.connect() as c:
+        assert c.execute("SELECT count(*) n FROM articles").fetchone()["n"] == 8        # stopped after 8 in a row
