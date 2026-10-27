@@ -60,6 +60,15 @@
   </section>
 
   <section class="card">
+    <h2>Event matching (same crime in several papers) <select id="ev-outcome"><option value="linked">merged</option><option value="new_event">new events</option><option value="ambiguous">ambiguous</option><option value="error">errors</option><option value="split">split by admin</option></select></h2>
+    <p id="ev-status" class="muted"></p>
+    <div class="row"><label>Merge event <input id="ev-keep" type="number" style="width:7em"></label>
+      <label>with event <input id="ev-other" type="number" style="width:7em"></label>
+      <button class="btn" id="ev-merge" type="button">Merge</button> <span class="muted" id="ev-msg"></span></div>
+    <div style="overflow:auto"><table id="ev-list"></table></div>
+  </section>
+
+  <section class="card">
     <h2>Recent runs</h2>
     <div style="overflow:auto"><table id="runs"></table></div>
   </section>

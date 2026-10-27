@@ -986,3 +986,20 @@ def test_admin_split_sticks_when_the_matcher_runs_again():
         enqueue(c, [later])
     _drain(Judge("same"))
     assert status()["events"] == 2                                            # the split was not undone
+
+
+def test_admin_event_audit_split_and_merge():
+    from app.events import build_all
+    _news("মিরপুরে যুবক খুন, রাকিব হাসান নিহত", "মিরপুরে যুবক খুন, রাকিব হাসান নিহত। রাতে ঘটনা।", "prothomalo", 5)
+    _news("মিরপুরে যুবক খুন, রাকিব হাসান নিহত হন", "মিরপুরে যুবক খুন, রাকিব হাসান নিহত হন। ওসি জানান।", "samakal", 2)
+    build_all()
+    _drain(Judge("same"))
+    api = _admin()
+    linked = api.get("/api/events/decisions", params={"outcome": "linked"}).json()
+    assert len(linked) == 1 and len(linked[0]["evidence"]["facts"]) == 2
+    ev = api.get(f"/api/events/{linked[0]['event_id']}").json()
+    assert len(ev["reports"]) == 2
+    new = api.post("/api/events/split", json={"report_key": linked[0]["report_key"]}).json()["new_event"]
+    assert api.get("/api/events/status").json()["events"] == 2
+    assert api.post("/api/events/merge", json={"keep": linked[0]["event_id"], "other": new}).json()["ok"]
+    assert api.get("/api/events/status").json()["events"] == 1

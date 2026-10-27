@@ -60,10 +60,36 @@
     catch (e) { out.textContent = e.message; }
   }
 
-  function refresh() { status().catch(console.warn); coverage().catch(console.warn); runs().catch(console.warn); }
+  async function eventsCard() {
+    const s = await api("/api/events/status");
+    $("#ev-status").textContent = `${s.events} events (${s.events_with_several_reports} with several papers) · queue ${s.queue}` +
+      ` (${s.retried} retried) · public map ${s.live ? "uses events" : "not switched yet (matching the history)"} · ` +
+      Object.entries(s.decisions).map(([k, v]) => `${k} ${v}`).join(", ");
+    const rows = await api(`/api/events/decisions?outcome=${$("#ev-outcome").value}&limit=60`);
+    const facts = (d) => ((d.evidence && d.evidence.facts) || []).map((f) => `${esc(f.kind)}: ${esc(f.quote_a)} ⟷ ${esc(f.quote_b)}`).join("<br>");
+    $("#ev-list").innerHTML = "<tr><th>Event</th><th>Report</th><th>Matched with</th><th>Proof (quotes from both)</th><th>When</th><th></th></tr>" +
+      rows.map((d) => `<tr><td>${d.event_id ?? "—"}</td>` +
+        `<td><a href="${esc(d.url)}" target="_blank" rel="noopener">${esc(d.source)}: ${esc(d.title)}</a></td>` +
+        `<td>${d.cand_url ? `<a href="${esc(d.cand_url)}" target="_blank" rel="noopener">${esc(d.cand_source)}: ${esc(d.cand_title)}</a>` : "—"}</td>` +
+        `<td style="font-size:12px">${facts(d) || (d.score != null ? `similarity ${d.score.toFixed(2)}` : "")}</td><td>${when(d.created_at)}</td>` +
+        `<td>${d.outcome === "linked" ? `<button class="btn ghost" data-split="${esc(d.report_key)}" type="button">Split</button>` : ""}</td></tr>`).join("");
+    document.querySelectorAll("[data-split]").forEach((b) => b.onclick = async () => {
+      try { const r = await api("/api/events/split", { method: "POST", body: JSON.stringify({ report_key: b.dataset.split }) });
+        $("#ev-msg").textContent = `Split into event #${r.new_event}.`; } catch (e) { $("#ev-msg").textContent = e.message; }
+      eventsCard().catch(console.warn);
+    });
+  }
+
+  function refresh() { status().catch(console.warn); coverage().catch(console.warn); runs().catch(console.warn); eventsCard().catch(console.warn); }
 
   $("#collect").onclick = () => collect(+$("#days").value || 0, +$("#max").value || null);
   $("#cov-days").onchange = () => coverage().catch(console.warn);
+  $("#ev-outcome").onchange = () => eventsCard().catch(console.warn);
+  $("#ev-merge").onclick = async () => {
+    try { await api("/api/events/merge", { method: "POST", body: JSON.stringify({ keep: +$("#ev-keep").value, other: +$("#ev-other").value }) });
+      $("#ev-msg").textContent = "Merged."; } catch (e) { $("#ev-msg").textContent = e.message; }
+    eventsCard().catch(console.warn);
+  };
   $("#try").onclick = tryArticle;
   $("#logout").onclick = async () => { await api("/api/logout", { method: "POST" }).catch(() => {}); location.href = "/login"; };
 

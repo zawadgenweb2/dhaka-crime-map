@@ -406,6 +406,72 @@ def create_app() -> FastAPI:
         """The authenticated account (checked by the middleware); recorded on every review decision."""
         return _actor(request)[:60]
 
+    # ---- cross-paper event store: audit and corrections (app/events.py) ----
+    @app.get("/api/events/status")
+    def events_status():
+        """Matcher queue, number of events, decisions by outcome, whether the public map uses events yet."""
+        from .events import status
+        return status()
+
+    @app.get("/api/events/decisions")
+    def events_decisions(outcome: str = Query("linked", pattern="^(linked|new_event|ambiguous|error|split|merged)$"),
+                         limit: int = Query(50, ge=1, le=500)):
+        """Latest final decisions with both reports (title, paper, link) and the quoted facts behind a link."""
+        with db.connect() as c:
+            rows = c.execute(
+                """SELECT d.id, d.report_key, d.event_id, d.candidate_key, d.outcome, d.score, d.evidence, d.created_at,
+                          a.title, a.source, a.url, ca.title AS cand_title, ca.source AS cand_source, ca.url AS cand_url
+                   FROM match_decisions d
+                   JOIN incidents i ON i.report_key = d.report_key JOIN articles a ON a.id = i.article_id
+                   LEFT JOIN incidents ci ON ci.report_key = d.candidate_key LEFT JOIN articles ca ON ca.id = ci.article_id
+                   WHERE d.stage IN ('final', 'admin') AND d.outcome = %s ORDER BY d.id DESC LIMIT %s""",
+                (outcome, limit)).fetchall()
+        return [{**r, "created_at": _iso(r["created_at"])} for r in rows]
+
+    @app.get("/api/events/{event_id}")
+    def event_detail(event_id: int):
+        """One event with every report linked to it (paper, title, link, how it was linked)."""
+        with db.connect() as c:
+            e = c.execute("SELECT * FROM events WHERE id = %s", (event_id,)).fetchone()
+            if not e:
+                raise HTTPException(404, "no such event")
+            reports = c.execute(
+                """SELECT er.report_key, er.linked_by, er.linked_at, a.source, a.title, a.url, a.published_at,
+                          i.id AS incident_id, i.category, i.place_id, i.event_date
+                   FROM event_reports er JOIN incidents i ON i.report_key = er.report_key
+                   JOIN articles a ON a.id = i.article_id WHERE er.event_id = %s ORDER BY a.published_at""",
+                (event_id,)).fetchall()
+        return {**{k: _iso(v) for k, v in e.items()}, "reports": [{k: _iso(v) for k, v in r.items()} for r in reports]}
+
+    class SplitIn(BaseModel):
+        report_key: str = Field(max_length=80)
+
+    class MergeIn(BaseModel):
+        keep: int
+        other: int
+
+    @app.post("/api/events/split")
+    def events_split(body: SplitIn, request: Request):
+        """Take one report out of its event (and never put it back there automatically)."""
+        from .events import split
+        try:
+            new = split(body.report_key, _actor(request))
+        except ValueError as e:
+            raise HTTPException(404, str(e))
+        auth.audit(_actor(request), "event_split", {"report_key": body.report_key, "new_event": new},
+                   ip=_client_ip(request))
+        return {"new_event": new}
+
+    @app.post("/api/events/merge")
+    def events_merge(body: MergeIn, request: Request):
+        """Put every report of `other` into `keep` (two events the matcher left apart)."""
+        from .events import merge
+        if body.keep == body.other:
+            raise HTTPException(400, "choose two different events")
+        merge(body.keep, body.other, _actor(request))
+        auth.audit(_actor(request), "event_merge", {"keep": body.keep, "other": body.other}, ip=_client_ip(request))
+        return {"ok": True}
+
     @app.get("/heat-lab", include_in_schema=False)
     def heat_lab():
         """Compare ways of painting crime types on the heatmap, with real data (admins only)."""
