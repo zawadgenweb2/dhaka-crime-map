@@ -214,7 +214,7 @@ input[type="date"], select {
   .tabs button.on { color: var(--ink); background: var(--surface-2); font-weight: 600; }
   .mapwrap { height: calc(100dvh - 56px - 58px); }
   .legend { bottom: 12px; left: 8px; max-width: calc(100% - 16px); }
-  .legend .cats { display: none; }
+  .legend .cats { font-size: 11px; gap: 2px 8px; }        /* the colour key stays on phones: colours alone mean nothing */
   .card.selected { top: auto; bottom: 8px; right: 8px; left: 8px; width: auto; }
 }
 
