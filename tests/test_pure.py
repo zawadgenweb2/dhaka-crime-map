@@ -112,8 +112,9 @@ def test_full_text_decides_dhaka():
 
 
 def _client(handler):
-    return ProthomAloClient(client=httpx.Client(transport=httpx.MockTransport(handler), follow_redirects=False),
-                            delay=0)
+    c = ProthomAloClient(client=httpx.Client(transport=httpx.MockTransport(handler), follow_redirects=False), delay=0)
+    c.ROBOTS_RETRIES = (0, 0)                     # retry once, without waiting
+    return c
 
 
 def test_robots_server_error_blocks_crawling():
@@ -624,6 +625,7 @@ def test_each_paper_is_its_own_lane():
             return httpx.Response(200, text="User-agent: *\nDisallow: /search")
         return httpx.Response(200, text="<urlset xmlns='http://www.sitemaps.org/schemas/sitemap/0.9'></urlset>")
     c = NewsClient("samakal", client=httpx.Client(transport=httpx.MockTransport(handler)), delay=0)
+    c.ROBOTS_RETRIES = (0,)
     assert c.news_sitemap() == [] and seen == ["https://samakal.com/robots.txt", "https://samakal.com/news_sitemap.xml"]
     with pytest.raises(FetchBlocked):
         c._get("https://www.prothomalo.com/bangladesh/crime/x")               # another paper's host
@@ -637,3 +639,18 @@ def test_city_police_thanas_outside_wikidata():
     assert ids("খুলনার লবণচরা থানায় মামলা") == ["khulna:labanchara"]
     assert ids("রংপুরের তাজহাটে ছিনতাই") == ["rangpur:tajhat"]
     assert ids("রংপুর মহানগরের কোতোয়ালী থানায় মামলা") == ["rangpur:rangpur_kotwali"]
+
+
+
+def test_robots_unreachable_once_is_retried():
+    calls = []
+
+    def handler(req):
+        if req.url.path == "/robots.txt":
+            calls.append(1)
+            if len(calls) == 1:
+                raise httpx.ConnectError("network not up yet")
+            return httpx.Response(200, text="User-agent: *\nAllow: /")
+        return httpx.Response(200, text="ok")
+    c = _client(handler)
+    assert c._get("https://www.prothomalo.com/bangladesh/crime/x") == "ok" and len(calls) == 2

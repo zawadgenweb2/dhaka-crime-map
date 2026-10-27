@@ -323,28 +323,42 @@ class NewsClient:
         """RFC 9309: follow up to 5 same-site redirects; 4xx = no restrictions; 5xx, unreachable or a redirect loop
         = crawl nothing this run (the slot is retried later)."""
         if self._robots is None:
-            target = self.source.url("/robots.txt")
-            policy = RobotsPolicy(disallow_all=True)
-            try:
-                for _ in range(6):
-                    if (urlsplit(target).hostname or "").lower() not in self.source.hosts:
-                        break
-                    self._pace()
-                    r = self._download(target, MAX_ROBOTS_BYTES)
-                    if r.is_redirect:
-                        target = urljoin(target, r.headers.get("location", ""))
-                        continue
-                    if 200 <= r.status_code < 300:
-                        policy = RobotsPolicy.parse(r.text, settings.user_agent)
-                    elif 400 <= r.status_code < 500:
-                        policy = RobotsPolicy(allow_all=True)
+            # unreachable (network not up yet after a restart, a brief outage): try again before giving up the run
+            for wait in self.ROBOTS_RETRIES:
+                self._robots = self._fetch_robots()
+                if not self._robots.disallow_all or self._robots_reachable:
                     break
-            except (httpx.HTTPError, FetchBlocked):
-                pass
-            if policy.disallow_all:
+                time.sleep(wait)
+            if self._robots.disallow_all and not self._robots_reachable:
                 log.warning("%s: robots.txt unavailable; not crawling this run", self.source.key)
-            self._robots = policy
         return self._robots.can_fetch(url)
+
+    ROBOTS_RETRIES = (5, 20, 60, 0)        # seconds to wait after each failed robots.txt fetch
+
+    def _fetch_robots(self) -> RobotsPolicy:
+        """One robots.txt fetch. `_robots_reachable` = a definitive answer (2xx rules or 4xx allow-all)."""
+        self._robots_reachable = False
+        target = self.source.url("/robots.txt")
+        policy = RobotsPolicy(disallow_all=True)
+        try:
+            for _ in range(6):
+                if (urlsplit(target).hostname or "").lower() not in self.source.hosts:
+                    break
+                self._pace()
+                r = self._download(target, MAX_ROBOTS_BYTES)
+                if r.is_redirect:
+                    target = urljoin(target, r.headers.get("location", ""))
+                    continue
+                if 200 <= r.status_code < 300:
+                    policy = RobotsPolicy.parse(r.text, settings.user_agent)
+                    self._robots_reachable = True
+                elif 400 <= r.status_code < 500:
+                    policy = RobotsPolicy(allow_all=True)
+                    self._robots_reachable = True
+                break
+        except (httpx.HTTPError, FetchBlocked):
+            pass
+        return policy
 
     def news_sitemap(self) -> list[Candidate]:
         return parse_news_sitemap(self._get(self.source.url(self.source.news_sitemap)))
