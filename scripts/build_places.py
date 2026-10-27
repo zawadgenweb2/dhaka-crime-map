@@ -1,7 +1,8 @@
 """Build data/places.json: the curated Dhaka catalogue plus thanas/upazilas of the other supported districts.
 
-Sources: data/dhaka_places.json (curated, ids kept unchanged) and the CC0 Wikidata snapshot
-data/sources/wikidata-bd-admin-2026-10-26.json (district -> thana/upazila links, Bangla/English names, points).
+Sources: data/dhaka_places.json (curated, ids kept unchanged), the CC0 Wikidata snapshot
+data/sources/wikidata-bd-admin-2026-10-26.json (district -> thana/upazila links, Bangla/English names, points), and
+data/sources/metro-thanas.json (city police thanas Wikidata lacks, plus extra spellings).
 New ids are "<district>:<slug>"; a Wikidata point is a representative point, not an area centre. Places without a
 coordinate are kept (they still give a district and an area for counts) but get no map point.
 
@@ -15,6 +16,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 SNAPSHOT = ROOT / "data" / "sources" / "wikidata-bd-admin-2026-10-26.json"
+METRO = ROOT / "data" / "sources" / "metro-thanas.json"
 DISTRICT_QIDS = {"Q1074991": "chattogram", "Q2093352": "sylhet", "Q2093344": "khulna", "Q1763301": "barishal",
                  "Q2344570": "rangpur"}
 DISTRICTS = {  # key: (Bangla, English, representative point)
@@ -77,6 +79,16 @@ def main() -> None:
                         "wikidata": qid(r["item"]["value"])}
         places.extend(seen.values())
 
+    metro = json.loads(METRO.read_text(encoding="utf-8"))
+    for t in metro["thanas"]:
+        pid = f"{t['district']}:{slug(t['name_en'])}"
+        assert not any(p["id"] == pid for p in places), pid
+        places.append({"id": pid, "name_en": t["name_en"], "name_bn": t["name_bn"], "aliases": [], "kind": "thana",
+                       "parent": None, "lat": t["lat"], "lng": t["lng"], "district": t["district"]})
+    for pid, extra in metro["aliases"].items():
+        p = next(p for p in places if p["id"] == pid)
+        p["aliases"] = sorted(set(p["aliases"]) | set(extra))
+
     # Spelling variants: final ী/ি (কোতোয়ালী/কোতোয়ালি) and য়/য় forms are both common in news text.
     for p in places:
         if p["district"] == "dhaka":
@@ -87,7 +99,8 @@ def main() -> None:
     out = {"districts": [{"id": k, "name_bn": v[0], "name_en": v[1], "lat": v[2][0], "lng": v[2][1]}
                          for k, v in DISTRICTS.items()],
            "places": places,
-           "sources": ["data/dhaka_places.json (curated)", SNAPSHOT.name + " (Wikidata, CC0)"]}
+           "sources": ["data/dhaka_places.json (curated)", SNAPSHOT.name + " (Wikidata, CC0)",
+                       METRO.name + " (curated; points from OpenStreetMap, ODbL)"]}
     (ROOT / "data" / "places.json").write_text(json.dumps(out, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     by = {}
     for p in places:

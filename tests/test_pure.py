@@ -589,3 +589,11 @@ def test_each_paper_is_its_own_lane():
         c._get("https://www.prothomalo.com/bangladesh/crime/x")               # another paper's host
     with pytest.raises(FetchBlocked):
         c._get("https://samakal.com/search?q=x")
+
+
+def test_city_police_thanas_outside_wikidata():
+    ids = lambda t: [p.id for p in load().find_all(t)]                       # noqa: E731
+    assert ids("চট্টগ্রামের বায়েজিদ বোস্তামী থানা এলাকায় হত্যা") == ["chattogram:bayazid"]
+    assert ids("খুলনার লবণচরা থানায় মামলা") == ["khulna:labanchara"]
+    assert ids("রংপুরের তাজহাটে ছিনতাই") == ["rangpur:tajhat"]
+    assert ids("রংপুর মহানগরের কোতোয়ালী থানায় মামলা") == ["rangpur:rangpur_kotwali"]

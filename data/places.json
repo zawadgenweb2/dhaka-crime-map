@@ -2009,7 +2009,11 @@
    "id": "chattogram:bayazid",
    "name_en": "Bayazid",
    "name_bn": "বায়েজীদ",
-   "aliases": [],
+   "aliases": [
+    "বায়েজিদ",
+    "বায়েজিদ বোস্তামী",
+    "বায়েজীদ বোস্তামী"
+   ],
    "kind": "thana",
    "parent": null,
    "lat": 22.38667,
@@ -3112,10 +3116,112 @@
    "lng": 89.0167,
    "district": "rangpur",
    "wikidata": "Q7685293"
+  },
+  {
+   "id": "khulna:labanchara",
+   "name_en": "Labanchara",
+   "name_bn": "লবণচরা",
+   "aliases": [],
+   "kind": "thana",
+   "parent": null,
+   "lat": 22.77813,
+   "lng": 89.57462,
+   "district": "khulna"
+  },
+  {
+   "id": "khulna:harintana",
+   "name_en": "Harintana",
+   "name_bn": "হরিণটানা",
+   "aliases": [],
+   "kind": "thana",
+   "parent": null,
+   "lat": 22.78813,
+   "lng": 89.56074,
+   "district": "khulna"
+  },
+  {
+   "id": "khulna:aranghata",
+   "name_en": "Aranghata",
+   "name_bn": "আড়ংঘাটা",
+   "aliases": [],
+   "kind": "thana",
+   "parent": null,
+   "lat": 22.87969,
+   "lng": 89.48757,
+   "district": "khulna"
+  },
+  {
+   "id": "rangpur:rangpur_kotwali",
+   "name_en": "Rangpur Kotwali",
+   "name_bn": "কোতোয়ালী",
+   "aliases": [
+    "কোতোয়ালি"
+   ],
+   "kind": "thana",
+   "parent": null,
+   "lat": 25.7583,
+   "lng": 89.2333,
+   "district": "rangpur"
+  },
+  {
+   "id": "rangpur:tajhat",
+   "name_en": "Tajhat",
+   "name_bn": "তাজহাট",
+   "aliases": [],
+   "kind": "thana",
+   "parent": null,
+   "lat": 25.72117,
+   "lng": 89.27125,
+   "district": "rangpur"
+  },
+  {
+   "id": "rangpur:mahiganj",
+   "name_en": "Mahiganj",
+   "name_bn": "মাহিগঞ্জ",
+   "aliases": [],
+   "kind": "thana",
+   "parent": null,
+   "lat": 25.73424,
+   "lng": 89.28821,
+   "district": "rangpur"
+  },
+  {
+   "id": "rangpur:parshuram",
+   "name_en": "Parshuram",
+   "name_bn": "পরশুরাম",
+   "aliases": [],
+   "kind": "thana",
+   "parent": null,
+   "lat": 25.7583,
+   "lng": 89.2333,
+   "district": "rangpur"
+  },
+  {
+   "id": "rangpur:haragach",
+   "name_en": "Haragach",
+   "name_bn": "হারাগাছ",
+   "aliases": [],
+   "kind": "thana",
+   "parent": null,
+   "lat": 25.7583,
+   "lng": 89.2333,
+   "district": "rangpur"
+  },
+  {
+   "id": "rangpur:hajirhat",
+   "name_en": "Hajirhat",
+   "name_bn": "হাজিরহাট",
+   "aliases": [],
+   "kind": "thana",
+   "parent": null,
+   "lat": 25.79789,
+   "lng": 89.19624,
+   "district": "rangpur"
   }
  ],
  "sources": [
   "data/dhaka_places.json (curated)",
-  "wikidata-bd-admin-2026-10-26.json (Wikidata, CC0)"
+  "wikidata-bd-admin-2026-10-26.json (Wikidata, CC0)",
+  "metro-thanas.json (curated; points from OpenStreetMap, ODbL)"
  ]
 }

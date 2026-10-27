@@ -1,0 +1,84 @@
+{
+ "note": "Metropolitan police thanas missing from Wikidata (27 Oct 2026). Points are approximate area points, looked up once on OpenStreetMap Nominatim (ODbL); where no reliable match, the Sadar upazila point.",
+ "thanas": [
+  {
+   "district": "khulna",
+   "name_bn": "লবণচরা",
+   "name_en": "Labanchara",
+   "lat": 22.77813,
+   "lng": 89.57462,
+   "source": "OSM node/6337927976 (Labanchara bus stop)"
+  },
+  {
+   "district": "khulna",
+   "name_bn": "হরিণটানা",
+   "name_en": "Harintana",
+   "lat": 22.78813,
+   "lng": 89.56074,
+   "source": "OSM node/6534818497 (suburb)"
+  },
+  {
+   "district": "khulna",
+   "name_bn": "আড়ংঘাটা",
+   "name_en": "Aranghata",
+   "lat": 22.87969,
+   "lng": 89.48757,
+   "source": "OSM way/1221457855 (Aranghata Station Road)"
+  },
+  {
+   "district": "rangpur",
+   "name_bn": "কোতোয়ালী",
+   "name_en": "Rangpur Kotwali",
+   "lat": 25.7583,
+   "lng": 89.2333,
+   "source": "no OSM match; Rangpur Sadar point"
+  },
+  {
+   "district": "rangpur",
+   "name_bn": "তাজহাট",
+   "name_en": "Tajhat",
+   "lat": 25.72117,
+   "lng": 89.27125,
+   "source": "OSM way/540663215 (Tajhat)"
+  },
+  {
+   "district": "rangpur",
+   "name_bn": "মাহিগঞ্জ",
+   "name_en": "Mahiganj",
+   "lat": 25.73424,
+   "lng": 89.28821,
+   "source": "OSM way/524115852 (Mahiganj)"
+  },
+  {
+   "district": "rangpur",
+   "name_bn": "পরশুরাম",
+   "name_en": "Parshuram",
+   "lat": 25.7583,
+   "lng": 89.2333,
+   "source": "no OSM match; Rangpur Sadar point"
+  },
+  {
+   "district": "rangpur",
+   "name_bn": "হারাগাছ",
+   "name_en": "Haragach",
+   "lat": 25.7583,
+   "lng": 89.2333,
+   "source": "OSM match was a bus stand in the city; Rangpur Sadar point"
+  },
+  {
+   "district": "rangpur",
+   "name_bn": "হাজিরহাট",
+   "name_en": "Hajirhat",
+   "lat": 25.79789,
+   "lng": 89.19624,
+   "source": "OSM node/13094305388 (Hajirhat)"
+  }
+ ],
+ "aliases": {
+  "chattogram:bayazid": [
+   "বায়েজিদ বোস্তামী",
+   "বায়েজীদ বোস্তামী",
+   "বায়েজিদ"
+  ]
+ }
+}
