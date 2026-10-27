@@ -257,11 +257,10 @@ def test_api_reads_and_guards_trigger():
     assert api.get("/api/incidents", params={"limit": -1}).status_code == 422
     assert api.get("/api/runs", params={"limit": 0}).status_code == 422
     assert api.get("/api/stats", params={"end": "0001-01-01", "days": 30}).status_code == 400
-    # "collect now": blocked without the UI header, blocked cross-origin, allowed same-origin, then 409
+    # "collect now" is an admin action: the old dashboard header alone is not enough
     assert api.post("/api/scrape").status_code == 403
-    assert api.post("/api/scrape", headers={"x-dcm-ui": "1", "origin": "http://hostile.example"}).status_code == 403
-    assert api.post("/api/scrape", headers={"x-dcm-ui": "1", "origin": "http://testserver"}).status_code == 202
-    assert api.post("/api/scrape", headers={"x-dcm-ui": "1"}).status_code == 409
+    assert api.post("/api/scrape", headers={"x-dcm-ui": "1"}).status_code == 403
+    assert api.post("/api/scrape", headers={"x-dcm-ui": "1", "origin": "http://testserver"}).status_code == 403
 
 
 def test_review_flow(monkeypatch):
@@ -669,3 +668,34 @@ def test_page_without_article_text_is_examined_not_missing():
     assert r["errors"] == 0 and r["queued"] == 0
     row = q1("SELECT status, note FROM articles")
     assert row["status"] == "skipped" and row["note"].startswith("no article text")
+
+
+
+# ---- safety fixes (council, 27 Oct) ---------------------------------------------------------------
+def test_rejected_backfill_changes_nothing(monkeypatch):
+    import dataclasses
+    import app.api as api_mod
+    monkeypatch.setattr(api_mod, "settings", dataclasses.replace(api_mod.settings, admin_token="t" * 24))
+    a1, = _seed_articles(1)
+    with db.tx() as c:
+        c.execute("""UPDATE articles SET status = 'skipped', note = 'outside the window', published_at = now()
+                     WHERE id = %s""", (a1,))
+        c.execute("INSERT INTO run_requests (source, days_back) VALUES ('cli', 1)")       # one already active
+    api = TestClient(api_mod.create_app())
+    r = api.post("/api/scrape", params={"days_back": 29}, headers={"x-admin-token": "t" * 24})
+    assert r.status_code == 409
+    assert q1("SELECT status FROM articles WHERE id = %s", a1)["status"] == "skipped"       # nothing re-queued
+
+
+def test_late_answer_after_lost_lease_is_not_saved():
+    collect("test", client=FakeSite())
+
+    class Slow(FakeClassifier):
+        def classify_with_meta(self, article):
+            with db.tx() as c:                                   # meanwhile the lease ran out and was re-claimed
+                c.execute("UPDATE jobs SET generation = generation + 1, owner = 'other'")
+            return super().classify_with_meta(article)
+    w = Worker(classifier=Slow(), use_geocoder=False)
+    job = w.claim()
+    assert w.process(job) == "lost"
+    assert q1("SELECT count(*) n FROM analyses")["n"] == 0 and q1("SELECT count(*) n FROM incidents")["n"] == 0

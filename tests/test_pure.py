@@ -466,3 +466,19 @@ def test_victims_home_is_not_the_crime_location():
                 evidence="গত রাতে রাজধানীর ইসিবি চত্বরে একটি প্রকল্পে হামলা হয়")
     assert build_rows(art3, ArticleAnalysis(is_crime_report=True, in_dhaka=True, incidents=[inc3], note=""),
                       g, {}, "auto")[0]["published"]
+
+
+
+def test_crime_in_another_district_with_a_dhaka_home_in_the_same_sentence():
+    g = load()
+    art = {**ARTICLE, "title": "ছিনতাই", "body": "চট্টগ্রামে ছিনতাইয়ের শিকার মিরপুরের বাসিন্দা এক ব্যবসায়ী। পরে মামলা হয়।"}
+    inc = _inc(place_id="mirpur", location_text="মিরপুরের",
+               evidence="চট্টগ্রামে ছিনতাইয়ের শিকার মিরপুরের বাসিন্দা এক ব্যবসায়ী")
+    assert not build_rows(art, ArticleAnalysis(is_crime_report=True, in_dhaka=True, incidents=[inc], note=""),
+                          g, {}, "auto")[0]["published"]
+    # someone *from* another district, crime in Dhaka: still published
+    art2 = {**ARTICLE, "title": "ছুরিকাঘাত", "body": "মাদারীপুরের এক যুবককে মিরপুর ১১ নম্বর মেট্রোরেল স্টেশনের নিচে ছুরিকাঘাত করা হয়েছে।"}
+    inc2 = _inc(category="assault", place_id="mirpur11", location_text="মিরপুর ১১ নম্বর মেট্রোরেল স্টেশনের নিচে",
+                evidence="মাদারীপুরের এক যুবককে মিরপুর ১১ নম্বর মেট্রোরেল স্টেশনের নিচে ছুরিকাঘাত করা হয়েছে")
+    assert build_rows(art2, ArticleAnalysis(is_crime_report=True, in_dhaka=True, incidents=[inc2], note=""),
+                      g, {}, "auto")[0]["published"]

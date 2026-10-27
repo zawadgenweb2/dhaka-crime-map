@@ -6,7 +6,6 @@ import json
 import logging
 import time
 from datetime import date, datetime, timedelta, timezone
-from urllib.parse import urlsplit
 
 import psycopg
 from fastapi import FastAPI, HTTPException, Query, Request, Response, Security
@@ -79,16 +78,11 @@ def _filters(start: str | None, end: str | None, days: int | None, categories: s
 
 
 def _authorize_trigger(request: Request, token: str | None = None) -> None:
+    """Collection is an admin action: the admin token is required (no header-only shortcut)."""
     token = token or request.headers.get("x-admin-token", "")
     if settings.admin_token and token and hmac.compare_digest(token, settings.admin_token):
         return
-    if settings.allow_ui_trigger and request.headers.get(UI_HEADER) == "1":
-        # A custom header forces a CORS preflight for cross-site requests, which this API never approves.
-        # Origin, when sent, must also match the host the dashboard was loaded from.
-        origin = request.headers.get("origin")
-        if origin is None or urlsplit(origin).netloc == request.headers.get("host"):
-            return
-    raise HTTPException(403, "not allowed: use the dashboard button or X-Admin-Token")
+    raise HTTPException(403, "admin token required")
 
 
 def _iso(v):
@@ -297,15 +291,15 @@ def create_app() -> FastAPI:
         _authorize_trigger(request, token)
         if max_articles is None and days_back > 1:
             max_articles = 5000      # a backfill must not stop at the daily cap
-        if days_back > 1:            # articles set aside earlier in this window go back to Gemma too
-            from .reprocess import requeue_set_aside
-            requeue_set_aside(days_back)
         try:
             with db.tx() as c:
                 rid = c.execute("""INSERT INTO run_requests (source, days_back, max_articles) VALUES (%s, %s, %s)
-                                   RETURNING id""", ("token" if token else "ui", days_back, max_articles)).fetchone()["id"]
+                                   RETURNING id""", ("token", days_back, max_articles)).fetchone()["id"]
         except psycopg.errors.UniqueViolation:  # one active request at a time (migration 004)
             raise HTTPException(409, "a collection is already queued or running")
+        if days_back > 1:            # only once the request is accepted: set-aside articles go back to Gemma
+            from .reprocess import requeue_set_aside
+            requeue_set_aside(days_back)
         return {"queued": True, "request_id": rid}
 
     # ---- human review (always requires ADMIN_TOKEN) -------------------------------------------

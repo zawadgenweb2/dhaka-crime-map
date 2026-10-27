@@ -78,10 +78,12 @@ class Worker:
 
     def _release(self, job: dict, state: str, error: str | None = None, delay_minutes: float = 0):
         with db.tx() as c:
-            c.execute("""UPDATE jobs SET state = %s, owner = NULL, last_error = %s, updated_at = now(),
-                         available_at = now() + make_interval(secs => %s)
-                         WHERE id = %s AND generation = %s""",
-                      (state, (error or "")[:500] or None, delay_minutes * 60, job["id"], job["generation"]))
+            n = c.execute("""UPDATE jobs SET state = %s, owner = NULL, last_error = %s, updated_at = now(),
+                             available_at = now() + make_interval(secs => %s)
+                             WHERE id = %s AND generation = %s AND state = 'running'""",
+                          (state, (error or "")[:500] or None, delay_minutes * 60, job["id"], job["generation"])).rowcount
+            if not n:          # we lost the job (lease expired, someone else owns it): touch nothing else
+                return
             if state in ("failed", "uncertain"):
                 c.execute("UPDATE articles SET status = %s, error = %s WHERE id = %s",
                           (state, (error or "")[:500], job["article_id"]))
@@ -135,6 +137,11 @@ class Worker:
                 return "failed"
             with db.tx() as c:
                 c.execute("UPDATE llm_calls SET outcome = 'ok', finished_at = now() WHERE id = %s", (call_id,))
+                still_ours = c.execute("""SELECT 1 FROM jobs WHERE id = %s AND generation = %s AND state = 'running'
+                                          AND owner = %s AND lease_until > now() FOR UPDATE""",
+                                       (job["id"], job["generation"], self.owner)).fetchone()
+                if not still_ours:     # a late answer after our lease expired: never saved, never published
+                    return "lost"
                 analysis_id = c.execute(
                     """INSERT INTO analyses (article_id, job_id, llm_call_id, backend, model, result, input_tokens,
                          cache_read_tokens, cache_write_tokens, output_tokens, cost_usd)
@@ -223,14 +230,18 @@ class Worker:
         return counts
 
     def _loop(self):
+        previews_in_a_row = 0
         while not self.stop.is_set():
             if time.monotonic() < self.paused_until:
                 self.stop.wait(15)
                 continue
             try:
-                if self.run_preview():      # someone is waiting in Swagger: answer first
+                # someone waiting on "try an article" goes first, but never more than 2 in a row while jobs wait
+                if previews_in_a_row < 2 and self.run_preview():
+                    previews_in_a_row += 1
                     continue
-                if self.run_once() is None:
+                previews_in_a_row = 0
+                if self.run_once() is None and not self.run_preview():
                     self.stop.wait(2)
             except Exception:
                 log.exception("worker iteration failed")

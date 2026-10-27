@@ -33,6 +33,14 @@ def _other_district(word: str) -> bool:
                for suffix in _GENITIVE + sorted(SUFFIXES, key=len, reverse=True))
 
 
+_LOCATIVE = [normalize(x) for x in ("ে", "য়", "য়ে", "তে", "এ")]
+
+
+def _other_district_locative(word: str) -> bool:
+    """Another district in the locative case: চট্টগ্রামে, ফেনীতে, কুমিল্লায় (= "in X")."""
+    return any(word.endswith(suf) and word[: -len(suf)] in OTHER_DISTRICTS for suf in _LOCATIVE)
+
+
 # Words that can sit between a district and a place: "চট্টগ্রাম নগরের চকবাজারে", "কুষ্টিয়া সদর উপজেলার মিরপুরে"
 _CONNECTORS = {normalize(x) for x in ("নগরের", "নগর", "নগরীর", "মহানগরের", "মহানগর", "শহরের", "শহর", "জেলার", "জেলা",
                                       "উপজেলার", "উপজেলা", "পৌরসভার", "পৌর", "সদরের", "সদর", "থানার", "এলাকার")}
@@ -124,9 +132,17 @@ class Gazetteer:
         n = normalize(text or "")
         for phrase in REFERRAL_PHRASES:
             n = n.replace(phrase, " ")
-        if not any(_other_district(w) for w in n.split(" ")):
+        words = n.split(" ")
+        if not any(_other_district(w) for w in words):
             return False
-        return not (self.grounded_places(n) or any(normalize(t) in n for t in DHAKA_TERMS))
+        if any(normalize(t) in n for t in DHAKA_TERMS):
+            return False
+        # "চট্টগ্রামে ছিনতাই, বাড়ি মিরপুরে": a crime *in* another district (locative form) is not rescued by a Dhaka
+        # place in the same sentence (often the victim's home); a genitive ("মাদারীপুরের যুবক") only says where
+        # someone is from, so a Dhaka place still decides.
+        if any(_other_district_locative(w) for w in words):
+            return True
+        return not self.grounded_places(n)
 
     def lead_in_other_district(self, body: str) -> bool:
         """News leads say where it happened: "চট্টগ্রাম নগরের ..." vs "রাজধানীর মিরপুরে ..."."""
