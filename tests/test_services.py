@@ -826,11 +826,8 @@ def test_coverage_needs_every_paper_and_lanes_record_their_paper(monkeypatch):
 def test_fresh_news_is_read_before_a_backfill():
     collect("test", days_back=29, client=FakeSite(urls=(URL,)))           # backfill job
     collect("schedule", client=FakeSite(urls=(URL + "b",)))              # scheduled run, queued later
-    order = []
-
-    class Rec(FakeClassifier):
-        def classify_with_meta(self, article):
-            order.append(article["url"])
-            return super().classify_with_meta(article)
-    Worker(classifier=Rec(), use_geocoder=False).drain()
+    Worker(classifier=FakeClassifier(), use_geocoder=False).drain()
+    with db.connect() as c:
+        order = [r["url"] for r in c.execute("""SELECT a.url FROM llm_calls l JOIN jobs j ON j.id = l.job_id
+                                                JOIN articles a ON a.id = j.article_id ORDER BY l.id""")]
     assert order == [URL + "b", URL]
