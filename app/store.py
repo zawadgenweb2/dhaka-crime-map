@@ -73,8 +73,36 @@ def evidence_ok(evidence: str | None, title: str, body: str) -> bool:
 
 
 # ---- duplicate grouping ------------------------------------------------------------------------
+# Words too common in crime reports to tell two events apart
+_COMMON = {normalize(w) for w in (
+    "করা হয় হয়েছে হয়েছেন করে করেন এলাকায় এলাকার থানার থানায় পুলিশ পুলিশের জানান বলেন জানিয়েছেন একটি নামে এক "
+    "গ্রেপ্তার আটক হত্যা খুন নিহত আহত মামলা অভিযোগ গতকাল সোমবার মঙ্গলবার বুধবার বৃহস্পতিবার শুক্রবার শনিবার "
+    "রবিবার রাতে সকালে দুপুরে বিকেলে সন্ধ্যায় তাঁকে তাকে তিনি তাঁর তার তাদের এ ঘটনায় ঘটনার পরে পর থেকে দিয়ে "
+    "সঙ্গে সাথে জন্য কাছে মধ্যে বয়স বছর ওসি উপজেলার উপজেলায় জেলার নগরের").split()}
+
+
+def _tokens(text: str | None) -> set[str]:
+    words = (w.strip("()[]{}.,;:!?'\"‘’“”-–—।") for w in normalize(text or "").split())
+    return {w for w in words if len(w) >= 3 and w not in _COMMON} | {w for w in words if w.isdigit()}
+
+
+def _corroboration(a: dict, b: dict) -> int:
+    """Event-specific facts two reports share: the same explicit incident date, the same victim count, and
+    names/ages/amounts (three or more distinctive words in common between their quotes)."""
+    n = 0
+    if a.get("incident_date") and a.get("incident_date") == b.get("incident_date"):
+        n += 1
+    if (a.get("victims") or 0) > 0 and a.get("victims") == b.get("victims"):
+        n += 1
+    if len(_tokens(a.get("evidence")) & _tokens(b.get("evidence"))) >= 3:
+        n += 1
+    return n
+
+
 def _same_event(a: dict, b: dict) -> bool:
-    """Two reports describe one event: same category and specific place, dates ±1 day, compatible time."""
+    """Two reports (any papers) describe one event: same category and place, dates ±1 day, compatible time, AND
+    corroborated: one shared event-specific fact for a neighbourhood/spot, two for a whole thana or upazila.
+    A wrong merge hides a real crime from the public map, so uncorroborated look-alikes stay separate."""
     if a["article_id"] == b["article_id"]:
         return False
     if a["category"] != b["category"] or not a["place_id"] or a["place_id"] != b["place_id"]:
@@ -82,7 +110,10 @@ def _same_event(a: dict, b: dict) -> bool:
     if not a["event_date"] or not b["event_date"] or abs((a["event_date"] - b["event_date"]).days) > 1:
         return False
     ta, tb = a["time_of_day"] or "unknown", b["time_of_day"] or "unknown"
-    return ta == tb or "unknown" in (ta, tb)
+    if not (ta == tb or "unknown" in (ta, tb)):
+        return False
+    specific = bool(a.get("thana_id")) and a["place_id"] != a.get("thana_id")
+    return _corroboration(a, b) >= (1 if specific else 2)
 
 
 def rebuild_groups(conn, keys: set[tuple]) -> int:
@@ -95,7 +126,8 @@ def rebuild_groups(conn, keys: set[tuple]) -> int:
         conn.execute("""UPDATE incidents SET duplicate_of = NULL WHERE NOT published AND category = %s
                         AND place_id = %s AND duplicate_of IS NOT NULL""", (category, place_id))
         rows = conn.execute(
-            """SELECT id, article_id, category, place_id, event_date, time_of_day, duplicate_of FROM incidents
+            """SELECT id, article_id, category, place_id, thana_id, event_date, incident_date, time_of_day, victims,
+                      evidence, duplicate_of FROM incidents
                WHERE published AND category = %s AND place_id = %s ORDER BY event_date, id""",
             (category, place_id)).fetchall()
         canon: list[dict] = []

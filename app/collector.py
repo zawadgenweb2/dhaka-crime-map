@@ -34,7 +34,8 @@ SLOT_RETRY_MINUTES = 10
 
 def discover(client, days_back: int, progress: Callable[[str], None],
              by_day: dict | None = None) -> list[Candidate]:
-    """News sitemap (~48 h, with titles) plus one daily sitemap per day. `by_day` receives each day's full list
+    """News sitemap (~48 h, with titles) plus the archive: one daily sitemap per day, or every monthly sitemap the
+    window touches (read whole; such papers have no per-day coverage). `by_day` receives each day's full list
     (for coverage); a URL in both keeps the news-sitemap entry, which has the title."""
     found: dict[str, Candidate] = {}
     try:
@@ -43,7 +44,17 @@ def discover(client, days_back: int, progress: Callable[[str], None],
     except Exception as e:  # daily sitemaps still give coverage
         progress(f"news sitemap failed: {e}")
     today = datetime.now(DHAKA_TZ).date()
-    for i in range(days_back + 1):
+    monthly = getattr(getattr(client, "source", None), "archive", None) == "monthly"
+    start = today - timedelta(days=days_back)
+    if monthly:
+        month = start.replace(day=1)
+        while month <= today:
+            for c in client.monthly_sitemap(month):
+                # lastmod >= publication, so an entry last edited before the window was published before it
+                if c.published_at is None or c.published_at.astimezone(DHAKA_TZ).date() >= start:
+                    found.setdefault(c.url, c)
+            month = (month + timedelta(days=32)).replace(day=1)
+    for i in range(days_back + 1) if not monthly else ():
         day = today - timedelta(days=i)
         items = client.daily_sitemap(day)
         if by_day is not None:
@@ -125,7 +136,7 @@ def collect(trigger: str, days_back: int = 1, client=None, gaz: Gazetteer | None
 
     with ThreadPoolExecutor(max_workers=max(1, len(lanes)), thread_name_prefix="lane") as pool:
         errors = [e for e in pool.map(lambda kc: lane(*kc), lanes) if e]
-    status = "failed" if errors and len(errors) == len(lanes) else "ok"
+    status = "failed" if errors else "ok"      # a slot with a failed paper is retried; done papers' URLs are skipped
     message = (f"{stats['fetched']} fetched, {stats['queued']} queued for classification"
                + (f"; failed: {'; '.join(errors)}" if errors else ""))
     with db.tx() as c:

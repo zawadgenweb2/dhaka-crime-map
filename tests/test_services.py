@@ -328,16 +328,16 @@ def test_review_flow(monkeypatch):
 
 
 def _seed_incident(article_id, day, place="mirpur11", category="murder", published=True, lat=23.81, geocoded=False,
-                   backend="gemma"):
+                   backend="gemma", evidence="মিরপুর ১১ নম্বরে রাকিব হাসান (২৫) নামে যুবক খুন"):
     """An incident with a saved analysis of the given backend (only 'gemma' rows are ever served)."""
     with db.tx() as c:
         aid = c.execute("""INSERT INTO analyses (article_id, backend, model, result) VALUES (%s, %s, 'fake', '{}')
                            RETURNING id""", (article_id, backend)).fetchone()["id"]
         return c.execute("""INSERT INTO incidents (article_id, analysis_id, category, place_id, thana_id, lat, lng,
-                              event_date, time_of_day, published, review_status, geocoded, evidence_ok)
-                            VALUES (%s,%s,%s,%s,'pallabi',%s,90.36,%s,'night',%s,%s,%s,true) RETURNING id""",
+                              event_date, time_of_day, published, review_status, geocoded, evidence_ok, evidence)
+                            VALUES (%s,%s,%s,%s,'pallabi',%s,90.36,%s,'night',%s,%s,%s,true,%s) RETURNING id""",
                          (article_id, aid, category, place, lat, day, published, "auto" if published else "pending",
-                          geocoded)).fetchone()["id"]
+                          geocoded, evidence)).fetchone()["id"]
 
 
 def _seed_articles(n):

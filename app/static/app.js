@@ -11,7 +11,7 @@
       incidents: "ঘটনা", victims: "হতাহত", topArea: "শীর্ষ এলাকা", topCrime: "প্রধান অপরাধ",
       updated: "হালনাগাদ", topTime: "বেশি ঘটনার সময়", read: "পড়ুন:", moreReports: "আরও {n}টি প্রতিবেদন", noData: "এই ফিল্টারে কোনো ঘটনা নেই",
       exact: "নির্দিষ্ট স্থান", neighbourhood: "এলাকা", thana: "থানা পর্যায়", city: "স্থান অস্পষ্ট",
-      unlocated: "{n}টি ঘটনার স্থান অস্পষ্ট, মানচিত্রে নেই", fewer: "কম", more: "বেশি", density: "ঘটনার ঘনত্ব",
+      unlocated: "{n}টি ঘটনার স্থান অস্পষ্ট, মানচিত্রে নেই", fewer: "কম", more: "বেশি", density: "ঘটনার ঘনত্ব", mixNote: "বৃত্ত: মানচিত্রে থাকা ঘটনার এলাকাভিত্তিক ধরন (জুম করুন)", areaTotal: "{n}টি ঘটনা", crimeMix: "অপরাধের ধরন",
       published: "প্রকাশ", killedInjured: "হতাহত {n}", noKey: "Google Maps কী সেট করা নেই; বিকল্প মানচিত্র দেখানো হচ্ছে।",
       keyFailed: "Google Maps কী কাজ করছে না; বিকল্প মানচিত্র দেখানো হচ্ছে।", failed: "শুরু করা যায়নি", days: "দিন", year: "বছর",
       sourceNote: "সূত্র: সংবাদপত্রের প্রতিবেদন · স্বয়ংক্রিয় বিশ্লেষণ, ভুল থাকতে পারে · প্রতিবেদিত ঘটনা, সব অপরাধ নয়", truncated: "অনেক ঘটনা; প্রথম {n}টি দেখানো হচ্ছে",
@@ -26,7 +26,7 @@
       updated: "Updated", topTime: "Most common time", read: "Read on", moreReports: "{n} more reports", noData: "No incidents match these filters",
       exact: "Exact spot", neighbourhood: "Neighbourhood", thana: "Thana level", city: "Location unclear",
       unlocated: "{n} incidents have no clear location and are not on the map", fewer: "fewer", more: "more",
-      density: "Incident density", published: "Published", killedInjured: "{n} killed/injured",
+      density: "Incident density", mixNote: "Circles: crime mix of mapped incidents by area (zoom in)", areaTotal: "{n} incidents", crimeMix: "Crime mix", published: "Published", killedInjured: "{n} killed/injured",
       noKey: "No Google Maps key configured; showing the fallback map.",
       keyFailed: "Google Maps key was rejected; showing the fallback map.", failed: "Could not start", days: "days", year: "year",
       sourceNote: "Source: newspaper reports · automatically extracted, may contain errors · reported incidents, not all crime", truncated: "Many incidents; showing the first {n}",
@@ -58,7 +58,7 @@
 
   const state = {
     lang: store.get("dcm.lang", "bn"), theme: store.get("dcm.theme", ""), days: 7, start: "", end: "",
-    cats: new Set(CAT_ORDER), district: "", thana: "", mode: "heat", meta: null, incidents: [], stats: null, selected: null,
+    cats: new Set(CAT_ORDER), district: "", thana: "", mode: "heat", meta: null, incidents: [], stats: null, selected: null, area: null,
   };
   let engine = null;
 
@@ -97,6 +97,58 @@
   // Blobs grow as you zoom in (half as fast as the map), so hotspots stay visible instead of shrinking to dots.
   const heatRadius = (zoom) => Math.max(60, Math.min(180, 80 * 2 ** ((zoom - 11.5) * 0.4)));
 
+  // One warm ramp = how much crime. With exactly one crime type chosen, the ramp takes that type's colour.
+  function heatRange() {
+    if (state.cats.size !== 1) return HEAT;
+    const c = rgb(cssColor([...state.cats][0]));
+    const toWhite = (f, a) => [...c.map((v) => Math.round(255 + (v - 255) * f)), a];
+    const shade = (f, a) => [...c.map((v) => Math.round(v * f)), a];
+    return [toWhite(0.15, 120), toWhite(0.35, 155), toWhite(0.6, 185), toWhite(0.85, 210), shade(1, 228), shade(0.8, 240), shade(0.6, 250)];
+  }
+  const rampCss = () => `linear-gradient(90deg, ${heatRange().map(([r, g, b, a]) => `rgba(${r},${g},${b},${(a / 255).toFixed(2)})`).join(", ")})`;
+
+  // Crime mix per area (thana, else place): position = mean of its incidents, counts per type, biggest first.
+  function areaGroups(pts) {
+    const by = new Map();
+    for (const p of pts) {
+      const k = p.thana_id || p.place_id;
+      if (!k) continue;
+      const g = by.get(k) || { id: k, name_bn: p.thana_bn || p.place_bn, name_en: p.thana_en || p.place_en, lat: 0, lng: 0, total: 0, mix: {} };
+      g.lat += p.lat; g.lng += p.lng; g.total += 1; g.mix[p.category] = (g.mix[p.category] || 0) + 1;
+      by.set(k, g);
+    }
+    const thanaPt = new Map(state.meta.thanas.map((x) => [x.id, x]));
+    return [...by.values()].map((g) => {
+      const tp = thanaPt.get(g.id);                 // the area's own point, so the donut doesn't drift with its incidents
+      return { ...g, lat: tp && tp.lat != null ? tp.lat : g.lat / g.total, lng: tp && tp.lng != null ? tp.lng : g.lng / g.total,
+      slices: Object.entries(g.mix).sort((a, b) => b[1] - a[1] || CAT_ORDER.indexOf(a[0]) - CAT_ORDER.indexOf(b[0])) };
+    });
+  }
+  // A donut drawn as SVG: one stroke segment per crime type, the count in the middle. Icons are cached by mix.
+  const ICONS = new Map();
+  function donutIcon(g) {
+    const id = `${g.slices.map(([k, n]) => k + n).join("-")}-${isDark() ? "d" : "l"}`;
+    if (ICONS.has(id)) return ICONS.get(id);
+    if (ICONS.size > 500) ICONS.clear();
+    const R = 22, C = 2 * Math.PI * R; let off = 0;
+    const segs = g.slices.map(([k, n]) => {
+      const len = (n / g.total) * C;
+      const seg = `<circle cx="32" cy="32" r="${R}" fill="none" stroke="${cssColor(k)}" stroke-width="14" stroke-dasharray="${len.toFixed(2)} ${(C - len).toFixed(2)}" stroke-dashoffset="${(-off).toFixed(2)}" transform="rotate(-90 32 32)"/>`;
+      off += len; return seg;
+    }).join("");
+    const bg = isDark() ? "#1a1a19" : "#ffffff", fg = isDark() ? "#f2f1ed" : "#1a1a19";
+    // thin gaps between slices so neighbouring types stay apart even when their colours are close
+    let a0 = 0; const gaps = g.slices.length < 2 ? "" : g.slices.map(([, n]) => {
+      const ang = (a0 / g.total) * 2 * Math.PI - Math.PI / 2; a0 += n;
+      return `<line x1="${(32 + 14 * Math.cos(ang)).toFixed(2)}" y1="${(32 + 14 * Math.sin(ang)).toFixed(2)}" x2="${(32 + 30 * Math.cos(ang)).toFixed(2)}" y2="${(32 + 30 * Math.sin(ang)).toFixed(2)}" stroke="${bg}" stroke-width="2"/>`;
+    }).join("");
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><circle cx="32" cy="32" r="31" fill="${bg}" stroke="${fg}" stroke-opacity=".35" stroke-width="1"/>${segs}${gaps}`
+      + `<text x="32" y="37" text-anchor="middle" font-family="sans-serif" font-size="15" font-weight="700" fill="${fg}">${g.total}</text></svg>`;
+    const icon = { id, url: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`, width: 64, height: 64 };
+    ICONS.set(id, icon); return icon;
+  }
+  const MIX_MIN_ZOOM = 11;
+
   function layers() {
     const pts = state.incidents.filter((i) => i.lat != null);
     const out = [];
@@ -106,8 +158,20 @@
       const w = heatWeights(pts);
       out.push(new deck.HeatmapLayer({
         id: "heat", data: pts, getPosition: (d) => [d.lng, d.lat], getWeight: (d) => w.get(d.id),
+        radiusPixels: heatRadius(zoom), intensity: 1, threshold: 0.05, colorRange: heatRange(), aggregation: "SUM",
         updateTriggers: { getWeight: pts.length },
-        radiusPixels: heatRadius(zoom), intensity: 1, threshold: 0.05, colorRange: HEAT, aggregation: "SUM",
+      }));
+    }
+    const zoomNow = engine?.zoom ? engine.zoom() : 12;
+    if (state.mode === "heat" && state.cats.size !== 1 && zoomNow >= MIX_MIN_ZOOM) {
+      // Crime mix on top of the heat; small areas only appear once zoomed further in, so donuts don't pile up.
+      const groups = areaGroups(pts).filter((g) => g.total >= (zoomNow >= 13 ? 1 : 2));
+      const selA = state.area?.id;
+      out.push(new deck.IconLayer({
+        id: "mix", data: groups, pickable: true, sizeUnits: "pixels", getPosition: (g) => [g.lng, g.lat],
+        getIcon: donutIcon, getSize: (g) => Math.min(56, 26 + 6 * Math.sqrt(g.total)) + (g.id === selA ? 6 : 0),
+        updateTriggers: { getIcon: isDark(), getSize: selA },
+        onHover: hoverArea, onClick: (info) => info.object && selectArea(info.object),
       }));
     }
     if (state.mode !== "heat") {
@@ -123,6 +187,21 @@
       }));
     }
     return out;
+  }
+
+  function hoverArea(info) {
+    const tip = $("#tooltip");
+    if (!info.object) { tip.hidden = true; return; }
+    const g = info.object;
+    fill(tip, el("div", {}, el("b", {}, state.lang === "bn" ? g.name_bn : g.name_en)),
+      el("div", { class: "meta" }, t("areaTotal", { n: g.total })),
+      ...g.slices.slice(0, 4).map(([k, n]) => el("div", { class: "tag" }, el("span", { class: "dot", style: `background:${cssColor(k)}` }), `${catLabel(k)} ${num(n)}`)));
+    tip.style.left = `${info.x + 12}px`; tip.style.top = `${info.y + 12}px`; tip.hidden = false;
+  }
+
+  function selectArea(g) {
+    state.selected = null; state.area = g;
+    renderSelected(); renderFeed(); engine?.render();
   }
 
   function hover(info) {
@@ -323,6 +402,7 @@
     state.totalCount = +(inc.headers.get("X-Total-Count") || inc.data.length);
     // keep the open card, but show the freshly fetched version of it
     if (state.selected) state.selected = inc.data.find((i) => i.id === state.selected.id) || null;
+    if (state.area) state.area = areaGroups(state.incidents.filter((i) => i.lat != null)).find((g) => g.id === state.area.id) || null;
     renderAll();
     if (state.truncated) note(t("truncated", { n: inc.data.length }));
     if (opts.fit) fitToResults(opts.fallback);
@@ -474,14 +554,15 @@
   function renderLegend() {
     const s = state.stats;
     fill($("#legend"), 
-      state.mode !== "points" ? el("div", {}, el("div", { class: "muted" }, t("density")), el("div", { class: "ramp" }), el("div", { class: "ends" }, el("span", {}, t("fewer")), el("span", {}, t("more")))) : null,
+      state.mode !== "points" ? el("div", {}, el("div", { class: "muted" }, state.cats.size === 1 ? `${t("density")} · ${catLabel([...state.cats][0])}` : t("density")), el("div", { class: "ramp", style: `background:${rampCss()}` }), el("div", { class: "ends" }, el("span", {}, t("fewer")), el("span", {}, t("more")))) : null,
+      state.mode === "heat" && state.cats.size !== 1 ? el("div", { class: "muted" }, t("mixNote")) : null,
       state.mode !== "heat" ? el("div", { class: "cats" }, ...CAT_ORDER.filter((k) => state.cats.has(k)).map((k) => el("span", {}, el("i", { style: `background:${cssColor(k)}` }), catLabel(k)))) : null,
       s.unlocated ? el("div", { class: "muted" }, t("unlocated", { n: s.unlocated })) : null,
       el("div", { class: "muted", style: "font-size:11px" }, t("sourceNote")));
   }
 
   function select(i, fly) {
-    state.selected = i;
+    state.selected = i; state.area = null;
     if (fly && i.lat != null) engine?.flyTo(i.lat, i.lng, 15);
     if (fly && matchMedia("(max-width: 760px)").matches) setTab("map");
     renderSelected(); renderFeed(); engine?.render();
@@ -489,6 +570,7 @@
 
   function renderSelected() {
     const card = $("#selected"); const i = state.selected;
+    if (!i && state.area) { renderAreaCard(card, state.area); return; }
     if (!i) { card.hidden = true; return; }
     const loc = [i.location_text, thanaName(i) && thanaName(i) !== placeName(i) ? thanaName(i) : null].filter(Boolean).join(" · ");
     fill(card, 
@@ -501,6 +583,20 @@
       el("div", { class: "meta" }, i.url ? el("a", { href: i.url, target: "_blank", rel: "noopener noreferrer" }, `${t("read")} ${publisher(i)} ↗`) : null,
         el("span", {}, `${t("published")}: ${fmtTime(i.published_at)}`),
         i.more_reports ? el("span", {}, t("moreReports", { n: i.more_reports })) : null));
+    card.hidden = false;
+  }
+
+  function renderAreaCard(card, g) {
+    const max = Math.max(1, ...g.slices.map(([, n]) => n));
+    fill(card,
+      el("button", { class: "close", type: "button", "aria-label": "Close", onclick: () => { state.area = null; renderSelected(); engine?.render(); } }, "×"),
+      el("h3", {}, state.lang === "bn" ? g.name_bn : g.name_en),
+      el("div", { class: "meta" }, el("span", {}, t("areaTotal", { n: g.total }))),
+      el("div", { class: "muted" }, t("crimeMix")),
+      el("ul", { class: "mix" }, ...g.slices.map(([k, n]) => el("li", {},
+        el("span", { class: "name" }, el("span", { class: "dot", style: `background:${cssColor(k)}` }), catLabel(k)),
+        el("span", { class: "bar" }, el("i", { style: `width:${(n / max) * 100}%;background:${cssColor(k)}` })),
+        el("span", { class: "cnt" }, num(n))))));
     card.hidden = false;
   }
 

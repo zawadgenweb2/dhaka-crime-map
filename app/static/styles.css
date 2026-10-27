@@ -241,3 +241,12 @@ input[type="date"], select {
 .zoomctl button:hover { background: var(--surface-2); }
 .zoomctl button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 #zoom-reset { font-size: 16px; }
+
+/* crime mix of one area (tap a donut) */
+.selected .mix { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 6px; }
+.selected .mix li { display: grid; grid-template-columns: minmax(90px, 40%) 1fr auto; align-items: center; gap: 8px; font-size: 13px; }
+.selected .mix .name { display: inline-flex; align-items: center; gap: 6px; }
+.selected .mix .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.selected .mix .bar { height: 8px; background: var(--line, rgba(127,127,127,.15)); border-radius: 4px; overflow: hidden; }
+.selected .mix .bar i { display: block; height: 100%; border-radius: 4px; }
+.selected .mix .cnt { font-variant-numeric: tabular-nums; color: var(--muted); }

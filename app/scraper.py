@@ -358,18 +358,20 @@ class NewsClient:
             raise
 
     def daily_sitemap(self, day: date) -> list[Candidate]:
-        """The archive entries for one day: the day's own file, or (monthly archives) the month's file read once and
-        filtered by lastmod. lastmod is never before publication, so a story published that day is listed on that day
-        or later; monthly days are approximate (the window check after download is exact)."""
+        """One day's archive entries (papers with daily archives; others return [])."""
         if self.source.archive == "daily":
             return self._archive(self.source.archive_path.format(day=day.isoformat()))
-        if self.source.archive == "monthly":
-            month = day.replace(day=1).isoformat()
-            if month not in self._months:
-                self._months[month] = self._archive(self.source.archive_path.format(month=month))
-            return [c for c in self._months[month]
-                    if c.published_at is None or c.published_at.astimezone(DHAKA_TZ).date() == day]
         return []
+
+    def monthly_sitemap(self, month: date) -> list[Candidate]:
+        """A whole month's archive, unfiltered. Its lastmod is the last edit, not publication, so it can't place an
+        entry on a day; the publication date read after download decides the window."""
+        if self.source.archive != "monthly":
+            return []
+        key = month.replace(day=1).isoformat()
+        if key not in self._months:
+            self._months[key] = self._archive(self.source.archive_path.format(month=key))
+        return self._months[key]
 
     def article(self, url: str) -> Article:
         return parse_article(self._get(url), url)

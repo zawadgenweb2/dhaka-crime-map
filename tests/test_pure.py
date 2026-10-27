@@ -1,5 +1,5 @@
 """Tests that need no database or network."""
-from datetime import date, datetime, timezone
+from datetime import timedelta, date, datetime, timezone
 from pathlib import Path
 
 import httpx
@@ -175,8 +175,9 @@ def test_evidence_must_be_in_article():
 
 
 def _row(**kw):
-    base = dict(article_id=1, category="murder", place_id="mirpur11", event_date=date(2026, 10, 24),
-                time_of_day="night")
+    base = dict(article_id=1, category="murder", place_id="mirpur11", thana_id="pallabi", event_date=date(2026, 10, 24),
+                incident_date=date(2026, 10, 24), time_of_day="night", victims=1,
+                evidence="মিরপুর ১১ নম্বরে রাকিব হাসান (২৫) নামে এক যুবককে কুপিয়ে হত্যা")
     base.update(kw)
     return base
 
@@ -189,6 +190,45 @@ def test_duplicate_rule_needs_same_specific_place_and_compatible_time():
     assert not _same_event(a, _row(article_id=2, time_of_day="morning"))
     assert not _same_event(a, _row(article_id=2, event_date=date(2026, 10, 26)))
     assert not _same_event(a, _row())                                            # same article
+
+
+def test_duplicates_need_corroboration_and_more_of_it_for_a_whole_thana():
+    other = dict(incident_date=None, victims=0, evidence="অন্য একটি ঘটনা ঘটে")
+    assert not _same_event(_row(), _row(article_id=2, **other))                  # look-alike, nothing shared
+    assert _same_event(_row(), _row(article_id=2, victims=0, evidence="x"))      # same explicit date: enough for a spot
+    thana = dict(place_id="pallabi", thana_id="pallabi")
+    assert not _same_event(_row(**thana), _row(article_id=2, **thana, victims=0, evidence="x"))  # one fact only
+    assert _same_event(_row(**thana), _row(article_id=2, **thana, evidence="পল্লবীতে রাকিব হাসান (২৫) খুন"))
+    sylhet = dict(place_id="sylhet:kanaighat", thana_id="sylhet:kanaighat")
+    assert not _same_event(_row(**sylhet, evidence="কানাইঘাটে চুরি"),
+                           _row(article_id=2, **sylhet, incident_date=None, evidence="কানাইঘাটে চুরি"))
+
+
+def test_monthly_archives_are_read_whole():
+    from app.collector import discover
+    from app.sources import SOURCES
+    today = datetime.now(DHAKA_TZ)
+    edited_later = Candidate("https://www.ittefaq.com.bd/1/হত্যা", "", "হত্যা", published_at=today)          # any lastmod
+    too_old = Candidate("https://www.ittefaq.com.bd/2/হত্যা", "", "হত্যা", published_at=today - timedelta(days=60))
+
+    class Monthly:
+        source = SOURCES["ittefaq"]
+        months = []
+
+        def news_sitemap(self):
+            return []
+
+        def monthly_sitemap(self, month):
+            self.months.append(month)
+            return [edited_later, too_old] if month.month == (today - timedelta(days=40)).month else []
+
+        def daily_sitemap(self, day):
+            raise AssertionError("monthly papers have no daily files")
+    m = Monthly()
+    by_day = {}
+    found = discover(m, 40, lambda _: None, by_day)
+    assert [c.url for c in found] == [edited_later.url] and by_day == {}
+    assert len(m.months) in (2, 3)                                               # every month the window touches
 
 
 def _inc(**kw):

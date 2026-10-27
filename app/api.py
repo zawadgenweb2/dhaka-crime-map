@@ -319,7 +319,7 @@ def create_app() -> FastAPI:
         end_d = min(end_d, today)                                    # no future days
         with db.connect() as c:
             # a day is read when every enabled paper with an archive has read its list for that day
-            papers = [x.key for x in enabled_sources() if x.archive]
+            papers = [x.key for x in enabled_sources() if x.archive == "daily"]      # monthly archives have no days
             read = {r["day"]: r["links"] for r in c.execute(
                 """SELECT day, sum(links)::int links FROM coverage_days WHERE day BETWEEN %s AND %s AND source = ANY(%s)
                    GROUP BY day HAVING count(DISTINCT source) = %s""", (start_d, end_d, papers, len(papers)))}
