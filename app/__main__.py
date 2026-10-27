@@ -14,6 +14,7 @@ Admin:
   reprocess-all --yes     re-run every collected article through Gemma (replaces all current incidents)
   requeue-set-aside [--days N]   queue set-aside articles published on or after today minus N days (30-day view: 29)
   rematerialize           re-apply the current checks to every saved Gemma answer (no model calls)
+  refilter-skipped [--days N]   re-check pre-filter-skipped articles (stored text) and queue those that now qualify
   rebuild-duplicates      regroup duplicate reports with the current rule (no model calls)
   compare --with gemma    run the model on the frozen reference articles and report agreement (offline only)
   stats                   counts in the terminal
@@ -43,6 +44,7 @@ def main(argv: list[str] | None = None) -> int:
     rp = sub.add_parser("reprocess-all"); rp.add_argument("--yes", action="store_true")
     rq = sub.add_parser("requeue-set-aside"); rq.add_argument("--days", type=int, default=29)
     sub.add_parser("rematerialize")
+    rf = sub.add_parser("refilter-skipped"); rf.add_argument("--days", type=int, default=29)
     sub.add_parser("rebuild-duplicates")
     cp = sub.add_parser("compare"); cp.add_argument("--with", dest="other", default="gemma")
     cp.add_argument("--limit", type=int, default=1000); cp.add_argument("--out", default=None)
@@ -99,6 +101,9 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         from .reprocess import reprocess_all
         print(reprocess_all())
+    elif args.cmd == "refilter-skipped":
+        from .reprocess import refilter_skipped
+        print(refilter_skipped(args.days))
     elif args.cmd == "rematerialize":
         from .reprocess import rematerialize
         print(rematerialize())
