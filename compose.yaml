@@ -71,6 +71,7 @@ services:
       SCRAPE_TIMES: ${SCRAPE_TIMES:-08:00,20:00}
       CLASSIFIER: ${CLASSIFIER:-gemma}
       ADMIN_TOKEN: ${ADMIN_TOKEN:-}
+      ADMIN_PASSWORD_MIN: ${ADMIN_PASSWORD_MIN:-12}
       PUBLISH_MODE: ${PUBLISH_MODE:-auto}
     ports:
       - "127.0.0.1:${ADMIN_PORT:-8101}:8101"   # loopback only
