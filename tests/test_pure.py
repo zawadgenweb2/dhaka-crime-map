@@ -700,3 +700,23 @@ def test_robots_refusal_is_a_refusal_not_allow_all():
     c = _client(lambda req: httpx.Response(403) if req.url.path == "/robots.txt" else httpx.Response(200, text="ok"))
     with pytest.raises(sc.PublisherRefused):
         c._get("https://www.prothomalo.com/bangladesh/crime/x")
+
+
+# ---- one category list (27 Oct) -----------------------------------------------------------------
+def test_category_list_drives_the_enum_visibility_and_hues():
+    import typing
+    from app import schema
+    assert set(typing.get_args(schema.Category)) == set(schema.CATEGORIES)          # the model's enum is generated
+    assert schema.TOTALS_ONLY == {"sexual_violence"}
+    assert all(schema.CATEGORIES[k]["hue"] is not None for k in schema.MAPPED)
+    assert len(schema.MAPPED) <= schema.MAX_MAPPED_COLOURS
+    assert schema.next_hue([schema.CATEGORIES[k]["hue"] for k in schema.MAPPED]) == 52   # council palette review
+    from app.public import AREA_TOTALS_ONLY
+    assert AREA_TOTALS_ONLY == schema.TOTALS_ONLY
+
+
+def test_a_category_without_visibility_is_refused(monkeypatch):
+    from app import schema
+    monkeypatch.setitem(schema.CATEGORIES, "arson", {"bn": "অগ্নিসংযোগ", "en": "Arson", "family": "property"})
+    with pytest.raises(AssertionError):
+        schema._check_categories()

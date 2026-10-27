@@ -37,7 +37,8 @@
       showing: "{n} of {total}", offline: "Server unreachable; showing the last data",
     },
   };
-  const CAT_ORDER = ["murder", "assault", "robbery", "theft", "sexual_violence", "kidnapping", "drugs_arms", "fraud_extortion", "other"];
+  // Replaced by the server's category list on start (loadConfig): order, labels, visibility and permanent hues.
+  let CAT_ORDER = ["murder", "assault", "robbery", "theft", "sexual_violence", "kidnapping", "drugs_arms", "fraud_extortion", "other"];
   const DHAKA = { lat: 23.785, lng: 90.395 };
 
   const $ = (s) => document.querySelector(s);
@@ -140,7 +141,7 @@
     const { Map } = await google.maps.importLibrary("maps");
     const opts = {
       center: startView().center, zoom: startView().zoom, minZoom: 6, maxZoom: 18, mapTypeControl: false,
-      streetViewControl: false, fullscreenControl: false, zoomControl: false,
+      streetViewControl: false, fullscreenControl: false, zoomControl: false, rotateControl: false, tilt: 0, heading: 0,
       clickableIcons: false, gestureHandling: "greedy", backgroundColor: "#f2f1ed",
     };
     if (mapId) { opts.mapId = mapId; opts.colorScheme = "LIGHT"; } else { opts.styles = MAP_STYLE_LIGHT; }
@@ -199,7 +200,8 @@
     let view = { longitude: sv.center.lng, latitude: sv.center.lat, zoom: sv.zoom, pitch: 0, bearing: 0, minZoom: 6, maxZoom: 18 };
     let heatZoom = Math.round(view.zoom * 2);
     const d = new deck.Deck({
-      parent: $("#map"), initialViewState: view, controller: true, layers: [],
+      parent: $("#map"), initialViewState: view, layers: [],
+      controller: { dragRotate: false, touchRotate: false, keyboard: { rotateSpeedX: 0, rotateSpeedY: 0 } },   // north-up only
       onViewStateChange: ({ viewState }) => {
         view = viewState;
         if (Math.round(view.zoom * 2) !== heatZoom) { heatZoom = Math.round(view.zoom * 2); engine?.render(); }
@@ -290,6 +292,7 @@
     if (state.cats.size && state.cats.size < CAT_ORDER.length) p.set("categories", [...state.cats].join(","));
     if (state.district) p.set("district", state.district);
     if (state.thana) p.set("thana", state.thana);
+    if (state.version?.data_version) p.set("v", state.version.data_version);    // never reuse a cached old answer
     return p.toString();
   }
 
@@ -313,7 +316,7 @@
     const seq = ++refreshSeq;
     const q = query();
     const qc = new URLSearchParams(q); qc.delete("categories");  // chip counts ignore the category filter itself
-    const [inc, stats, all] = await Promise.all([getJSON(`/api/incidents?${qc}`), getJSON(`/api/stats?${q}`),
+    const [inc, stats, all] = await Promise.all([getJSON(`/api/incidents?${qc}&limit=20000`), getJSON(`/api/stats?${q}`),
       qc.toString() === q ? null : getJSON(`/api/stats?${qc}`)]);
     if (seq !== refreshSeq) return false;
     // the heat gets every type (hidden ones masked) so its scale stays put when chips change; lists use the filter
@@ -335,6 +338,12 @@
   // Public page: labels once (/api/config), then only the small data-version check (/api/version).
   async function loadConfig() {
     state.meta = (await getJSON("/api/config")).data;
+    CAT_ORDER = state.meta.categories.map((c) => c.key);
+    state.cats = new Set(CAT_ORDER);
+    const mapped = state.meta.categories.filter((c) => c.visibility === "mapped" && c.hue != null);
+    HeatPaint.configure(mapped.map((c) => ({ key: c.key, hue: c.hue })));
+    // chips, dots and legend take the heat's own colour for each mapped type
+    for (const c of mapped) document.documentElement.style.setProperty(`--c-${c.key}`, HeatPaint.swatch(c.key));
   }
 
   async function loadVersion() {
@@ -463,8 +472,8 @@
 
   function renderFeed() {
     const list = state.incidents.slice(0, 400);
-    $("#feed-count").textContent = list.length < (state.totalCount || state.incidents.length)
-      ? t("showing", { n: list.length, total: state.totalCount || state.incidents.length }) : num(state.incidents.length);
+    $("#feed-count").textContent = list.length < state.incidents.length
+      ? t("showing", { n: list.length, total: state.incidents.length }) : num(state.incidents.length);
     fill($("#feed"), ...(list.length ? list.map((i) => el("li", {}, el("button", {
       type: "button", class: `item${state.selected?.id === i.id ? " on" : ""}`, onclick: () => select(i, true),
     },
@@ -476,6 +485,7 @@
 
   function renderLegend() {
     const s = state.stats;
+    if (!s) return;                                         // a mode click before the first data arrives
     const mapped = CAT_ORDER.filter((k) => state.cats.has(k) && !(state.meta?.area_totals_only || []).includes(k));
     const totalsOnly = CAT_ORDER.filter((k) => state.cats.has(k) && (state.meta?.area_totals_only || []).includes(k));
     fill($("#legend"),
@@ -527,30 +537,42 @@
   }
 
   /* ---------- multi-colour heat (HeatPaint on its own canvas over the map) ---------- */
-  let paintTimer = 0, paintRaf = 0;
-  // The painted image is shown by the map itself (a BitmapLayer over the view's bounds), under the incident dots.
+  let paintReq = null, paintRaf = 0, settleTimer = 0;
   function paintHeat(moving) {
     if (!engine?.view) return;
-    if (state.mode === "points") { HeatPaint.clear(); if (state.heat) { state.heat = null; engine.render(); } return; }
-    if (paintRaf) return;
-    paintRaf = requestAnimationFrame(() => {
-      paintRaf = 0;
-      const v = engine.view(), box = $("#map"); if (!v) return;
-      const w = box.clientWidth, h = box.clientHeight;
-      HeatPaint.setHidden(CAT_ORDER.filter((k) => !state.cats.has(k)));
-      const image = HeatPaint.paint(w, h, v.zoom, v.project, moving);
-      if (!image) { state.heat = null; engine.render(); return; }
-      // the image covers whole grid cells, so its bottom-right corner can sit slightly past the view
-      const [west, north] = v.unproject(0, 0), [east, south] = v.unproject(image.width, image.height);
-      state.heat = { image, bounds: [west, south, east, north] };
-      engine.render();
-    });
-    clearTimeout(paintTimer);
-    if (moving) paintTimer = setTimeout(() => paintHeat(false), 160);       // full detail once the map settles
+    if (state.mode === "points") {
+      cancelAnimationFrame(paintRaf); paintRaf = 0; paintReq = null; clearTimeout(settleTimer);
+      HeatPaint.clear(); if (state.heat) { state.heat = null; engine.render(); }
+      return;
+    }
+    paintReq = { moving: Boolean(moving) };                 // the latest request wins
+    if (!paintRaf) paintRaf = requestAnimationFrame(doPaint);
+    clearTimeout(settleTimer);
+    if (moving) settleTimer = setTimeout(() => paintHeat(false), 160);   // full detail once the map settles
   }
+  function doPaint() {
+    paintRaf = 0;
+    const req = paintReq; paintReq = null;
+    if (!req || state.mode === "points" || !engine?.view) return;
+    const v = engine.view(), box = $("#map"); if (!v) return;
+    const w = box.clientWidth, h = box.clientHeight;
+    if (!w || !h) return;                                   // map hidden (phone tab): repainted when shown
+    HeatPaint.setHidden(CAT_ORDER.filter((k) => !state.cats.has(k)));
+    const image = HeatPaint.paint(w, h, v.zoom, v.project, req.moving);
+    if (!image) { state.heat = null; engine.render(); return; }
+    // the image covers whole grid cells, so its bottom-right corner can sit slightly past the view
+    const [west, north] = v.unproject(0, 0), [east, south] = v.unproject(image.width, image.height);
+    state.heat = { image, bounds: [west, south, east, north] };
+    engine.render();
+  }
+  const mercY = (lat) => { const s = Math.sin(lat * Math.PI / 180); return 0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI); };
+
   function inspectHeat(x, y) {
-    if (state.mode === "points") return;
-    const rows = HeatPaint.sample(x, y);
+    if (state.mode === "points" || !state.heat || !engine?.view) return;
+    const v = engine.view(); if (!v) return;
+    const [lng, lat] = v.unproject(x, y), [w0, s0, e0, n0] = state.heat.bounds;
+    const fx = (lng - w0) / (e0 - w0), fy = (mercY(lat) - mercY(n0)) / (mercY(s0) - mercY(n0));
+    const rows = HeatPaint.sample(fx * state.heat.image.width, fy * state.heat.image.height);
     state.selected = null; state.mix = rows && rows.length ? rows : null;
     renderSelected(); renderFeed(); engine?.render();
   }
@@ -558,6 +580,7 @@
   function setTab(tab) {
     document.body.dataset.tab = tab;
     document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("on", b.dataset.tab === tab));
+    if (tab === "map") requestAnimationFrame(() => { engine?.render(); paintHeat(); });
   }
 
   /* ---------- wiring ---------- */

@@ -11,11 +11,14 @@
    Exposed as window.HeatPaint. */
 (() => {
   "use strict";
-  const HUES = { murder: 19, assault: 86, robbery: 305, theft: 132, kidnapping: 208, drugs_arms: 169,
-                 fraud_extortion: 266, other: 342 };
-  const KEYS = Object.keys(HUES), K = KEYS.length, IDX = Object.fromEntries(KEYS.map((k, i) => [k, i]));
+  // The mapped categories and their permanent hues come from the server's category list (configure()).
   const CHROMA = 0.15;                                   // "Vivid"; gamut-guarded below
-  const AB = KEYS.map((k) => [CHROMA * Math.cos(HUES[k] * Math.PI / 180), CHROMA * Math.sin(HUES[k] * Math.PI / 180)]);
+  let KEYS = [], K = 0, IDX = {}, AB = [];
+  function configure(categories) {                       // [{key, hue}], mapped categories only, in display order
+    KEYS = categories.map((c) => c.key); K = KEYS.length; IDX = Object.fromEntries(KEYS.map((k, i) => [k, i]));
+    AB = categories.map((c) => [CHROMA * Math.cos(c.hue * Math.PI / 180), CHROMA * Math.sin(c.hue * Math.PI / 180)]);
+    state.pts = []; state.d0 = null;
+  }
 
   const toSrgb = (c) => (c <= 0.0031308 ? 12.92 * c : 1.055 * c ** (1 / 2.4) - 0.055);
   function labToLin(L, a, b) {
@@ -52,13 +55,21 @@
 
   const state = { pts: [], off: new Set(), d0: null, d0zoom: null, grid: null, rev: 0 };
 
+  // Incidents at the same point and of the same type are painted once with a weight (most share an area centre).
   function setData(pts) {
-    state.pts = pts.filter((p) => p.lat != null && IDX[p.category] !== undefined);
+    const groups = new Map();
+    for (const p of pts) {
+      if (p.lat == null || IDX[p.category] === undefined) continue;
+      const key = `${p.lng},${p.lat},${p.category}`;
+      const g = groups.get(key);
+      if (g) g.n += 1; else groups.set(key, { lng: p.lng, lat: p.lat, k: IDX[p.category], n: 1 });
+    }
+    state.pts = [...groups.values()];
     state.d0 = null; state.rev++;
   }
   function setHidden(keys) { state.off = new Set(keys); }   // hidden types are masked; D0 keeps every type
 
-  // D0 for zoom z: density at each incident (all mapped types), Q95 / ln 20
+  // Reference for zoom z: density at each incident (all mapped types, incident-weighted 95th percentile)
   function computeD0(z) {
     const R = kernelR(z), R2 = R * R, bins = new Map(), P = state.pts.map((p) => world(p.lng, p.lat, z));
     P.forEach(([x, y], i) => { const key = `${Math.floor(x / R)},${Math.floor(y / R)}`; (bins.get(key) || bins.set(key, []).get(key)).push(i); });
@@ -67,12 +78,14 @@
       const bx = Math.floor(x / R), by = Math.floor(y / R); let s = 0;
       for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) {
         const list = bins.get(`${bx + dx},${by + dy}`); if (!list) continue;
-        for (const j of list) { const ex = P[j][0] - x, ey = P[j][1] - y; s += tri(ex * ex + ey * ey, R2); }
+        for (const j of list) { const ex = P[j][0] - x, ey = P[j][1] - y; s += state.pts[j].n * tri(ex * ex + ey * ey, R2); }
       }
       dens[i] = s;
     });
-    const sorted = Array.from(dens).sort((a, b) => a - b);
-    const q95 = sorted.length ? sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.95))] : 1;
+    const order = Array.from(dens.keys()).sort((a, b) => dens[a] - dens[b]);
+    const total = state.pts.reduce((s, p) => s + p.n, 0);
+    let seen = 0, q95 = 1;
+    for (const i of order) { seen += state.pts[i].n; if (seen >= 0.95 * total) { q95 = dens[i]; break; } }
     return Math.max(q95, 1);
   }
 
@@ -86,14 +99,14 @@
     const Rc = kernelR(zoom) / CELL, r = Math.ceil(Rc), R2 = Rc * Rc, kern = [];
     for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) { const v = tri(dx * dx + dy * dy, R2); if (v > 0) kern.push(dx, dy, v); }
     for (const p of state.pts) {
-      const k = IDX[p.category];
+      const k = p.k, n = p.n;
       const [x, y] = project(p.lng, p.lat);
       const cx = Math.round(x / CELL), cy = Math.round(y / CELL);
       if (cx < -r || cy < -r || cx > W + r || cy > H + r) continue;
       for (let i = 0; i < kern.length; i += 3) {
         const gx = cx + kern[i], gy = cy + kern[i + 1];
         if (gx < 0 || gy < 0 || gx >= W || gy >= H) continue;
-        D[(gy * W + gx) * K + k] += kern[i + 2];
+        D[(gy * W + gx) * K + k] += n * kern[i + 2];
       }
     }
     const on = KEYS.map((k) => !state.off.has(k));
@@ -134,5 +147,5 @@
   // Solid colour of a type at full strength (legend swatches)
   const swatch = (key) => { const [a, b] = AB[IDX[key]]; return `rgb(${foreground(a, b, 1, [0, 0, 0]).join(",")})`; };
 
-  window.HeatPaint = { KEYS, setData, setHidden, paint, clear, sample, swatch };
+  window.HeatPaint = { configure, setData, setHidden, paint, clear, sample, swatch, keys: () => KEYS.slice() };
 })();

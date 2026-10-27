@@ -18,12 +18,12 @@ from . import db
 from .api import STATIC, _filters, _iso
 from .config import settings
 from .gazetteer import load as load_gazetteer
-from .schema import CATEGORIES, DISTRICTS, TIME_OF_DAY
+from .schema import CATEGORIES, DISTRICTS, TIME_OF_DAY, TOTALS_ONLY
 from .scraper import DHAKA_TZ
 from .sources import source_for_url
 
 # Never a point, feed item or link on the public site; still counted in totals.
-AREA_TOTALS_ONLY = {"sexual_violence"}
+AREA_TOTALS_ONLY = TOTALS_ONLY               # from the category list: never a point, link or heat
 CACHE = "public, max-age=30"
 
 

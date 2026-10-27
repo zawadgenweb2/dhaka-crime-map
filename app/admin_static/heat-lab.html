@@ -124,6 +124,7 @@
     A: { name: "A · Blended colours", desc: "Each crime type glows in its own colour; where types overlap, the colours mix in OKLab by their true shares. Strength (deeper colour, less see-through) = how much crime, the same whatever the mix." },
     F: { name: "F · Blended families", desc: "Like A, but colours four crime families (violent, property, drugs & weapons, other) with widely separated hues, so two-way mixes stay readable. Tap for the exact types." },
     B: { name: "B · Coloured light", desc: "Each type is a coloured light; overlapping lights add up (like stage lights), so busy mixed areas turn brighter and whiter." },
+    G: { name: "G · Main type + mixed stripes", desc: "Council best practice: where one crime type makes up 60% or more of the local density, it shows in its own colour; where no type dominates, a grey striped pattern means \"several types mixed\" (tap to see which). One colour = one meaning." },
     C: { name: "C · Strongest type", desc: "The colour is the locally most common crime type, with soft borders between types. Strength = how much crime." },
     D: { name: "D · One warm scale", desc: "The current map: one warm scale for how much crime, types not shown by colour." },
     E: { name: "E · Stacked layers (naive)", desc: "One standard heat layer per type drawn on top of each other. Shown to compare: overlaps depend on drawing order and turn muddy." },
@@ -171,12 +172,23 @@
     const g = densities(w, h); state.grid = g;
     const { W, H, D, tot, ref, D0, on } = g;
     const img = new ImageData(W, H), px = img.data, dark = state.theme === "dark";
+    const mixImg = new ImageData(W, H), mx = mixImg.data;          // G: the "mixed" cells, striped after upscaling
     const show = state.variant !== "E";
     for (let c = 0; c < W * H && show; c++) {
       const T = tot[c]; if (T < 1e-4) continue;
       const I = Math.min(1, (T / ref) ** 0.6);                       // (B, D only)
-      const t = 1 - Math.exp(-T / D0);                                 // council: compress the total only
+      const t = 1 - Math.exp(-3 * Math.sqrt(T / ref));                 // same tone curve as the live map
       let rgb, alpha = smooth(0.0, 0.6, I) * 0.88;
+      if (state.variant === "G") {
+        let best = -1, bv = 0, sum = 0;
+        for (let k = 0; k < K; k++) { const d = on[k] ? D[c * K + k] : 0; sum += d; if (d > bv) { bv = d; best = k; } }
+        const al = Math.round(255 * 0.8 * t);
+        if (sum > 0 && bv / sum >= 0.6) {
+          rgb = foreground(AB[best][0], AB[best][1], t, dark);
+          px[c * 4] = rgb[0]; px[c * 4 + 1] = rgb[1]; px[c * 4 + 2] = rgb[2]; px[c * 4 + 3] = al;
+        } else { mx[c * 4] = 139; mx[c * 4 + 1] = 139; mx[c * 4 + 2] = 139; mx[c * 4 + 3] = al; }
+        continue;
+      }
       if (state.variant === "A" || state.variant === "C" || state.variant === "F") {
         let a = 0, b = 0, sw = 0;
         if (state.variant === "F") {
@@ -212,6 +224,20 @@
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height);
     ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high";
     ctx.drawImage(small, 0, 0, W * CELL * dpr, H * CELL * dpr);
+    if (state.variant === "G") {
+      // mixed areas: grey with dark diagonal stripes (45°, 1.5 px, every 8 px), anchored to the map so they don't crawl
+      const ms = document.createElement("canvas"); ms.width = W; ms.height = H; ms.getContext("2d").putImageData(mixImg, 0, 0);
+      const big = document.createElement("canvas"); big.width = cv.width; big.height = cv.height;
+      const bx = big.getContext("2d"); bx.imageSmoothingEnabled = true; bx.imageSmoothingQuality = "high";
+      bx.drawImage(ms, 0, 0, W * CELL * dpr, H * CELL * dpr);
+      const [ox, oy] = g.vp.project([90, 23]);
+      bx.globalCompositeOperation = "source-atop"; bx.strokeStyle = "#333333"; bx.lineWidth = 1.5 * dpr;
+      const step = 8 * Math.SQRT2 * dpr, off = ((ox + oy) * dpr) % step;
+      bx.beginPath();
+      for (let k = -big.height - step + off; k < big.width + step; k += step) { bx.moveTo(k, 0); bx.lineTo(k + big.height, big.height); }
+      bx.stroke();
+      ctx.drawImage(big, 0, 0);
+    }
   }
 
   /* ---------- map ---------- */
@@ -275,6 +301,7 @@
       (state.variant === "D" ? "" : state.variant === "F"
         ? `<div class="keys">${FAMILIES.map((f) => `<span class="key"><i style="background:${swatch(f[2], state.theme === "dark")}"></i>${f[1]}</span>`).join("")}</div>`
         : `<div class="keys">${CATS.map((c) => `<button class="key${state.off.has(c[0]) ? " off" : ""}" data-k="${c[0]}"><i style="background:${swatch(c[3], state.theme === "dark")}"></i>${c[1]}</button>`).join("")}</div>`) +
+      (state.variant === "G" ? `<div class="keys" style="margin-top:4px"><span class="key"><i style="background:repeating-linear-gradient(45deg,#8b8b8b 0 4px,#333 4px 5.5px)"></i>Several types mixed</span></div><p style="margin:6px 0 0">Colour = the main crime type there (60% or more). Stripes = no single type dominates. Deeper = more reported incidents.</p>` : "") +
       (["A", "C", "F"].includes(state.variant) ? `<p style="margin:6px 0 0">Colours blend where types overlap. Deeper colour = more reported incidents (relative to this view).</p>` : "") +
       `<div class="ramp" style="background:${ramp}"></div><div class="ends"><span>fewer</span><span>${state.variant === "D" ? "more" : "more (stronger colour)"}</span></div>` +
       `<p style="margin-top:6px">Tap the map to see the crime mix there. Click a type to hide it.</p>`;
