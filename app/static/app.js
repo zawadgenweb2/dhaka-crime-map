@@ -12,7 +12,9 @@
       updated: "হালনাগাদ", topTime: "বেশি ঘটনার সময়", read: "পড়ুন:", moreReports: "আরও {n}টি প্রতিবেদন", noData: "এই ফিল্টারে কোনো ঘটনা নেই",
       exact: "নির্দিষ্ট স্থান", neighbourhood: "এলাকা", thana: "থানা পর্যায়", city: "স্থান অস্পষ্ট",
       unlocated: "{n}টি ঘটনার স্থান অস্পষ্ট, মানচিত্রে নেই", fewer: "কম", more: "বেশি", density: "ঘটনার ঘনত্ব", blendNote: "প্রতিটি অপরাধের নিজস্ব রং; একাধিক ধরন মিশলে রংও মেশে। গাঢ় রং = বেশি প্রতিবেদিত ঘটনা (এই দৃশ্যের তুলনায়)। মানচিত্রে ট্যাপ করে মিশ্রণ দেখুন।",
-      localMix: "এখানকার আনুমানিক মিশ্রণ", localMixNote: "কাছের ম্যাপকৃত ঘটনা থেকে রঙের ভাগ; এই রাস্তার ঘটনার সংখ্যা নয়।",
+      localMix: "এখানকার আনুমানিক মিশ্রণ", mixAt: "{place}: আনুমানিক মিশ্রণ", nearCount: "এখানে আশপাশে মানচিত্রে প্রায় {n}টি ঘটনা",
+      totalsOnlyFeed: "{cat}: {n}টি ঘটনা। ভুক্তভোগীর গোপনীয়তার জন্য এই ধরনের ঘটনা শুধু মোট সংখ্যায় দেখানো হয়; মানচিত্রে স্থান ও প্রতিবেদনের লিংক দেখানো হয় না।",
+      byDistrict: "জেলা অনুযায়ী:", localMixNote: "কাছের ম্যাপকৃত ঘটনা থেকে রঙের ভাগ; এই রাস্তার ঘটনার সংখ্যা নয়।",
       totalsOnlyNote: "এই ধরন শুধু মোট সংখ্যায় গোনা হয়; স্থান ও প্রতিবেদনের লিংক দেখানো হয় না।", areaTotal: "{n}টি ঘটনা", crimeMix: "অপরাধের ধরন",
       published: "প্রকাশ", killedInjured: "হতাহত {n}", noKey: "Google Maps কী সেট করা নেই; বিকল্প মানচিত্র দেখানো হচ্ছে।",
       keyFailed: "Google Maps কী কাজ করছে না; বিকল্প মানচিত্র দেখানো হচ্ছে।", failed: "শুরু করা যায়নি", days: "দিন", year: "বছর",
@@ -29,7 +31,9 @@
       exact: "Exact spot", neighbourhood: "Neighbourhood", thana: "Thana level", city: "Location unclear",
       unlocated: "{n} incidents have no clear location and are not on the map", fewer: "fewer", more: "more",
       density: "Incident density", blendNote: "Each crime type has its own colour; where types overlap, the colours blend. Deeper colour = more reported incidents (relative to this view). Tap the map to see the mix.",
-      localMix: "Approximate local mix", localMixNote: "Shares of the glow from nearby mapped incidents, not counts for this street.",
+      localMix: "Approximate local mix", mixAt: "{place}: approximate mix", nearCount: "About {n} mapped incidents around here",
+      totalsOnlyFeed: "{cat}: {n} incidents. To protect victims, this type is counted in totals only; locations and report links are not shown on the map.",
+      byDistrict: "By district:", localMixNote: "Shares of the glow from nearby mapped incidents, not counts for this street.",
       totalsOnlyNote: "This type is counted in totals only; locations and report links are not shown.", areaTotal: "{n} incidents", crimeMix: "Crime mix", published: "Published", killedInjured: "{n} killed/injured",
       noKey: "No Google Maps key configured; showing the fallback map.",
       keyFailed: "Google Maps key was rejected; showing the fallback map.", failed: "Could not start", days: "days", year: "year",
@@ -472,6 +476,13 @@
 
   function renderFeed() {
     const list = state.incidents.slice(0, 400);
+    const hiddenTypes = CAT_ORDER.filter((k) => state.cats.has(k) && (state.meta?.area_totals_only || []).includes(k)
+                                         && state.stats?.by_category?.[k]);
+    const totalsNote = hiddenTypes.length ? el("li", { class: "empty totals-only" },
+      ...hiddenTypes.map((k) => el("p", {}, t("totalsOnlyFeed", { cat: catLabel(k), n: state.stats.by_category[k] }))),
+      // per-district numbers are totals too (same as the hotspot list); no places below district level
+      list.length ? null : el("p", { class: "muted" }, t("byDistrict"), " ",
+        (state.stats.by_district || []).map((d) => `${state.lang === "bn" ? d.bn : d.en} ${num(d.count)}`).join(" · "))) : null;
     $("#feed-count").textContent = list.length < state.incidents.length
       ? t("showing", { n: list.length, total: state.incidents.length }) : num(state.incidents.length);
     fill($("#feed"), ...(list.length ? list.map((i) => el("li", {}, el("button", {
@@ -480,7 +491,8 @@
       el("span", { class: "tag" }, el("span", { class: "dot", style: `background:${cssColor(i.category)}` }), catLabel(i.category)),
       el("h3", {}, summary(i)),
       el("div", { class: "meta" }, el("span", {}, placeName(i)), el("span", {}, fmtDate(i.event_date)),
-        i.time_of_day !== "unknown" ? el("span", {}, todLabel(i.time_of_day)) : null, precisionBadge(i.precision))))) : [el("li", { class: "empty" }, t("noData"))]));
+        i.time_of_day !== "unknown" ? el("span", {}, todLabel(i.time_of_day)) : null, precisionBadge(i.precision))))) : [totalsNote || el("li", { class: "empty" }, t("noData"))]),
+      ...(list.length && totalsNote ? [totalsNote] : []));
   }
 
   function renderLegend() {
@@ -525,9 +537,11 @@
 
   // Tap on the heat: the approximate mix of crime types that makes up the glow there (shares, not counts)
   function renderMixCard(card, rows) {
+    const at = state.mixAt;
     fill(card,
       el("button", { class: "close", type: "button", "aria-label": "Close", onclick: () => { state.mix = null; renderSelected(); } }, "×"),
-      el("h3", {}, t("localMix")),
+      el("h3", {}, at && at.place ? t("mixAt", { place: at.place }) : t("localMix")),
+      at && at.n ? el("div", { style: "font-size:13px;margin-bottom:2px" }, t("nearCount", { n: at.n })) : null,
       el("div", { class: "muted", style: "font-size:12px;margin-bottom:6px" }, t("localMixNote")),
       el("ul", { class: "mix" }, ...rows.map(([k, v]) => el("li", {},
         el("span", { class: "name" }, el("span", { class: "dot", style: `background:${HeatPaint.swatch(k)}` }), catLabel(k)),
@@ -565,6 +579,19 @@
     state.heat = { image, bounds: [west, south, east, north] };
     engine.render();
   }
+  // Name for a spot: nearest thana/upazila (with its district) when zoomed in, the district when zoomed out
+  function placeAt(lng, lat, zoom) {
+    const km = (a, b) => { const r = Math.PI / 180, x = (b.lng - a.lng) * r * Math.cos(((a.lat + b.lat) / 2) * r), y = (b.lat - a.lat) * r;
+                           return 6371 * Math.hypot(x, y); };
+    const here = { lng, lat };
+    const dname = (id) => { const d = state.meta.districts.find((x) => x.id === id); return d ? (state.lang === "bn" ? d.bn : d.en) : ""; };
+    const near = state.meta.thanas.filter((p) => p.lat != null).map((p) => [km(here, p), p]).sort((a, b) => a[0] - b[0])[0];
+    if (!near || near[0] > 25) return "";
+    if (zoom < 9) return dname(near[1].district);
+    const name = state.lang === "bn" ? near[1].name_bn : near[1].name_en;
+    return `${name}, ${dname(near[1].district)}`;
+  }
+
   const mercY = (lat) => { const s = Math.sin(lat * Math.PI / 180); return 0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI); };
 
   function inspectHeat(x, y) {
@@ -574,6 +601,16 @@
     const fx = (lng - w0) / (e0 - w0), fy = (mercY(lat) - mercY(n0)) / (mercY(s0) - mercY(n0));
     const rows = HeatPaint.sample(fx * state.heat.image.width, fy * state.heat.image.height);
     state.selected = null; state.mix = rows && rows.length ? rows : null;
+    if (state.mix) {
+      // how many mapped incidents feed the glow here, and the place name at a scale that fits the zoom
+      const R = HeatPaint.radius(v.zoom);
+      const n = state.incidents.filter((i) => {
+        if (i.lat == null) return false;
+        const [px, py] = v.project(i.lng, i.lat);
+        return (px - x) ** 2 + (py - y) ** 2 <= R * R;
+      }).length;
+      state.mixAt = { place: placeAt(lng, lat, v.zoom), n };
+    }
     renderSelected(); renderFeed(); engine?.render();
   }
 

@@ -232,3 +232,7 @@ input[type="date"], select {
 .selected .mix .bar { height: 8px; background: var(--line, rgba(127,127,127,.15)); border-radius: 4px; overflow: hidden; }
 .selected .mix .bar i { display: block; height: 100%; border-radius: 4px; }
 .selected .mix .cnt { font-variant-numeric: tabular-nums; color: var(--muted); }
+
+/* totals-only types (sexual violence): say why there is nothing to list, instead of "no incidents" */
+.empty.totals-only { text-align: left; color: var(--ink); padding: 14px 8px; font-size: 13.5px; line-height: 1.5; }
+.empty.totals-only p { margin: 0 0 8px; }

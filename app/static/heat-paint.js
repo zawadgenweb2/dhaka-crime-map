@@ -147,5 +147,6 @@
   // Solid colour of a type at full strength (legend swatches)
   const swatch = (key) => { const [a, b] = AB[IDX[key]]; return `rgb(${foreground(a, b, 1, [0, 0, 0]).join(",")})`; };
 
-  window.HeatPaint = { configure, setData, setHidden, paint, clear, sample, swatch, keys: () => KEYS.slice() };
+  window.HeatPaint = { configure, setData, setHidden, paint, clear, sample, swatch, keys: () => KEYS.slice(),
+                       radius: (z) => kernelR(z) };          // how far (px) one incident's glow reaches
 })();
