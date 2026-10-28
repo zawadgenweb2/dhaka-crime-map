@@ -33,5 +33,11 @@ data/eval/
 # Keep local Markdown notes and documentation out of the repository.
 *.md
 
+# The architecture guide is the one tracked Markdown document.
+!docs/microservices-architecture.md
+
+# Keep the printable local copy of the guide out of Git.
+/docs/microservices-architecture.html
+
 # Keep generated PDF reports local.
 *.pdf
