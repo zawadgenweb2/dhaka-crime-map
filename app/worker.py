@@ -39,6 +39,9 @@ def article_from_row(row: dict) -> Article:
                    published_at=row["published_at"], keywords=row["keywords"] or "")
 
 
+OUTAGE_MAX_WAIT = 60.0   # seconds between probes while the model server is down
+
+
 class Worker:
     def __init__(self, classifier: Classifier | None = None, gaz: Gazetteer | None = None,
                  use_geocoder: bool = True, owner: str | None = None):
@@ -48,6 +51,7 @@ class Worker:
         self.owner = owner or f"{socket.gethostname()}:{os.getpid()}"
         self.stop = threading.Event()
         self.paused_until = 0.0
+        self.outage_wait = 0.0          # grows 5 s -> 60 s while the model server is down; reset on success
 
     @property
     def classifier(self) -> Classifier:
@@ -70,7 +74,7 @@ class Worker:
         with db.tx() as c:
             return c.execute(
                 """WITH next AS (SELECT id FROM jobs WHERE state = 'queued' AND available_at <= now()
-                                 ORDER BY available_at, id FOR UPDATE SKIP LOCKED LIMIT 1)
+                                 ORDER BY priority, available_at, id FOR UPDATE SKIP LOCKED LIMIT 1)
                    UPDATE jobs j SET state = 'running', owner = %s, generation = j.generation + 1,
                           lease_until = now() + make_interval(mins => %s), updated_at = now()
                    FROM next WHERE j.id = next.id RETURNING j.*""",
@@ -78,10 +82,12 @@ class Worker:
 
     def _release(self, job: dict, state: str, error: str | None = None, delay_minutes: float = 0):
         with db.tx() as c:
-            c.execute("""UPDATE jobs SET state = %s, owner = NULL, last_error = %s, updated_at = now(),
-                         available_at = now() + make_interval(secs => %s)
-                         WHERE id = %s AND generation = %s""",
-                      (state, (error or "")[:500] or None, delay_minutes * 60, job["id"], job["generation"]))
+            n = c.execute("""UPDATE jobs SET state = %s, owner = NULL, last_error = %s, updated_at = now(),
+                             available_at = now() + make_interval(secs => %s)
+                             WHERE id = %s AND generation = %s AND state = 'running'""",
+                          (state, (error or "")[:500] or None, delay_minutes * 60, job["id"], job["generation"])).rowcount
+            if not n:          # we lost the job (lease expired, someone else owns it): touch nothing else
+                return
             if state in ("failed", "uncertain"):
                 c.execute("UPDATE articles SET status = %s, error = %s WHERE id = %s",
                           (state, (error or "")[:500], job["article_id"]))
@@ -121,6 +127,14 @@ class Worker:
                 analysis, meta = self.classifier.classify_with_meta(article_from_row(article))
             except ClassifierError as e:
                 self._call_failed(call_id, str(e))
+                if e.outage:     # model down or loading: give the attempt back, wait, and don't touch other articles
+                    with db.tx() as c:
+                        c.execute("UPDATE jobs SET dispatches = greatest(dispatches - 1, 0) WHERE id = %s", (job["id"],))
+                    self.outage_wait = min(OUTAGE_MAX_WAIT, max(5.0, self.outage_wait * 2))
+                    self.paused_until = time.monotonic() + self.outage_wait
+                    self._release(job, "queued", str(e), 0)
+                    log.warning("model server unavailable (%s); waiting %.0f s", e, self.outage_wait)
+                    return "paused"
                 if e.permanent:  # bad key or model alias: pause instead of failing every article
                     self.paused_until = time.monotonic() + 600
                     self._release(job, "queued", str(e), 10)
@@ -133,8 +147,14 @@ class Worker:
                 self._call_failed(call_id, f"{type(e).__name__}: {e}")
                 self._release(job, "failed", f"{type(e).__name__}: {e}")
                 return "failed"
+            self.outage_wait = 0.0
             with db.tx() as c:
                 c.execute("UPDATE llm_calls SET outcome = 'ok', finished_at = now() WHERE id = %s", (call_id,))
+                still_ours = c.execute("""SELECT 1 FROM jobs WHERE id = %s AND generation = %s AND state = 'running'
+                                          AND owner = %s AND lease_until > now() FOR UPDATE""",
+                                       (job["id"], job["generation"], self.owner)).fetchone()
+                if not still_ours:     # a late answer after our lease expired: never saved, never published
+                    return "lost"
                 analysis_id = c.execute(
                     """INSERT INTO analyses (article_id, job_id, llm_call_id, backend, model, result, input_tokens,
                          cache_read_tokens, cache_write_tokens, output_tokens, cost_usd)
@@ -223,18 +243,32 @@ class Worker:
         return counts
 
     def _loop(self):
+        previews_in_a_row = 0
         while not self.stop.is_set():
             if time.monotonic() < self.paused_until:
                 self.stop.wait(15)
                 continue
             try:
-                if self.run_preview():      # someone is waiting in Swagger: answer first
+                # someone waiting on "try an article" goes first, but never more than 2 in a row while jobs wait
+                if previews_in_a_row < 2 and self.run_preview():
+                    previews_in_a_row += 1
                     continue
-                if self.run_once() is None:
+                previews_in_a_row = 0
+                if self.run_once() is None and not self.run_preview() and not self.run_match():
                     self.stop.wait(2)
             except Exception:
                 log.exception("worker iteration failed")
                 self.stop.wait(10)
+
+    def run_match(self) -> bool:
+        """One report through the cross-paper matcher (app/events.py). False = nothing to do."""
+        if not hasattr(self.classifier, "chat_json"):
+            return False
+        from .events import consolidate, run_queue_item
+        if run_queue_item(self.classifier) is not None:
+            return True
+        # queue empty: tidy a few look-alike events (each pair is judged once per matcher version)
+        return consolidate(self.classifier, limit=3)["pairs_checked"] > 0
 
     def _geocode_loop(self):
         """Exact spots for published incidents, one at a time through the shared Nominatim lane."""
@@ -308,7 +342,7 @@ def preview_result(classifier: Classifier, inp: dict, gaz: Gazetteer) -> dict:
             "thana": f"{thana.name_bn} / {thana.name_en}" if thana else None, "lat": r["lat"], "lng": r["lng"],
             "precision": r["precision"], "incident_date": r["incident_date"].isoformat() if r["incident_date"] else None,
             "time_of_day": r["time_of_day"], "victims": r["victims"], "evidence_in_article": r["evidence_ok"],
-            "place_named_in_article": r["located_in_dhaka"],
+            "place_named_in_article": r["located"], "district": r["district"],
             "would_be_published": r["published"], "exact_spot_lookup": r["geocode_query"]})
     return {
         "classifier": classifier.name, "model": meta.get("model"), "seconds": round(time.monotonic() - started, 2),

@@ -1,0 +1,15 @@
+# systemd --user unit: EmbeddingGemma 2 embeddings for the cross-paper matcher (genweb2inhouse, lingering enabled).
+# Install:  cp deploy/inhouse-llm/dhaka-embed.service ~/.config/systemd/user/ && systemctl --user enable --now dhaka-embed
+[Unit]
+Description=Dhaka Crime Map embeddings (EmbeddingGemma 2, llama.cpp)
+After=network-online.target
+
+[Service]
+ExecStart=%h/dhaka-crime-map/deploy/inhouse-llm/start-embed.sh
+Restart=on-failure
+RestartSec=15
+StartLimitIntervalSec=600
+StartLimitBurst=5
+
+[Install]
+WantedBy=default.target

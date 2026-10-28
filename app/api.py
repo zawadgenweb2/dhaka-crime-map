@@ -1,33 +1,40 @@
-"""API service: dashboard + read API. Writes only one thing: 'collect now' requests for the collector."""
+"""Admin app (LAN/VPN only, login required): status, collection and backfills, coverage, review, try-an-article,
+Swagger. The public site is app/public.py. Every route here needs a browser session (with CSRF on changes) or the
+X-Admin-Token machine token; see app/auth.py."""
 from __future__ import annotations
+
+import re
 
 import hmac
 import json
 import logging
 import time
 from datetime import date, datetime, timedelta, timezone
-from urllib.parse import urlsplit
 
 import psycopg
 from fastapi import FastAPI, HTTPException, Query, Request, Response, Security
+from fastapi.concurrency import run_in_threadpool
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.security import APIKeyHeader
 from fastapi.openapi.docs import get_swagger_ui_html
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from psycopg.types.json import Jsonb
 from pydantic import BaseModel, Field
 from fastapi.staticfiles import StaticFiles
 
-from . import db
+from . import auth, db
 from .config import ROOT, settings
 from .gazetteer import load as load_gazetteer
 from .scheduler import next_run
-from .schema import CATEGORIES, TIME_OF_DAY
+from .schema import CATEGORIES, DISTRICTS, TIME_OF_DAY
+from .sources import enabled_sources
 from .scraper import DHAKA_TZ
 
 log = logging.getLogger(__name__)
 STATIC = ROOT / "app" / "static"
+ADMIN_STATIC = ROOT / "app" / "admin_static"
+OPEN_PATHS = {"/login", "/api/login", "/api/health"}
 MIN_DATE, MAX_DATE = date(2000, 1, 1), date(2100, 1, 1)
-UI_HEADER = "x-dcm-ui"
 # Declared in OpenAPI so Swagger's "Authorize" button can send it.
 ADMIN_KEY = APIKeyHeader(name="X-Admin-Token", auto_error=False, description="Team admin token (from the server .env)")
 
@@ -45,11 +52,22 @@ class ArticleIn(BaseModel):
     url: str | None = Field(None, max_length=500, description="Optional, for your own reference")
 
 
+class SplitIn(BaseModel):
+    """A report to take out of its event."""
+    report_key: str = Field(max_length=80)
+
+
+class MergeIn(BaseModel):
+    """Two events to combine: every report of `other` moves into `keep`."""
+    keep: int
+    other: int
+
+
 MAX_WAITING_PREVIEWS = 5
 
 
 def _filters(start: str | None, end: str | None, days: int | None, categories: str | None,
-             thana: str | None) -> tuple[str, list, date, date]:
+             thana: str | None, district: str | None = None) -> tuple[str, list, date, date]:
     today = datetime.now(DHAKA_TZ).date()
     try:
         end_d = date.fromisoformat(end) if end else today
@@ -61,8 +79,13 @@ def _filters(start: str | None, end: str | None, days: int | None, categories: s
     # A duplicate is hidden only if the report it points to is itself in the period, so an event never
     # vanishes from a period because its first report fell just outside it.
     where = ["i.published", db.GEMMA_PROVENANCE, "i.event_date BETWEEN %s AND %s",
-             """(i.duplicate_of IS NULL OR NOT EXISTS (SELECT 1 FROM incidents c WHERE c.id = i.duplicate_of
-                 AND c.published AND c.event_date BETWEEN %s AND %s))"""]
+             # event store live: show each event once, by its primary (earliest) report; reports the matcher
+             # has not reached yet show on their own. Before that: the old duplicate_of rule.
+             """(CASE WHEN EXISTS (SELECT 1 FROM app_flags f WHERE f.key = 'events_live' AND f.value = '1')
+                 THEN (EXISTS (SELECT 1 FROM events e WHERE e.primary_incident_id = i.id AND e.state = 'active')
+                       OR NOT EXISTS (SELECT 1 FROM event_reports er WHERE er.report_key = i.report_key))
+                 ELSE (i.duplicate_of IS NULL OR NOT EXISTS (SELECT 1 FROM incidents c WHERE c.id = i.duplicate_of
+                       AND c.published AND c.event_date BETWEEN %s AND %s)) END)"""]
     params: list = [start_d, end_d, start_d, end_d]
     if categories:
         cats = [c for c in categories.split(",") if c]
@@ -72,48 +95,120 @@ def _filters(start: str | None, end: str | None, days: int | None, categories: s
         if cats:
             where.append("i.category = ANY(%s)")
             params.append(cats)
+    if district:
+        if district not in DISTRICTS:
+            raise HTTPException(400, f"unknown district: {district}")
+        where.append("i.district_id = %s")
+        params.append(district)
     if thana:
+        place = load_gazetteer().get(thana)
+        if place is None:
+            raise HTTPException(400, f"unknown area: {thana}")
+        if district and place.district != district:     # never silently widen or empty a query
+            raise HTTPException(400, f"{thana} is not in {district}")
         where.append("i.thana_id = %s")
         params.append(thana)
     return " AND ".join(where), params, start_d, end_d
-
-
-def _authorize_trigger(request: Request, token: str | None = None) -> None:
-    token = token or request.headers.get("x-admin-token", "")
-    if settings.admin_token and token and hmac.compare_digest(token, settings.admin_token):
-        return
-    if settings.allow_ui_trigger and request.headers.get(UI_HEADER) == "1":
-        # A custom header forces a CORS preflight for cross-site requests, which this API never approves.
-        # Origin, when sent, must also match the host the dashboard was loaded from.
-        origin = request.headers.get("origin")
-        if origin is None or urlsplit(origin).netloc == request.headers.get("host"):
-            return
-    raise HTTPException(403, "not allowed: use the dashboard button or X-Admin-Token")
 
 
 def _iso(v):
     return v.isoformat() if isinstance(v, (date, datetime)) else v
 
 
+def _actor(request: Request) -> str:
+    return getattr(request.state, "actor", "unknown")
+
+
+def _client_ip(request: Request) -> str:
+    return request.client.host if request.client else "unknown"
+
+
 def create_app() -> FastAPI:
-    app = FastAPI(title="Dhaka Crime Map", version="0.2.0", docs_url=None)
-    app.mount("/static", StaticFiles(directory=STATIC), name="static")
+    """The admin app. (The public site is app.public.create_public_app.)"""
+    app = FastAPI(title="Dhaka Crime Map — admin", version="0.3.0", docs_url=None, redoc_url=None, openapi_url=None)
+    app.add_middleware(GZipMiddleware, minimum_size=1000)
+    app.mount("/admin-static", StaticFiles(directory=ADMIN_STATIC), name="admin-static")
+    app.mount("/static", StaticFiles(directory=STATIC), name="static")     # fonts, map styles shared with the public page
+
+    @app.middleware("http")
+    async def require_admin(request: Request, call_next):
+        path = request.url.path
+        if path in OPEN_PATHS or path.startswith("/admin-static/login") or path.startswith("/static/fonts"):
+            return await call_next(request)
+        if auth.machine_token_ok(request.headers.get("x-admin-token")):
+            request.state.actor = "token"
+        else:
+            sess = await run_in_threadpool(auth.session, request.cookies.get(auth.COOKIE))
+            if not sess:
+                if request.method == "GET" and not path.startswith("/api/") and path != "/openapi.json":
+                    return RedirectResponse("/login", status_code=303)
+                return JSONResponse({"detail": "login required"}, status_code=401)
+            if request.method not in ("GET", "HEAD", "OPTIONS") and not (
+                    auth.same_origin(request.headers.get("origin"), request.headers.get("host"))
+                    and auth.csrf_ok(sess, request.headers.get("x-csrf-token"))):
+                return JSONResponse({"detail": "CSRF check failed"}, status_code=403)
+            request.state.actor, request.state.csrf = sess["username"], sess["csrf_token"]
+        response = await call_next(request)
+        response.headers["Cache-Control"] = "private, no-store"
+        return response
+
+    # ---- login ------------------------------------------------------------------------------------
+    @app.get("/login", include_in_schema=False)
+    def login_page(request: Request):
+        # Reuse the pre-login token while it lives: browsers load /login twice (redirect + prefetch, extra tabs), and a
+        # fresh token per load left the visible form holding a token the cookie no longer matched (403 on submit).
+        old = request.cookies.get(auth.PRE_COOKIE) or ""
+        pre = old if re.fullmatch(r"[A-Za-z0-9_-]{32}", old) else auth.secrets.token_urlsafe(24)
+        html = (ADMIN_STATIC / "login.html").read_text(encoding="utf-8").replace("{{PRE}}", pre)
+        r = HTMLResponse(html, headers={"Cache-Control": "private, no-store"})
+        r.set_cookie(auth.PRE_COOKIE, pre, max_age=900, secure=True, httponly=True, samesite="strict", path="/")
+        return r
+
+    @app.post("/api/login", include_in_schema=False)
+    def login(request: Request, payload: dict):
+        pre = request.cookies.get(auth.PRE_COOKIE)
+        if not (pre and auth.csrf_ok({"csrf_token": pre}, request.headers.get("x-csrf-token"))
+                and auth.same_origin(request.headers.get("origin"), request.headers.get("host"))):
+            raise HTTPException(403, "reload the login page and try again")
+        username, password = str(payload.get("username") or "")[:60], str(payload.get("password") or "")[:200]
+        ip = _client_ip(request)
+        if auth.throttled(username, ip):
+            raise HTTPException(429, "too many failed attempts; wait 15 minutes")
+        user_id = auth.check_password(username, password, ip)
+        if user_id is None:
+            raise HTTPException(401, "wrong username or password")
+        raw, _ = auth.create_session(user_id, ip, request.headers.get("user-agent", ""))
+        auth.audit(username, "login", ip=ip)
+        r = JSONResponse({"ok": True})
+        r.set_cookie(auth.COOKIE, raw, secure=True, httponly=True, samesite="strict", path="/")
+        r.delete_cookie(auth.PRE_COOKIE, path="/", secure=True, httponly=True, samesite="strict")
+        return r
+
+    @app.post("/api/logout", include_in_schema=False)
+    def logout(request: Request):
+        auth.end_session(request.cookies.get(auth.COOKIE))
+        auth.audit(_actor(request), "logout", ip=_client_ip(request))
+        r = JSONResponse({"ok": True})
+        r.delete_cookie(auth.COOKIE, path="/", secure=True, httponly=True, samesite="strict")
+        return r
+
+    @app.get("/api/session", include_in_schema=False)
+    def whoami(request: Request):
+        return {"user": _actor(request), "csrf": getattr(request.state, "csrf", None)}
+
+    # ---- API docs (logged-in admins only; never pre-filled with a secret) ---------------------------
+    @app.get("/openapi.json", include_in_schema=False)
+    def openapi_schema():
+        return app.openapi()
 
     @app.get("/docs", include_in_schema=False)
     def swagger():
-        """Swagger UI. The token, once entered, survives page reloads; with SWAGGER_PREAUTHORIZE it is pre-filled."""
-        page = get_swagger_ui_html(openapi_url=app.openapi_url, title="Dhaka Crime Map — API",
-                                   swagger_ui_parameters={"persistAuthorization": True})
-        if not (settings.swagger_preauthorize and settings.admin_token):
-            return page
-        script = ("<script>const dcmAuth = setInterval(() => { if (typeof ui !== 'undefined' && ui.preauthorizeApiKey) {"
-                  f" ui.preauthorizeApiKey('APIKeyHeader', {json.dumps(settings.admin_token)}); clearInterval(dcmAuth); }}"
-                  " }, 200);</script>")
-        return HTMLResponse(page.body.decode().replace("</body>", script + "</body>"))
+        """Swagger UI for logged-in admins: requests carry the session cookie and its CSRF token automatically."""
+        return HTMLResponse((ADMIN_STATIC / "swagger.html").read_text(encoding="utf-8"))
 
     @app.get("/", include_in_schema=False)
     def index():
-        return FileResponse(STATIC / "index.html")
+        return FileResponse(ADMIN_STATIC / "index.html")
 
     @app.get("/api/health")
     def health():
@@ -176,9 +271,9 @@ def create_app() -> FastAPI:
     @app.get("/api/incidents")
     def incidents(response: Response, start: str | None = None, end: str | None = None,
                   days: int | None = Query(None, ge=1, le=3650), categories: str | None = None,
-                  thana: str | None = None, limit: int = Query(10000, ge=1, le=20000)):
+                  thana: str | None = None, district: str | None = None, limit: int = Query(10000, ge=1, le=20000)):
         """Published, non-duplicate Gemma incidents. X-Total-Count / X-Truncated tell clients when `limit` cut it."""
-        where, params, _, _ = _filters(start, end, days, categories, thana)
+        where, params, _, _ = _filters(start, end, days, categories, thana, district)
         with db.connect() as c:
             total = c.execute(f"SELECT count(*) n FROM incidents i WHERE {where}", params).fetchone()["n"]
             response.headers["X-Total-Count"] = str(total)
@@ -187,7 +282,11 @@ def create_app() -> FastAPI:
                 f"""SELECT i.id, i.category, i.headline_bn, i.headline_en, i.location_text, i.place_id, i.thana_id,
                            i.lat, i.lng, i.precision, i.geocoded, i.incident_date, i.event_date, i.time_of_day,
                            i.victims, i.evidence, i.evidence_ok, a.url, a.title, a.published_at,
-                           (SELECT count(*) FROM incidents d WHERE d.duplicate_of = i.id AND d.published) AS more_reports
+                           (CASE WHEN EXISTS (SELECT 1 FROM app_flags f WHERE f.key = 'events_live' AND f.value = '1')
+                            THEN coalesce((SELECT e.report_count - 1 FROM events e WHERE e.primary_incident_id = i.id
+                                           AND e.state = 'active'), 0)
+                            ELSE (SELECT count(*) FROM incidents d WHERE d.duplicate_of = i.id AND d.published) END)
+                           AS more_reports
                     FROM incidents i JOIN articles a ON a.id = i.article_id
                     WHERE {where} ORDER BY i.event_date DESC, i.id DESC LIMIT %s""", (*params, limit)).fetchall()
         gaz = load_gazetteer()
@@ -201,8 +300,9 @@ def create_app() -> FastAPI:
 
     @app.get("/api/stats")
     def stats(start: str | None = None, end: str | None = None, days: int | None = Query(None, ge=1, le=3650),
-              categories: str | None = None, thana: str | None = None):
-        where, params, start_d, end_d = _filters(start, end, days, categories, thana)
+              categories: str | None = None, thana: str | None = None,
+              district: str | None = None):
+        where, params, start_d, end_d = _filters(start, end, days, categories, thana, district)
         gaz = load_gazetteer()
         with db.connect() as c:
             def q(sql):
@@ -243,8 +343,11 @@ def create_app() -> FastAPI:
         today = datetime.now(DHAKA_TZ).date()
         end_d = min(end_d, today)                                    # no future days
         with db.connect() as c:
+            # a day is read when every enabled paper with an archive has read its list for that day
+            papers = [x.key for x in enabled_sources() if x.archive == "daily"]      # monthly archives have no days
             read = {r["day"]: r["links"] for r in c.execute(
-                "SELECT day, links FROM coverage_days WHERE day BETWEEN %s AND %s", (start_d, end_d))}
+                """SELECT day, sum(links)::int links FROM coverage_days WHERE day BETWEEN %s AND %s AND source = ANY(%s)
+                   GROUP BY day HAVING count(DISTINCT source) = %s""", (start_d, end_d, papers, len(papers)))}
             per = {r["day"]: r for r in c.execute(
                 """SELECT cu.day, count(*) AS candidates,
                           count(*) FILTER (WHERE a.id IS NULL) AS missing,
@@ -294,30 +397,93 @@ def create_app() -> FastAPI:
                max_articles: int | None = Query(None, ge=1, le=5000), token: str | None = Security(ADMIN_KEY)):
         """Queue a "collect now" request for the collector (it never scrapes inside the API). `days_back` up to 90
         fills older days (see /api/coverage); `max_articles` raises the per-run cap (default MAX_ARTICLES_PER_RUN)."""
-        _authorize_trigger(request, token)
         if max_articles is None and days_back > 1:
             max_articles = 5000      # a backfill must not stop at the daily cap
-        if days_back > 1:            # articles set aside earlier in this window go back to Gemma too
-            from .reprocess import requeue_set_aside
-            requeue_set_aside(days_back)
         try:
             with db.tx() as c:
                 rid = c.execute("""INSERT INTO run_requests (source, days_back, max_articles) VALUES (%s, %s, %s)
-                                   RETURNING id""", ("token" if token else "ui", days_back, max_articles)).fetchone()["id"]
+                                   RETURNING id""", (_actor(request)[:40], days_back, max_articles)).fetchone()["id"]
         except psycopg.errors.UniqueViolation:  # one active request at a time (migration 004)
             raise HTTPException(409, "a collection is already queued or running")
+        if days_back > 1:            # only once the request is accepted: set-aside articles go back to Gemma
+            from .reprocess import requeue_set_aside
+            requeue_set_aside(days_back)
+        auth.audit(_actor(request), "collect", {"days_back": days_back, "max_articles": max_articles},
+                   _client_ip(request))
         return {"queued": True, "request_id": rid}
 
     # ---- human review (always requires ADMIN_TOKEN) -------------------------------------------
     def _reviewer(request: Request, token: str | None = None) -> str:
-        token = token or request.headers.get("x-admin-token", "")
-        if not settings.admin_token or not hmac.compare_digest(token, settings.admin_token):
-            raise HTTPException(401, "admin token required")
-        return (request.headers.get("x-reviewer") or "reviewer")[:60]
+        """The authenticated account (checked by the middleware); recorded on every review decision."""
+        return _actor(request)[:60]
+
+    # ---- cross-paper event store: audit and corrections (app/events.py) ----
+    @app.get("/api/events/status")
+    def events_status():
+        """Matcher queue, number of events, decisions by outcome, whether the public map uses events yet."""
+        from .events import status
+        return status()
+
+    @app.get("/api/events/decisions")
+    def events_decisions(outcome: str = Query("linked", pattern="^(linked|new_event|ambiguous|error|split|merged)$"),
+                         limit: int = Query(50, ge=1, le=500)):
+        """Latest final decisions with both reports (title, paper, link) and the quoted facts behind a link."""
+        with db.connect() as c:
+            rows = c.execute(
+                """SELECT d.id, d.report_key, d.event_id, d.candidate_key, d.outcome, d.score, d.evidence, d.created_at,
+                          a.title, a.source, a.url, ca.title AS cand_title, ca.source AS cand_source, ca.url AS cand_url
+                   FROM match_decisions d
+                   JOIN incidents i ON i.report_key = d.report_key JOIN articles a ON a.id = i.article_id
+                   LEFT JOIN incidents ci ON ci.report_key = d.candidate_key LEFT JOIN articles ca ON ca.id = ci.article_id
+                   WHERE d.stage IN ('final', 'admin') AND d.outcome = %s ORDER BY d.id DESC LIMIT %s""",
+                (outcome, limit)).fetchall()
+        return [{**r, "created_at": _iso(r["created_at"])} for r in rows]
+
+    @app.get("/api/events/{event_id}")
+    def event_detail(event_id: int):
+        """One event with every report linked to it (paper, title, link, how it was linked)."""
+        with db.connect() as c:
+            e = c.execute("SELECT * FROM events WHERE id = %s", (event_id,)).fetchone()
+            if not e:
+                raise HTTPException(404, "no such event")
+            reports = c.execute(
+                """SELECT er.report_key, er.linked_by, er.linked_at, a.source, a.title, a.url, a.published_at,
+                          i.id AS incident_id, i.category, i.place_id, i.event_date
+                   FROM event_reports er JOIN incidents i ON i.report_key = er.report_key
+                   JOIN articles a ON a.id = i.article_id WHERE er.event_id = %s ORDER BY a.published_at""",
+                (event_id,)).fetchall()
+        return {**{k: _iso(v) for k, v in e.items()}, "reports": [{k: _iso(v) for k, v in r.items()} for r in reports]}
+
+    @app.post("/api/events/split")
+    def events_split(body: SplitIn, request: Request):
+        """Take one report out of its event (and never put it back there automatically)."""
+        from .events import split
+        try:
+            new = split(body.report_key, _actor(request))
+        except ValueError as e:
+            raise HTTPException(404, str(e))
+        auth.audit(_actor(request), "event_split", {"report_key": body.report_key, "new_event": new},
+                   ip=_client_ip(request))
+        return {"new_event": new}
+
+    @app.post("/api/events/merge")
+    def events_merge(body: MergeIn, request: Request):
+        """Put every report of `other` into `keep` (two events the matcher left apart)."""
+        from .events import merge
+        if body.keep == body.other:
+            raise HTTPException(400, "choose two different events")
+        merge(body.keep, body.other, _actor(request))
+        auth.audit(_actor(request), "event_merge", {"keep": body.keep, "other": body.other}, ip=_client_ip(request))
+        return {"ok": True}
+
+    @app.get("/heat-lab", include_in_schema=False)
+    def heat_lab():
+        """Compare ways of painting crime types on the heatmap, with real data (admins only)."""
+        return FileResponse(ADMIN_STATIC / "heat-lab.html")
 
     @app.get("/review", include_in_schema=False)
     def review_page():
-        return FileResponse(STATIC / "review.html")
+        return FileResponse(ADMIN_STATIC / "review.html")
 
     @app.get("/api/review/queue")
     def review_queue(request: Request, status: str = Query("pending", pattern="^(pending|failed|approved|rejected|auto)$"),
@@ -354,6 +520,7 @@ def create_app() -> FastAPI:
         with an id to fetch from `GET /api/classify/{id}`."""
         who = _reviewer(request, token)
         with db.tx() as c:
+            c.execute("SELECT pg_advisory_xact_lock(7000004)")      # concurrent tries cannot both pass the cap
             waiting = c.execute("SELECT count(*) n FROM previews WHERE status IN ('queued','running')").fetchone()["n"]
             if waiting >= MAX_WAITING_PREVIEWS:
                 raise HTTPException(429, "too many previews waiting; try again in a minute")

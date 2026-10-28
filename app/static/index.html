@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ঢাকা অপরাধ মানচিত্র</title>
+<title>বাংলাদেশ অপরাধ মানচিত্র</title>
 <meta name="description" content="Prothom Alo crime reports in Dhaka, classified and mapped by neighbourhood.">
 <link rel="stylesheet" href="/static/styles.css">
 </head>
@@ -12,14 +12,12 @@
   <div class="brand">
     <span class="logo" aria-hidden="true"></span>
     <div>
-      <h1 data-i18n="title">ঢাকা অপরাধ মানচিত্র</h1>
+      <h1 data-i18n="title">বাংলাদেশ অপরাধ মানচিত্র</h1>
       <p class="sub" id="status-line">…</p>
     </div>
   </div>
   <div class="top-actions">
-    <button id="run-btn" class="btn" type="button" data-i18n="runNow">এখনই সংগ্রহ</button>
     <button id="lang-btn" class="btn ghost" type="button" aria-label="Language">EN</button>
-    <button id="theme-btn" class="btn ghost icon" type="button" aria-label="Theme"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 1 0 0 20V2z"/><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/></svg></button>
   </div>
 </header>
 
@@ -46,8 +44,9 @@
       <div class="chips" id="cats"></div>
     </section>
     <section>
-      <h2 data-i18n="area">থানা / এলাকা</h2>
-      <select id="thana"><option value="" data-i18n="allDhaka">সমগ্র ঢাকা</option></select>
+      <h2 data-i18n="district">জেলা</h2>
+      <select id="district" aria-label="District"></select>
+      <select id="thana" aria-label="Thana / upazila" hidden style="margin-top:8px"></select>
     </section>
     <section>
       <h2 data-i18n="mapView">মানচিত্র</h2>
@@ -73,7 +72,7 @@
   </aside>
 
   <section class="mapwrap">
-    <div id="map" role="application" aria-label="Dhaka crime map"></div>
+    <div id="map" role="region" aria-label="Crime map"></div>
     <div class="legend" id="legend"></div>
     <div class="zoomctl" role="group" aria-label="Zoom">
       <button id="zoom-in" type="button" aria-label="Zoom in" title="Zoom in">+</button>
@@ -82,7 +81,6 @@
     </div>
     <div class="tooltip" id="tooltip" hidden></div>
     <article class="card selected" id="selected" hidden></article>
-    <div class="coverage" id="coverage" role="status" hidden></div>
     <div class="map-note" id="map-note" hidden></div>
   </section>
 
@@ -102,6 +100,7 @@
 </nav>
 
 <script src="https://unpkg.com/deck.gl@9.4.0/dist.min.js"></script>
+<script src="/static/heat-paint.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>

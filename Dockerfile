@@ -6,7 +6,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 # Explicit copies only: no .env, databases or git history ever enter the image.
 COPY app/ app/
-COPY data/dhaka_places.json data/dhaka_places.json
+COPY data/places.json data/places.json
 COPY migrations/ migrations/
 RUN useradd --system --uid 10001 dcm
 USER dcm

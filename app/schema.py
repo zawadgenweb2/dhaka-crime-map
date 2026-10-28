@@ -3,24 +3,64 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
-# Eight colour-coded categories plus "other". Order is fixed: it maps to the UI palette.
-CATEGORIES: dict[str, dict[str, str]] = {
-    "murder": {"bn": "হত্যা", "en": "Murder"},
-    "assault": {"bn": "হামলা ও সংঘর্ষ", "en": "Assault & clashes"},
-    "robbery": {"bn": "ছিনতাই ও ডাকাতি", "en": "Mugging & robbery"},
-    "theft": {"bn": "চুরি", "en": "Theft & burglary"},
-    "sexual_violence": {"bn": "যৌন সহিংসতা", "en": "Sexual violence"},
-    "kidnapping": {"bn": "অপহরণ", "en": "Kidnapping"},
-    "drugs_arms": {"bn": "মাদক ও অস্ত্র", "en": "Drugs & weapons"},
-    "fraud_extortion": {"bn": "প্রতারণা ও চাঁদাবাজি", "en": "Fraud & extortion"},
-    "other": {"bn": "অন্যান্য", "en": "Other"},
+# THE category list (single source of truth): the model's enum, the prompt, storage checks, the public API, filters,
+# legend, map colours and the painter all derive from it. Order = display order.
+#   visibility: "mapped" (points, links, heat) or "totals_only" (counted in totals, never located or linked publicly)
+#   hue: permanent OKLab hue (degrees) of a mapped category; never changed once published (see next_hue below)
+#   family: grouping for when there are too many colours (violent / property / drugs / other)
+# To add a category: add an entry with visibility and family; for a mapped one set hue = next_hue(...) once.
+CATEGORIES: dict[str, dict] = {
+    "murder": {"bn": "হত্যা", "en": "Murder", "visibility": "mapped", "hue": 19, "family": "violent"},
+    "assault": {"bn": "হামলা ও সংঘর্ষ", "en": "Assault & clashes", "visibility": "mapped", "hue": 86, "family": "violent"},
+    "robbery": {"bn": "ছিনতাই ও ডাকাতি", "en": "Mugging & robbery", "visibility": "mapped", "hue": 305, "family": "property"},
+    "theft": {"bn": "চুরি", "en": "Theft & burglary", "visibility": "mapped", "hue": 132, "family": "property"},
+    # mapped since 28 Oct (owner: the newspapers already protect victims; we show what they published).
+    # Hue 52 = next_hue() of the eight above, assigned once.
+    "sexual_violence": {"bn": "যৌন সহিংসতা", "en": "Sexual violence", "visibility": "mapped", "hue": 52,
+                        "family": "violent"},
+    "kidnapping": {"bn": "অপহরণ", "en": "Kidnapping", "visibility": "mapped", "hue": 208, "family": "violent"},
+    "drugs_arms": {"bn": "মাদক ও অস্ত্র", "en": "Drugs & weapons", "visibility": "mapped", "hue": 169, "family": "drugs"},
+    "fraud_extortion": {"bn": "প্রতারণা ও চাঁদাবাজি", "en": "Fraud & extortion", "visibility": "mapped", "hue": 266,
+                        "family": "property"},
+    "other": {"bn": "অন্যান্য", "en": "Other", "visibility": "mapped", "hue": 342, "family": "other"},
 }
+MAX_MAPPED_COLOURS = 9           # council advised 8 for readability; owner added sexual violence as a ninth (28 Oct)
+MAPPED = [k for k, v in CATEGORIES.items() if v["visibility"] == "mapped"]
+TOTALS_ONLY = {k for k, v in CATEGORIES.items() if v["visibility"] == "totals_only"}
 
-Category = Literal["murder", "assault", "robbery", "theft", "sexual_violence", "kidnapping",
-                   "drugs_arms", "fraud_extortion", "other"]
+
+def _check_categories() -> None:
+    for k, v in CATEGORIES.items():                       # fail closed: every entry states its public visibility
+        assert v.get("visibility") in ("mapped", "totals_only"), f"category {k}: visibility missing"
+        assert v.get("bn") and v.get("en") and v.get("family"), f"category {k}: labels/family missing"
+        assert (v["visibility"] == "mapped") == (v.get("hue") is not None), f"category {k}: mapped needs a hue"
+    hues = [CATEGORIES[k]["hue"] for k in MAPPED]
+    assert len(set(hues)) == len(hues), "two mapped categories share a hue"
+
+
+def next_hue(existing: list[float], chroma: float = 0.15) -> int:
+    """Hue for a new mapped category: the whole degree whose OKLab colour (fixed chroma) is farthest from every
+    existing hue's (ties to the smaller angle). With today's eight hues this is 52 degrees (council palette review).
+    Run once when adding a category and store the result in CATEGORIES; never recompute published hues."""
+    import math
+    vec = lambda h: (chroma * math.cos(math.radians(h)), chroma * math.sin(math.radians(h)))   # noqa: E731
+    old = [vec(h) for h in existing]
+    # distances rounded so float noise cannot break an exact tie (52 and 53 tie today; the smaller angle wins)
+    return max(range(360), key=lambda h: (round(min(math.dist(vec(h), o) for o in old), 9) if old else 0, -h))
+
+
+_check_categories()
+
+Category = Literal[tuple(CATEGORIES)]          # the model's enum, generated from the list above
 Precision = Literal["exact", "neighbourhood", "thana", "city"]
+District = Literal["dhaka", "chattogram", "sylhet", "khulna", "barishal", "rangpur"]
+DISTRICTS: dict[str, dict[str, str]] = {
+    "dhaka": {"bn": "ঢাকা", "en": "Dhaka"}, "chattogram": {"bn": "চট্টগ্রাম", "en": "Chattogram"},
+    "sylhet": {"bn": "সিলেট", "en": "Sylhet"}, "khulna": {"bn": "খুলনা", "en": "Khulna"},
+    "barishal": {"bn": "বরিশাল", "en": "Barishal"}, "rangpur": {"bn": "রংপুর", "en": "Rangpur"},
+}
 TimeOfDay = Literal["morning", "afternoon", "evening", "night", "unknown"]
 
 TIME_OF_DAY = {
@@ -34,6 +74,7 @@ TIME_OF_DAY = {
 
 class Incident(BaseModel):
     category: Category
+    district: District | None = Field(None, description="Supported district where the crime happened, or null")
     headline_bn: str = Field(description="One-line Bangla summary of this incident (max ~90 chars)")
     headline_en: str = Field(description="Same summary in English")
     location_text: str = Field(description="Most specific location phrase exactly as written in the article")
@@ -50,6 +91,17 @@ class Incident(BaseModel):
 
 class ArticleAnalysis(BaseModel):
     is_crime_report: bool
-    in_dhaka: bool = Field(description="True only if at least one incident happened inside Dhaka district")
+    in_scope: bool = Field(description="True only if at least one incident happened inside a supported district")
     incidents: list[Incident]
     note: str = Field(description="One short sentence on why incidents were or were not extracted")
+
+    @model_validator(mode="before")
+    @classmethod
+    def _legacy(cls, data):
+        """Answers saved before the six-district change said `in_dhaka` and had no per-incident district."""
+        if isinstance(data, dict) and "in_dhaka" in data and "in_scope" not in data:
+            data = {**data, "in_scope": data["in_dhaka"]}
+            data.pop("in_dhaka")
+            data["incidents"] = [{"district": "dhaka", **i} if isinstance(i, dict) else i
+                                 for i in data.get("incidents") or []]
+        return data

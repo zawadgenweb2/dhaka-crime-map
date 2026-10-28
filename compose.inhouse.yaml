@@ -1,7 +1,7 @@
 # Override for the in-house server (genweb2inhouse):
 #   docker compose -f compose.yaml -f compose.inhouse.yaml up -d --build
 # - dashboard on the LAN address only (API_BIND in .env, e.g. 192.168.1.200), HTTPS with a local certificate
-#   (deploy/tls/, created by deploy/make-lan-cert.sh) so the review token never crosses the LAN in clear text
+#   (deploy/tls/, created by deploy/make-lan-cert.sh); admin panel on ADMIN_BIND (default: the same LAN address), port 8101
 # - classifier on the host network so it reaches the model server on the host's loopback (127.0.0.1:8090),
 #   which stays unexposed; Postgres is published on loopback only, for that one container
 services:
@@ -20,6 +20,17 @@ services:
       PUBLISH_MODE: ${PUBLISH_MODE:-auto}
     healthcheck:
       test: ["CMD", "python", "-c", "import ssl,urllib.request;urllib.request.urlopen('https://127.0.0.1:8100/api/health',context=ssl._create_unverified_context(),timeout=3)"]
+  admin:
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+    ports: !override
+      - "${ADMIN_BIND:-${API_BIND}}:${ADMIN_PORT:-8101}:8101"   # office LAN / VPN address only, never public
+    volumes:
+      - ./deploy/tls:/tls:ro
+    environment:
+      TLS_CERT_FILE: /tls/cert.pem
+      TLS_KEY_FILE: /tls/key.pem
+    healthcheck:
+      test: ["CMD", "python", "-c", "import ssl,urllib.request;urllib.request.urlopen('https://127.0.0.1:8101/api/health',context=ssl._create_unverified_context(),timeout=3)"]
   classifier:
     network_mode: host
     environment:

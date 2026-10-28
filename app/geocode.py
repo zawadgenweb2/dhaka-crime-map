@@ -17,7 +17,7 @@ from . import db
 from .config import settings
 
 log = logging.getLogger(__name__)
-VIEWBOX = "90.10,24.00,90.60,23.55"  # Dhaka district (lon/lat corners)
+VIEWBOX = "90.10,24.00,90.60,23.55"  # Dhaka district (lon/lat corners); other districts pass their own box
 LANE = "nominatim"
 
 
@@ -32,7 +32,14 @@ def is_cached(query: str) -> bool:
     return bool(q) and _cached(q) is not None
 
 
-def geocode(query: str) -> tuple[float, float] | None:
+def viewbox_for(bounds: dict | None, pad: float = 0.08) -> str:
+    """Nominatim viewbox "west,north,east,south" around a district's places (Dhaka's fixed box when unknown)."""
+    if not bounds:
+        return VIEWBOX
+    return f"{bounds['w'] - pad:.3f},{bounds['n'] + pad:.3f},{bounds['e'] + pad:.3f},{bounds['s'] - pad:.3f}"
+
+
+def geocode(query: str, viewbox: str | None = None) -> tuple[float, float] | None:
     q = " ".join((query or "").split())[:200]
     if not q or not settings.geocode_enabled:
         return None
@@ -53,7 +60,7 @@ def geocode(query: str) -> tuple[float, float] | None:
             time.sleep(wait)
         try:
             r = httpx.get(settings.nominatim_url,
-                          params={"q": q, "format": "jsonv2", "limit": 1, "viewbox": VIEWBOX, "bounded": 1,
+                          params={"q": q, "format": "jsonv2", "limit": 1, "viewbox": viewbox or VIEWBOX, "bounded": 1,
                                   "countrycodes": "bd"},
                           headers={"User-Agent": settings.user_agent}, timeout=20)
             r.raise_for_status()

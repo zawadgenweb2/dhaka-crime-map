@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Heatmap Lab</title>
+<style>
+  :root { --bg: #f7f6f2; --surface: #fff; --text: #1a1a19; --muted: #6b6a66; --line: #e3e1da; --accent: #c2410c; }
+  :root[data-theme="dark"] { --bg: #141413; --surface: #1f1f1d; --text: #f2f1ed; --muted: #a3a29c; --line: #34332f; --accent: #fb923c; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font: 14px/1.4 system-ui, sans-serif; }
+  .app { display: grid; grid-template-rows: auto 1fr; height: 100%; }
+  header { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--surface); }
+  header h1 { font-size: 16px; margin: 0 8px 0 0; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .seg button { border: 0; background: transparent; color: var(--text); padding: 6px 10px; cursor: pointer; font: inherit; }
+  .seg button.on { background: var(--text); color: var(--bg); }
+  .stage { position: relative; overflow: hidden; }
+  #map, #paint { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #paint { pointer-events: none; }
+  .panel { position: absolute; left: 12px; bottom: 12px; max-width: min(380px, calc(100% - 24px)); background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; box-shadow: 0 4px 18px rgba(0,0,0,.12); }
+  .panel h2 { margin: 0 0 4px; font-size: 15px; }
+  .panel p { margin: 0 0 8px; color: var(--muted); font-size: 12.5px; }
+  .keys { display: flex; flex-wrap: wrap; gap: 4px 6px; }
+  .key { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; border: 1px solid var(--line); border-radius: 999px; padding: 2px 8px 2px 4px; cursor: pointer; background: transparent; color: var(--text); }
+  .key i { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+  .key.off { opacity: .35; }
+  .ramp { height: 8px; border-radius: 4px; margin: 6px 0 2px; }
+  .ends { display: flex; justify-content: space-between; color: var(--muted); font-size: 11px; }
+  #readout { position: absolute; pointer-events: none; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 12.5px; box-shadow: 0 4px 14px rgba(0,0,0,.15); min-width: 170px; }
+  #readout .row { display: grid; grid-template-columns: 12px 1fr auto; gap: 6px; align-items: center; }
+  #readout .row i { width: 10px; height: 10px; border-radius: 50%; }
+  #readout .bar { height: 4px; border-radius: 2px; margin: 1px 0 4px 18px; }
+  .note { color: var(--muted); font-size: 12px; }
+  @media (max-width: 700px) { header { padding: 8px 10px; } .seg button { padding: 6px 7px; font-size: 12.5px; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>Heatmap lab</h1>
+    <div class="seg" id="variants"></div>
+    <div class="seg" id="period"><button data-d="7">7 days</button><button data-d="30" class="on">30 days</button><button data-d="90">90 days</button></div>
+    <div class="seg" id="theme"><button data-t="light" class="on">Light</button><button data-t="dark">Dark</button></div>
+    <div class="seg" id="chroma"><button data-c="0.10" class="on">Soft</button><button data-c="0.15">Vivid</button></div>
+    <span class="note" id="count"></span>
+  </header>
+  <div class="stage">
+    <div id="map"></div>
+    <canvas id="paint"></canvas>
+    <div class="panel" id="panel"></div>
+    <div id="readout" hidden></div>
+  </div>
+</div>
+<script src="https://unpkg.com/deck.gl@9.4.0/dist.min.js"></script>
+<script>
+(() => {
+  "use strict";
+  const $ = (s) => document.querySelector(s);
+  // Mapped categories (sexual violence is never a point on the public map, so it is left out here too)
+  // [key, English, Bangla, OKLab hue (council palette, chroma 0.10), family]
+  const CATS = [
+    ["murder", "Murder", "হত্যা", 19, "violent"], ["assault", "Assault & clashes", "হামলা ও সংঘর্ষ", 86, "violent"],
+    ["robbery", "Mugging & robbery", "ছিনতাই ও ডাকাতি", 305, "property"], ["theft", "Theft & burglary", "চুরি", 132, "property"],
+    ["kidnapping", "Kidnapping", "অপহরণ", 208, "violent"], ["drugs_arms", "Drugs & weapons", "মাদক ও অস্ত্র", 169, "drugs"],
+    ["fraud_extortion", "Fraud & extortion", "প্রতারণা ও চাঁদাবাজি", 266, "property"], ["other", "Other", "অন্যান্য", 342, "other"],
+  ];
+  // Four families with well-separated hues (variant F)
+  const FAMILIES = [["violent", "Violent (murder, assault, kidnapping)", 25], ["property", "Property (robbery, theft, fraud)", 95],
+                    ["drugs", "Drugs & weapons", 170], ["other", "Other", 285]];
+  const K = CATS.length, IDX = Object.fromEntries(CATS.map((c, i) => [c[0], i]));
+  const WARM = [[253, 224, 217], [252, 187, 161], [251, 140, 110], [239, 90, 70], [214, 45, 40], [175, 20, 28], [127, 10, 18]];
+
+  /* ---------- colour science: sRGB <-> OKLab (Björn Ottosson) ---------- */
+  const toLin = (c) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+  const toSrgb = (c) => (c <= 0.0031308 ? 12.92 * c : 1.055 * c ** (1 / 2.4) - 0.055);
+  function hexRgb(h) { h = h.replace("#", ""); return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16) / 255); }
+  function rgbToLab([r, g, b]) {
+    r = toLin(r); g = toLin(g); b = toLin(b);
+    const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
+    const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
+    const s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
+    return [0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s, 1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s,
+            0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s];
+  }
+  function labToRgb([L, a, b]) {
+    const l = (L + 0.3963377774 * a + 0.2158037573 * b) ** 3, m = (L - 0.1055613458 * a - 0.0638541728 * b) ** 3,
+          s = (L - 0.0894841775 * a - 1.2914855480 * b) ** 3;
+    return [4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s, -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+            -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s].map((c) => Math.round(255 * Math.min(1, Math.max(0, toSrgb(Math.max(0, c))))));
+  }
+  let CHROMA = 0.10;                                 // council value; "Vivid" uses 0.15 (gamut-guarded)
+  const vec = (h) => [CHROMA * Math.cos(h * Math.PI / 180), CHROMA * Math.sin(h * Math.PI / 180)];
+  let AB = CATS.map((c) => vec(c[3]));
+  let FAM_AB = FAMILIES.map((f) => vec(f[2]));
+  function setChroma(c) { CHROMA = c; AB = CATS.map((x) => vec(x[3])); FAM_AB = FAMILIES.map((f) => vec(f[2])); }
+  const FAM_OF = CATS.map((c) => FAMILIES.findIndex((f) => f[0] === c[4]));
+  // OKLab -> linear sRGB (no clamping)
+  function labToLin([L, a, b]) {
+    const l = (L + 0.3963377774 * a + 0.2158037573 * b) ** 3, m = (L - 0.1055613458 * a - 0.0638541728 * b) ** 3,
+          s = (L - 0.0894841775 * a - 1.2914855480 * b) ** 3;
+    return [4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s, -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+            -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s];
+  }
+  const Lstar = (t, dark) => (dark ? 0.60 + 0.18 * t : 0.78 - 0.18 * t);
+  // Foreground colour (encoded sRGB 0-255): mixture direction (a, b), tone from density only. Its luminance is
+  // normalised to L*^3 so the mix of types never changes how strong a place looks (council colour model).
+  function foreground(a, b, t, dark) {
+    const L = Lstar(t, dark); let k = 1, V;
+    for (let i = 0; i < 6; i++) {                     // gamut guard: shrink (a, b) together, never clip channels
+      V = labToLin([L, a * k, b * k]);
+      const Y = 0.2126 * V[0] + 0.7152 * V[1] + 0.0722 * V[2];
+      V = V.map((c) => c * (L ** 3) / Y);
+      if (V.every((c) => c >= 0 && c <= 1)) break;
+      k *= 0.8;
+    }
+    return V.map((c) => Math.round(255 * toSrgb(Math.min(1, Math.max(0, c)))));
+  }
+  const swatch = (h, dark) => { const [a, b] = vec(h); return `rgb(${foreground(a, b, 1, dark)})`; };
+  const LIN = AB.map(([a, b]) => labToLin([0.7, a, b]).map((c) => Math.max(0, c)));
+
+  /* ---------- variants ---------- */
+  const VARIANTS = {
+    A: { name: "A · Blended colours", desc: "Each crime type glows in its own colour; where types overlap, the colours mix in OKLab by their true shares. Strength (deeper colour, less see-through) = how much crime, the same whatever the mix." },
+    F: { name: "F · Blended families", desc: "Like A, but colours four crime families (violent, property, drugs & weapons, other) with widely separated hues, so two-way mixes stay readable. Tap for the exact types." },
+    B: { name: "B · Coloured light", desc: "Each type is a coloured light; overlapping lights add up (like stage lights), so busy mixed areas turn brighter and whiter." },
+    G: { name: "G · Main type + mixed stripes", desc: "Council best practice: where one crime type makes up 60% or more of the local density, it shows in its own colour; where no type dominates, a grey striped pattern means \"several types mixed\" (tap to see which). One colour = one meaning." },
+    C: { name: "C · Strongest type", desc: "The colour is the locally most common crime type, with soft borders between types. Strength = how much crime." },
+    D: { name: "D · One warm scale", desc: "The current map: one warm scale for how much crime, types not shown by colour." },
+    E: { name: "E · Stacked layers (naive)", desc: "One standard heat layer per type drawn on top of each other. Shown to compare: overlaps depend on drawing order and turn muddy." },
+  };
+  const state = { variant: "A", d0: null, days: 30, theme: "light", off: new Set(), pts: [], view: { longitude: 90.4, latitude: 23.78, zoom: 11.3, pitch: 0, bearing: 0 }, grid: null };
+
+  /* ---------- density in screen space ---------- */
+  const CELL = 3;                                   // px per grid cell
+  const sigmaPx = (z) => Math.max(9, Math.min(55, 20 * 2 ** ((z - 12) * 0.45)));
+  function densities(w, h) {
+    const vp = new deck.WebMercatorViewport({ ...state.view, width: w, height: h });
+    const W = Math.ceil(w / CELL), H = Math.ceil(h / CELL);
+    const D = new Float32Array(W * H * K);
+    // triweight kernel: Gaussian-like centre that reaches exactly zero at 2.5 sigma, so stacked points leave no rim
+    const sc = sigmaPx(state.view.zoom) / CELL, R = 2.5 * sc, r = Math.ceil(R), kern = [];
+    for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) { const q = (dx * dx + dy * dy) / (R * R); if (q < 1) kern.push(dx, dy, (1 - q) ** 3); }
+    for (const p of state.pts) {
+      const k = IDX[p.category]; if (k === undefined) continue;   // every type; hidden ones are masked when painting
+      const [x, y] = vp.project([p.lng, p.lat]);
+      const cx = Math.round(x / CELL), cy = Math.round(y / CELL);
+      if (cx < -r || cy < -r || cx > W + r || cy > H + r) continue;
+      for (let i = 0; i < kern.length; i += 3) {
+        const gx = cx + kern[i], gy = cy + kern[i + 1];
+        if (gx < 0 || gy < 0 || gx >= W || gy >= H) continue;
+        D[(gy * W + gx) * K + k] += kern[i + 2];
+      }
+    }
+    // D0 = Q95 / ln 20 over all mapped types in view (hiding a type never rescales the others)
+    const tot = new Float32Array(W * H), all = []; const on = CATS.map((c) => !state.off.has(c[0]));
+    for (let c = 0; c < W * H; c++) {
+      let s = 0, sa = 0;
+      for (let k = 0; k < K; k++) { const d = D[c * K + k]; sa += d; if (on[k]) s += d; }
+      tot[c] = s; if (sa > 0.05) all.push(sa);
+    }
+    all.sort((a, b) => a - b);
+    const q95 = all.length ? all[Math.min(all.length - 1, Math.floor(all.length * 0.95))] : 1;
+    const D0 = q95 / Math.log(20);
+    return { W, H, D, tot, ref: q95, D0, on, vp };
+  }
+
+  const smooth = (e0, e1, x) => { const t = Math.min(1, Math.max(0, (x - e0) / (e1 - e0))); return t * t * (3 - 2 * t); };
+  function paint() {
+    const cv = $("#paint"), w = cv.clientWidth, h = cv.clientHeight;
+    if (!w || !h) return;
+    const g = densities(w, h); state.grid = g;
+    const { W, H, D, tot, ref, D0, on } = g;
+    const img = new ImageData(W, H), px = img.data, dark = state.theme === "dark";
+    const mixImg = new ImageData(W, H), mx = mixImg.data;          // G: the "mixed" cells, striped after upscaling
+    const show = state.variant !== "E";
+    for (let c = 0; c < W * H && show; c++) {
+      const T = tot[c]; if (T < 1e-4) continue;
+      const I = Math.min(1, (T / ref) ** 0.6);                       // (B, D only)
+      const t = 1 - Math.exp(-3 * Math.sqrt(T / ref));                 // same tone curve as the live map
+      let rgb, alpha = smooth(0.0, 0.6, I) * 0.88;
+      if (state.variant === "G") {
+        let best = -1, bv = 0, sum = 0;
+        for (let k = 0; k < K; k++) { const d = on[k] ? D[c * K + k] : 0; sum += d; if (d > bv) { bv = d; best = k; } }
+        const al = Math.round(255 * 0.8 * t);
+        if (sum > 0 && bv / sum >= 0.6) {
+          rgb = foreground(AB[best][0], AB[best][1], t, dark);
+          px[c * 4] = rgb[0]; px[c * 4 + 1] = rgb[1]; px[c * 4 + 2] = rgb[2]; px[c * 4 + 3] = al;
+        } else { mx[c * 4] = 139; mx[c * 4 + 1] = 139; mx[c * 4 + 2] = 139; mx[c * 4 + 3] = al; }
+        continue;
+      }
+      if (state.variant === "A" || state.variant === "C" || state.variant === "F") {
+        let a = 0, b = 0, sw = 0;
+        if (state.variant === "F") {
+          const fam = [0, 0, 0, 0];
+          for (let k = 0; k < K; k++) if (on[k]) fam[FAM_OF[k]] += D[c * K + k];
+          for (let f = 0; f < 4; f++) { a += fam[f] * FAM_AB[f][0]; b += fam[f] * FAM_AB[f][1]; sw += fam[f]; }
+        } else {
+          for (let k = 0; k < K; k++) {
+            const d = on[k] ? D[c * K + k] : 0; if (!d) continue;
+            const wgt = state.variant === "C" ? d ** 4 : d;            // C: the strongest type dominates
+            a += wgt * AB[k][0]; b += wgt * AB[k][1]; sw += wgt;
+          }
+        }
+        rgb = foreground(a / sw, b / sw, t, dark);
+        alpha = 0.9 * (2 * t - t * t);
+      } else if (state.variant === "B") {
+        const lin = [0, 0, 0];
+        for (let k = 0; k < K; k++) { const d = on[k] ? D[c * K + k] : 0; if (d) for (let j = 0; j < 3; j++) lin[j] += d * LIN[k][j]; }
+        const gain = 2.2 / ref;
+        rgb = lin.map((v) => Math.round(255 * toSrgb(1 - Math.exp(-v * gain))));
+        alpha = smooth(0.0, 0.35, I) * 0.9;
+      } else {
+        const t = I * (WARM.length - 1), i0 = Math.floor(t), f = t - i0, c0 = WARM[i0], c1 = WARM[Math.min(WARM.length - 1, i0 + 1)];
+        rgb = c0.map((v, j) => Math.round(v + (c1[j] - v) * f));
+      }
+      px[c * 4] = rgb[0]; px[c * 4 + 1] = rgb[1]; px[c * 4 + 2] = rgb[2]; px[c * 4 + 3] = Math.round(255 * alpha);
+    }
+    const small = document.createElement("canvas"); small.width = W; small.height = H;
+    small.getContext("2d").putImageData(img, 0, 0);
+    const dpr = window.devicePixelRatio || 1;
+    if (cv.width !== Math.round(w * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
+    const ctx = cv.getContext("2d");
+    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height);
+    ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(small, 0, 0, W * CELL * dpr, H * CELL * dpr);
+    if (state.variant === "G") {
+      // mixed areas: grey with dark diagonal stripes (45°, 1.5 px, every 8 px), anchored to the map so they don't crawl
+      const ms = document.createElement("canvas"); ms.width = W; ms.height = H; ms.getContext("2d").putImageData(mixImg, 0, 0);
+      const big = document.createElement("canvas"); big.width = cv.width; big.height = cv.height;
+      const bx = big.getContext("2d"); bx.imageSmoothingEnabled = true; bx.imageSmoothingQuality = "high";
+      bx.drawImage(ms, 0, 0, W * CELL * dpr, H * CELL * dpr);
+      const [ox, oy] = g.vp.project([90, 23]);
+      bx.globalCompositeOperation = "source-atop"; bx.strokeStyle = "#333333"; bx.lineWidth = 1.5 * dpr;
+      const step = 8 * Math.SQRT2 * dpr, off = ((ox + oy) * dpr) % step;
+      bx.beginPath();
+      for (let k = -big.height - step + off; k < big.width + step; k += step) { bx.moveTo(k, 0); bx.lineTo(k + big.height, big.height); }
+      bx.stroke();
+      ctx.drawImage(big, 0, 0);
+    }
+  }
+
+  /* ---------- map ---------- */
+  const tiles = new deck.TileLayer({
+    id: "base", data: "https://tile.openstreetmap.org/{z}/{x}/{y}.png", minZoom: 0, maxZoom: 19, tileSize: 256,
+    renderSubLayers: (props) => {
+      const [[w, s], [e, n]] = props.tile.boundingBox;
+      return new deck.BitmapLayer(props, { data: null, image: props.data, bounds: [w, s, e, n],
+        desaturate: state.theme === "dark" ? 0.9 : 0.55, tintColor: state.theme === "dark" ? [95, 95, 100] : [255, 255, 255] });
+    },
+    updateTriggers: { renderSubLayers: state.theme },
+  });
+  function naiveLayers() {
+    if (state.variant !== "E") return [];
+    return CATS.filter((c) => !state.off.has(c[0])).map((c) => {
+      const [r, g, b] = swatch(c[3], state.theme === "dark").slice(4, -1).split(",").map(Number);
+      return new deck.HeatmapLayer({ id: `naive-${c[0]}`, data: state.pts.filter((p) => p.category === c[0]),
+        getPosition: (p) => [p.lng, p.lat], radiusPixels: sigmaPx(state.view.zoom) * 2.2, intensity: 1, threshold: 0.05,
+        colorRange: [[r, g, b, 40], [r, g, b, 90], [r, g, b, 140], [r, g, b, 180], [r, g, b, 210], [r, g, b, 235]] });
+    });
+  }
+  let raf = 0;
+  const schedule = () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; paint(); }); };
+  const dk = new deck.Deck({
+    parent: $("#map"), initialViewState: state.view, controller: true,
+    layers: [tiles],
+    onViewStateChange: ({ viewState }) => { state.view = viewState; schedule(); $("#readout").hidden = true; return viewState; },
+    getCursor: () => "crosshair",
+    onClick: (info) => readout(info.x, info.y),
+    attributionControl: false,
+  });
+  function relayer() {
+    const t = tiles.clone({ id: `base-${state.theme}`, updateTriggers: { renderSubLayers: state.theme } });
+    dk.setProps({ layers: [t, ...naiveLayers()] });
+  }
+
+  /* ---------- readout: the local mix where you tap ---------- */
+  function readout(x, y) {
+    const g = state.grid; const box = $("#readout");
+    if (!g) return;
+    const gx = Math.round(x / CELL), gy = Math.round(y / CELL);
+    if (gx < 0 || gy < 0 || gx >= g.W || gy >= g.H || g.tot[gy * g.W + gx] < 0.05) { box.hidden = true; return; }
+    // shares of the glow here, from the same density values that painted it (not incident counts)
+    const cell = gy * g.W + gx, T = g.tot[cell];
+    const rows = CATS.map((c, k) => [k, g.on[k] ? g.D[cell * K + k] / T : 0]).filter((r) => r[1] >= 0.005).sort((a, b) => b[1] - a[1]);
+    const dark = state.theme === "dark";
+    box.innerHTML = `<b>Approximate local mix</b><div class="note" style="margin:2px 0 6px">Shares of the glow from nearby mapped incidents, not counts for this street.</div>` + rows.map(([k, v]) => {
+      const c = CATS[k], col = swatch(c[3], dark);
+      return `<div class="row"><i style="background:${col}"></i><span>${c[1]}</span><b>${Math.round(v * 100)}%</b></div><div class="bar" style="width:${v * 100}%;background:${col}"></div>`;
+    }).join("");
+    box.style.left = `${Math.min(x + 14, $(".stage").clientWidth - 240)}px`; box.style.top = `${Math.max(8, y - 20)}px`;
+    box.hidden = !rows.length;
+  }
+
+  /* ---------- panel ---------- */
+  function panel() {
+    const v = VARIANTS[state.variant];
+    const ramp = state.variant === "D" ? `linear-gradient(90deg, ${WARM.map((c) => `rgb(${c})`).join(",")})`
+      : `linear-gradient(90deg, rgba(120,120,120,.08), rgba(120,120,120,.55), rgba(60,60,60,.9))`;
+    $("#panel").innerHTML = `<h2>${v.name}</h2><p>${v.desc}</p>` +
+      (state.variant === "D" ? "" : state.variant === "F"
+        ? `<div class="keys">${FAMILIES.map((f) => `<span class="key"><i style="background:${swatch(f[2], state.theme === "dark")}"></i>${f[1]}</span>`).join("")}</div>`
+        : `<div class="keys">${CATS.map((c) => `<button class="key${state.off.has(c[0]) ? " off" : ""}" data-k="${c[0]}"><i style="background:${swatch(c[3], state.theme === "dark")}"></i>${c[1]}</button>`).join("")}</div>`) +
+      (state.variant === "G" ? `<div class="keys" style="margin-top:4px"><span class="key"><i style="background:repeating-linear-gradient(45deg,#8b8b8b 0 4px,#333 4px 5.5px)"></i>Several types mixed</span></div><p style="margin:6px 0 0">Colour = the main crime type there (60% or more). Stripes = no single type dominates. Deeper = more reported incidents.</p>` : "") +
+      (["A", "C", "F"].includes(state.variant) ? `<p style="margin:6px 0 0">Colours blend where types overlap. Deeper colour = more reported incidents (relative to this view).</p>` : "") +
+      `<div class="ramp" style="background:${ramp}"></div><div class="ends"><span>fewer</span><span>${state.variant === "D" ? "more" : "more (stronger colour)"}</span></div>` +
+      `<p style="margin-top:6px">Tap the map to see the crime mix there. Click a type to hide it.</p>`;
+    document.querySelectorAll("#panel .key").forEach((b) => b.addEventListener("click", () => {
+      const k = b.dataset.k; state.off.has(k) ? state.off.delete(k) : state.off.add(k); panel(); relayer(); paint();
+    }));
+  }
+
+  function setVariant(k) {
+    state.variant = k;
+    document.querySelectorAll("#variants button").forEach((b) => b.classList.toggle("on", b.dataset.v === k));
+    panel(); relayer(); paint();
+  }
+  $("#variants").innerHTML = Object.keys(VARIANTS).map((k) => `<button data-v="${k}" title="${VARIANTS[k].name}">${VARIANTS[k].name.split(" · ")[1]}</button>`).join("");
+  document.querySelectorAll("#variants button").forEach((b) => b.addEventListener("click", () => setVariant(b.dataset.v)));
+  document.querySelectorAll("#period button").forEach((b) => b.addEventListener("click", () => {
+    document.querySelectorAll("#period button").forEach((x) => x.classList.toggle("on", x === b)); load(+b.dataset.d);
+  }));
+  document.querySelectorAll("#theme button").forEach((b) => b.addEventListener("click", () => {
+    document.querySelectorAll("#theme button").forEach((x) => x.classList.toggle("on", x === b));
+    state.theme = b.dataset.t; document.documentElement.dataset.theme = state.theme; relayer(); paint();
+  }));
+  document.querySelectorAll("#chroma button").forEach((b) => b.addEventListener("click", () => {
+    document.querySelectorAll("#chroma button").forEach((x) => x.classList.toggle("on", x === b));
+    setChroma(+b.dataset.c); panel(); relayer(); paint();
+  }));
+  window.addEventListener("resize", schedule);
+
+  async function load(days) {
+    state.days = days;
+    const r = await fetch(`/api/incidents?days=${days}&limit=20000`, { credentials: "same-origin" });
+    if (!r.ok) { $("#count").textContent = `could not load incidents (HTTP ${r.status})`; return; }
+    state.pts = (await r.json()).filter((p) => p.lat != null && IDX[p.category] !== undefined);
+    $("#count").textContent = `${state.pts.length} mapped incidents · ${days} days`;
+    relayer(); paint();
+  }
+  // optional start view and variant from the address: #v=B&z=12&ll=23.78,90.40
+  const hp = new URLSearchParams(location.hash.slice(1));
+  const ll = (hp.get("ll") || "").split(",").map(Number);
+  if (ll.length === 2 && ll.every(Number.isFinite)) { state.view = { ...state.view, latitude: ll[0], longitude: ll[1] }; }
+  if (+hp.get("z")) state.view = { ...state.view, zoom: +hp.get("z") };
+  dk.setProps({ initialViewState: state.view });
+  if (hp.get("theme") === "dark") { state.theme = "dark"; document.documentElement.dataset.theme = "dark"; document.querySelectorAll("#theme button").forEach((x) => x.classList.toggle("on", x.dataset.t === "dark")); }
+  if (hp.get("vivid")) { setChroma(0.15); document.querySelectorAll("#chroma button").forEach((x) => x.classList.toggle("on", x.dataset.c === "0.15")); }
+  setVariant(VARIANTS[hp.get("v")] ? hp.get("v") : "A");
+  load(+hp.get("days") || 30);
+})();
+</script>
+</body>
+</html>

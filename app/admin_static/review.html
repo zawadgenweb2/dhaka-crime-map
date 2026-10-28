@@ -28,12 +28,7 @@
 <div class="wrap">
   <h1>পর্যালোচনা · Review queue</h1>
   <p class="muted">Approve only what the article clearly supports. Precision first: when unsure, reject or flag.</p>
-  <div class="bar">
-    <input id="token" type="password" placeholder="Admin token" autocomplete="off">
-    <input id="who" placeholder="Your name">
-    <button class="btn" id="save" type="button">Save &amp; load</button>
-    <a href="/" class="link">← map</a>
-  </div>
+  <div class="bar"><a href="/" class="link">← admin</a> <span class="muted" id="who"></span></div>
   <div class="bar tabs2" id="tabs"></div>
   <div id="list"></div>
   <h2 style="margin-top:24px">Articles needing attention (uncertain / failed)</h2>
@@ -42,11 +37,9 @@
 <script>
 (() => {
   const $ = (s) => document.querySelector(s);
-  const get = (k) => { try { return localStorage.getItem(k) || ""; } catch { return ""; } };
-  const set = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
-  let status = "pending", data = null;
-  $("#token").value = get("dcm.token"); $("#who").value = get("dcm.who");
-  const headers = () => ({ "Content-Type": "application/json", "X-Admin-Token": $("#token").value, "X-Reviewer": $("#who").value || "reviewer" });
+  let status = "auto", data = null, csrf = "";
+  // the login session identifies the reviewer; changes carry the session's CSRF token
+  const headers = () => ({ "Content-Type": "application/json", "X-CSRF-Token": csrf });
   const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
   function highlight(body, quote) {
@@ -57,7 +50,7 @@
 
   async function load() {
     const r = await fetch(`/api/review/queue?status=${status}`, { headers: headers() });
-    if (!r.ok) { $("#list").innerHTML = `<p class="empty">${r.status === 401 ? "Enter the admin token." : "Error " + r.status}</p>`; return; }
+    if (!r.ok) { $("#list").innerHTML = `<p class="empty">${r.status === 401 ? "Session expired: log in again." : "Error " + r.status}</p>`; return; }
     data = await r.json();
     $("#tabs").innerHTML = ["pending", "failed", "approved", "rejected", "auto"].map((s) =>
       `<button type="button" data-s="${s}" class="${s === status ? "on" : ""}">${s} (${data.counts[s] || 0})</button>`).join("");
@@ -113,8 +106,9 @@
     });
   }
 
-  $("#save").onclick = () => { set("dcm.token", $("#token").value); set("dcm.who", $("#who").value); load(); };
-  if ($("#token").value) load();
+  fetch("/api/session").then((r) => (r.ok ? r.json() : Promise.reject(r.status))).then((sess) => {
+    csrf = sess.csrf || ""; $("#who").textContent = `· ${sess.user}`; load();
+  }).catch(() => { location.href = "/login"; });
 })();
 </script>
 </body>

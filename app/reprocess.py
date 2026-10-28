@@ -34,7 +34,7 @@ def reprocess_all() -> dict:
                                   GROUP BY a2.id) v
                             WHERE a.id = v.id RETURNING a.id, a.analysis_version""").fetchall()
         for a in arts:
-            c.execute("""INSERT INTO jobs (article_id, analysis_version, backend, run_id) VALUES (%s, %s, %s, %s)""",
+            c.execute("""INSERT INTO jobs (article_id, analysis_version, backend, run_id, priority) VALUES (%s, %s, %s, %s, 2)""",
                       (a["id"], a["analysis_version"], settings.classifier, run_id))
         c.execute("UPDATE runs SET discovered = %s, fetched = %s, queued = %s WHERE id = %s",
                   (len(arts), len(arts), len(arts), run_id))
@@ -64,7 +64,7 @@ def requeue_set_aside(days: int) -> dict:
                                   GROUP BY a2.id) v
                             WHERE a.id = v.id RETURNING a.id, a.analysis_version""", (days,)).fetchall()
         for a in arts:
-            c.execute("INSERT INTO jobs (article_id, analysis_version, backend, run_id) VALUES (%s, %s, %s, %s)",
+            c.execute("INSERT INTO jobs (article_id, analysis_version, backend, run_id, priority) VALUES (%s, %s, %s, %s, 2)",
                       (a["id"], a["analysis_version"], settings.classifier, run_id))
         c.execute("UPDATE runs SET discovered = %s, fetched = %s, queued = %s WHERE id = %s",
                   (len(arts), len(arts), len(arts), run_id))
@@ -97,3 +97,42 @@ def rematerialize() -> dict:
                                 f"{t['backend']}:{t['model']}", gaz)
             n += 1
     return {"articles": n, "incidents_published_or_held": rows}
+
+
+def refilter_skipped(days: int) -> dict:
+    """Re-apply today's full-text pre-filter to articles the old rules skipped (they were downloaded, so their text is
+    stored) and queue the ones that now qualify, e.g. crime stories from districts added later. No downloads."""
+    from .gazetteer import load as load_gazetteer
+    from .scraper import CRIME_SECTIONS, belongs_to_districts
+    from .text import crime_signal
+    gaz = load_gazetteer()
+    with db.connect() as c:
+        rows = c.execute("""SELECT id, section, title, keywords, body FROM articles
+                            WHERE status = 'skipped' AND note LIKE 'pre-filter:%%' AND body IS NOT NULL
+                              AND (published_at AT TIME ZONE 'Asia/Dhaka')::date
+                                  >= (now() AT TIME ZONE 'Asia/Dhaka')::date - %s""", (days,)).fetchall()
+    ids = []
+    for r in rows:
+        text = f"{r['title']}\n{r['keywords'] or ''}\n{r['body']}"
+        title_ok = r["section"] in CRIME_SECTIONS or crime_signal(f"{r['title']} {r['keywords'] or ''}") > 0
+        if title_ok and crime_signal(text) > 0 and belongs_to_districts(r["section"] or "", text, gaz):
+            ids.append(r["id"])
+    if not ids:
+        return {"checked": len(rows), "articles_queued": 0}
+    with db.tx() as c:
+        c.execute("SELECT pg_advisory_xact_lock(%s)", (MATERIALIZE_LOCK,))
+        run_id = c.execute("""INSERT INTO runs (trigger, status, finished_at, message, days_back)
+                              VALUES ('reprocess', 'ok', now(), 're-check skipped articles with the current pre-filter', %s)
+                              RETURNING id""", (days,)).fetchone()["id"]
+        arts = c.execute("""UPDATE articles a SET analysis_version = v.nv, status = 'queued', note = NULL
+                            FROM (SELECT a2.id, greatest(a2.analysis_version, coalesce(max(j.analysis_version), 0)) + 1 AS nv
+                                  FROM articles a2 LEFT JOIN jobs j ON j.article_id = a2.id
+                                  WHERE a2.id = ANY(%s) AND a2.status = 'skipped' GROUP BY a2.id) v
+                            WHERE a.id = v.id RETURNING a.id, a.analysis_version""", (ids,)).fetchall()
+        for a in arts:
+            c.execute("INSERT INTO jobs (article_id, analysis_version, backend, run_id, priority) VALUES (%s, %s, %s, %s, 2)",
+                      (a["id"], a["analysis_version"], settings.classifier, run_id))
+        c.execute("UPDATE runs SET discovered = %s, fetched = %s, queued = %s WHERE id = %s",
+                  (len(rows), len(arts), len(arts), run_id))
+        db.bump_revision(c)
+    return {"checked": len(rows), "articles_queued": len(arts), "run_id": run_id}

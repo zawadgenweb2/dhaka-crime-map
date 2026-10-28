@@ -4,58 +4,45 @@
 
   const I18N = {
     bn: {
-      title: "ঢাকা অপরাধ মানচিত্র", runNow: "এখনই সংগ্রহ", period: "সময়কাল", from: "শুরু", to: "শেষ",
+      title: "বাংলাদেশ অপরাধ মানচিত্র", district: "জেলা", allDistricts: "সব জেলা (৬টি)", allAreas: "সব থানা / উপজেলা", period: "সময়কাল", from: "শুরু", to: "শেষ",
       crimeType: "অপরাধের ধরন", all: "সব", area: "থানা / এলাকা", allDhaka: "সমগ্র ঢাকা", mapView: "মানচিত্র",
       heat: "হিটম্যাপ", both: "দুটোই", points: "ঘটনা", hotspots: "সবচেয়ে বেশি ঘটনা", timeOfDay: "দিনের কোন সময়ে",
       daily: "প্রতিদিনের ঘটনা", reports: "প্রতিবেদন", tabFilters: "ফিল্টার", tabMap: "মানচিত্র", tabFeed: "প্রতিবেদন",
       incidents: "ঘটনা", victims: "হতাহত", topArea: "শীর্ষ এলাকা", topCrime: "প্রধান অপরাধ",
-      lastRun: "সর্বশেষ সংগ্রহ", nextRun: "পরবর্তী", running: "সংগ্রহ ও বিশ্লেষণ চলছে…", never: "এখনো হয়নি",
-      model: "মডেল", read: "প্রথম আলোতে পড়ুন", moreReports: "আরও {n}টি প্রতিবেদন", noData: "এই ফিল্টারে কোনো ঘটনা নেই",
+      updated: "হালনাগাদ", topTime: "বেশি ঘটনার সময়", read: "পড়ুন:", moreReports: "আরও {n}টি প্রতিবেদন", noData: "এই ফিল্টারে কোনো ঘটনা নেই",
       exact: "নির্দিষ্ট স্থান", neighbourhood: "এলাকা", thana: "থানা পর্যায়", city: "স্থান অস্পষ্ট",
-      unlocated: "{n}টি ঘটনার স্থান অস্পষ্ট, মানচিত্রে নেই", fewer: "কম", more: "বেশি", density: "ঘটনার ঘনত্ব",
+      unlocated: "{n}টি ঘটনার স্থান অস্পষ্ট, মানচিত্রে নেই", fewer: "কম", more: "বেশি", density: "ঘটনার ঘনত্ব", blendNote: "প্রতিটি অপরাধের নিজস্ব রং; একাধিক ধরন মিশলে রংও মেশে। গাঢ় রং = বেশি প্রতিবেদিত ঘটনা (এই দৃশ্যের তুলনায়)। মানচিত্রে ট্যাপ করে মিশ্রণ দেখুন।",
+      localMix: "এখানকার আনুমানিক মিশ্রণ", mixAt: "{place}: আনুমানিক মিশ্রণ", nearCount: "এখানে আশপাশে মানচিত্রে প্রায় {n}টি ঘটনা",
+      totalsOnlyFeed: "{cat}: {n}টি ঘটনা। ভুক্তভোগীর গোপনীয়তার জন্য এই ধরনের ঘটনা শুধু মোট সংখ্যায় দেখানো হয়; মানচিত্রে স্থান ও প্রতিবেদনের লিংক দেখানো হয় না।",
+      byDistrict: "জেলা অনুযায়ী:", localMixNote: "কাছের ম্যাপকৃত ঘটনা থেকে রঙের ভাগ; এই রাস্তার ঘটনার সংখ্যা নয়।",
+      totalsOnlyNote: "এই ধরন শুধু মোট সংখ্যায় গোনা হয়; স্থান ও প্রতিবেদনের লিংক দেখানো হয় না।", areaTotal: "{n}টি ঘটনা", crimeMix: "অপরাধের ধরন",
       published: "প্রকাশ", killedInjured: "হতাহত {n}", noKey: "Google Maps কী সেট করা নেই; বিকল্প মানচিত্র দেখানো হচ্ছে।",
-      keyFailed: "Google Maps কী কাজ করছে না; বিকল্প মানচিত্র দেখানো হচ্ছে।", started: "সংগ্রহ শুরু হয়েছে",
-      busy: "একটি সংগ্রহ ইতিমধ্যে চলছে", failed: "শুরু করা যায়নি", days: "দিন", year: "বছর",
-      sourceNote: "সূত্র: প্রথম আলো · শ্রেণিবিন্যাস: Gemma (নিজস্ব সার্ভার) · প্রতিবেদিত ঘটনা, সব অপরাধ নয়",
-      gemmaProgress: "Gemma পড়ছে: {done}/{total}টি প্রতিবেদন", fetching: "প্রতিবেদন সংগ্রহ: {done}/{total}",
-      spotsWaiting: "নির্দিষ্ট স্থান খোঁজা বাকি {n}টি", truncated: "অনেক ঘটনা; প্রথম {n}টি দেখানো হচ্ছে",
-      showing: "{n}/{total}", offline: "সার্ভারে পৌঁছানো যাচ্ছে না; পুরোনো তথ্য দেখানো হচ্ছে", updated: "হালনাগাদ",
-      covDone: "এই সময়ের {done}/{total} দিন সম্পূর্ণ প্রক্রিয়া হয়েছে", covMissing: "{n} দিন এখনো সংগ্রহ হয়নি",
-      covPartial: "{n} দিন আংশিক", covProcessing: "{n} দিন Gemma পড়ছে", covCollect: "বাকি দিন সংগ্রহ করুন",
-      notCollected: "সংগ্রহ হয়নি", processingDay: "Gemma পড়ছে", partialDay: "আংশিক সংগ্রহ",
-      covFailed: "{n} দিনে কিছু প্রতিবেদন ব্যর্থ", failedDay: "কিছু ব্যর্থ",
-      covTooOld: "{n} দিনের বেশি পুরোনো দিন এখান থেকে সংগ্রহ করা যায় না",
+      keyFailed: "Google Maps কী কাজ করছে না; বিকল্প মানচিত্র দেখানো হচ্ছে।", failed: "শুরু করা যায়নি", days: "দিন", year: "বছর",
+      sourceNote: "সূত্র: সংবাদপত্রের প্রতিবেদন · স্বয়ংক্রিয় বিশ্লেষণ, ভুল থাকতে পারে · প্রতিবেদিত ঘটনা, সব অপরাধ নয়", truncated: "অনেক ঘটনা; প্রথম {n}টি দেখানো হচ্ছে",
+      showing: "{n}/{total}", offline: "সার্ভারে পৌঁছানো যাচ্ছে না; পুরোনো তথ্য দেখানো হচ্ছে",
     },
     en: {
-      title: "Dhaka Crime Map", runNow: "Collect now", period: "Period", from: "From", to: "To",
+      title: "Bangladesh Crime Map", district: "District", allDistricts: "All 6 districts", allAreas: "All thanas / upazilas", period: "Period", from: "From", to: "To",
       crimeType: "Crime type", all: "All", area: "Thana / area", allDhaka: "All of Dhaka", mapView: "Map",
       heat: "Heatmap", both: "Both", points: "Incidents", hotspots: "Most incidents", timeOfDay: "Time of day",
       daily: "Incidents per day", reports: "Reports", tabFilters: "Filters", tabMap: "Map", tabFeed: "Reports",
       incidents: "Incidents", victims: "Killed / injured", topArea: "Top area", topCrime: "Top crime",
-      lastRun: "Last collected", nextRun: "next", running: "Collecting and classifying…", never: "not yet",
-      model: "model", read: "Read on Prothom Alo", moreReports: "{n} more reports", noData: "No incidents match these filters",
+      updated: "Updated", topTime: "Most common time", read: "Read on", moreReports: "{n} more reports", noData: "No incidents match these filters",
       exact: "Exact spot", neighbourhood: "Neighbourhood", thana: "Thana level", city: "Location unclear",
       unlocated: "{n} incidents have no clear location and are not on the map", fewer: "fewer", more: "more",
-      density: "Incident density", published: "Published", killedInjured: "{n} killed/injured",
+      density: "Incident density", blendNote: "Each crime type has its own colour; where types overlap, the colours blend. Deeper colour = more reported incidents (relative to this view). Tap the map to see the mix.",
+      localMix: "Approximate local mix", mixAt: "{place}: approximate mix", nearCount: "About {n} mapped incidents around here",
+      totalsOnlyFeed: "{cat}: {n} incidents. To protect victims, this type is counted in totals only; locations and report links are not shown on the map.",
+      byDistrict: "By district:", localMixNote: "Shares of the glow from nearby mapped incidents, not counts for this street.",
+      totalsOnlyNote: "This type is counted in totals only; locations and report links are not shown.", areaTotal: "{n} incidents", crimeMix: "Crime mix", published: "Published", killedInjured: "{n} killed/injured",
       noKey: "No Google Maps key configured; showing the fallback map.",
-      keyFailed: "Google Maps key was rejected; showing the fallback map.", started: "Collection started",
-      busy: "A collection run is already in progress", failed: "Could not start", days: "days", year: "year",
-      sourceNote: "Source: Prothom Alo · classified by Gemma (in-house server) · reported incidents, not all crime",
-      gemmaProgress: "Gemma reading: {done}/{total} articles", fetching: "Collecting articles: {done}/{total}",
-      spotsWaiting: "{n} exact spots still being looked up", truncated: "Many incidents; showing the first {n}",
-      showing: "{n} of {total}", offline: "Server unreachable; showing the last data", updated: "updated",
-      covDone: "{done} of {total} days in this period fully processed", covMissing: "{n} days not collected yet",
-      covPartial: "{n} days partly collected", covProcessing: "{n} days still being read by Gemma",
-      covCollect: "Collect the missing days", notCollected: "not collected", processingDay: "Gemma reading",
-      partialDay: "partly collected", covFailed: "{n} days with failed articles", failedDay: "some failed",
-      covTooOld: "days older than {n} cannot be collected from here",
+      keyFailed: "Google Maps key was rejected; showing the fallback map.", failed: "Could not start", days: "days", year: "year",
+      sourceNote: "Source: newspaper reports · automatically extracted, may contain errors · reported incidents, not all crime", truncated: "Many incidents; showing the first {n}",
+      showing: "{n} of {total}", offline: "Server unreachable; showing the last data",
     },
   };
-  const CAT_ORDER = ["murder", "assault", "robbery", "theft", "sexual_violence", "kidnapping", "drugs_arms", "fraud_extortion", "other"];
-  // Light pink where there are few incidents, deep red where there are many (the busiest area is the darkest).
-  // The lightest step must stay visible: one incident is only a small fraction of the busiest spot.
-  const HEAT = [[253, 224, 217, 120], [252, 187, 161, 155], [251, 140, 110, 185], [239, 90, 70, 210], [214, 45, 40, 228],
-    [175, 20, 28, 240], [127, 10, 18, 250]];
+  // Replaced by the server's category list on start (loadConfig): order, labels, visibility and permanent hues.
+  let CAT_ORDER = ["murder", "assault", "robbery", "theft", "sexual_violence", "kidnapping", "drugs_arms", "fraud_extortion", "other"];
   const DHAKA = { lat: 23.785, lng: 90.395 };
 
   const $ = (s) => document.querySelector(s);
@@ -75,8 +62,8 @@
   };
 
   const state = {
-    lang: store.get("dcm.lang", "bn"), theme: store.get("dcm.theme", ""), days: 7, start: "", end: "",
-    cats: new Set(CAT_ORDER), thana: "", mode: "heat", meta: null, incidents: [], stats: null, selected: null,
+    lang: store.get("dcm.lang", "bn"), days: 7, start: "", end: "",
+    cats: new Set(CAT_ORDER), district: "", thana: "", mode: "heat", meta: null, incidents: [], stats: null, selected: null, mix: null, heat: null,
   };
   let engine = null;
 
@@ -87,9 +74,11 @@
   const fmtTime = (s) => s ? new Intl.DateTimeFormat(locale(), { day: "numeric", month: "short", hour: "numeric", minute: "2-digit", timeZone: "Asia/Dhaka" }).format(new Date(s)) : "";
   const catLabel = (k) => { const c = state.meta?.categories.find((x) => x.key === k); return c ? c[state.lang] : k; };
   const todLabel = (k) => { const c = state.meta?.time_of_day.find((x) => x.key === k); return c ? c[state.lang] : k; };
-  const isDark = () => state.theme === "dark" || (!state.theme && matchMedia("(prefers-color-scheme: dark)").matches);
   const cssColor = (k) => getComputedStyle(document.documentElement).getPropertyValue(`--c-${k}`).trim() || "#898781";
   const rgb = (hex) => { const h = hex.replace("#", ""); return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16)); };
+  // Public summary: crime type and area (no model headline, no quote).
+  const summary = (i) => `${catLabel(i.category)} · ${placeName(i)}`;
+  const publisher = (i) => (state.lang === "bn" ? i.publisher_bn : i.publisher_en) || "";
   const placeName = (i) => (state.lang === "bn" ? i.place_bn || i.thana_bn : i.place_en || i.thana_en) || i.location_text || "—";
   const thanaName = (i) => (state.lang === "bn" ? i.thana_bn : i.thana_en) || "";
 
@@ -101,39 +90,22 @@
     return [d.lng + Math.cos(a) * r, d.lat + Math.sin(a) * r];
   }
 
-  // Square-root compression: a spot with n incidents counts sqrt(n) (14 -> ~3.7). The busiest spot stays the
-  // darkest, but a single incident is no longer invisible next to it.
-  function heatWeights(pts) {
-    const key = (p) => `${p.lat.toFixed(3)},${p.lng.toFixed(3)}`;
-    const n = {};
-    for (const p of pts) n[key(p)] = (n[key(p)] || 0) + 1;
-    return new Map(pts.map((p) => [p.id, 1 / Math.sqrt(n[key(p)])]));
-  }
-  // Blobs grow as you zoom in (half as fast as the map), so hotspots stay visible instead of shrinking to dots.
-  const heatRadius = (zoom) => Math.max(60, Math.min(180, 80 * 2 ** ((zoom - 11.5) * 0.4)));
-
   function layers() {
     const pts = state.incidents.filter((i) => i.lat != null);
     const out = [];
-    if (state.mode !== "points") {
-      const zoom = engine?.zoom ? engine.zoom() : 12;
-      // Colours follow the view: the area with the most incidents is always the darkest.
-      const w = heatWeights(pts);
-      out.push(new deck.HeatmapLayer({
-        id: "heat", data: pts, getPosition: (d) => [d.lng, d.lat], getWeight: (d) => w.get(d.id),
-        updateTriggers: { getWeight: pts.length },
-        radiusPixels: heatRadius(zoom), intensity: 1, threshold: 0.05, colorRange: HEAT, aggregation: "SUM",
-      }));
+    if (state.mode !== "points" && state.heat) {
+      out.push(new deck.BitmapLayer({ id: "heat", image: state.heat.image, bounds: state.heat.bounds,
+                                      textureParameters: { minFilter: "linear", magFilter: "linear" } }));
     }
     if (state.mode !== "heat") {
-      const ring = isDark() ? [26, 26, 25] : [252, 252, 251];
+      const ring = [252, 252, 251];
       const colors = Object.fromEntries(CAT_ORDER.map((k) => [k, rgb(cssColor(k))]));
       const sel = state.selected?.id;
       out.push(new deck.ScatterplotLayer({
         id: "points", data: pts, pickable: true, stroked: true, radiusUnits: "pixels", lineWidthUnits: "pixels",
         getPosition: jitter, getRadius: (d) => (d.id === sel ? 10 : 6), getLineWidth: (d) => (d.id === sel ? 3 : 2),
         getFillColor: (d) => [...(colors[d.category] || colors.other), 235], getLineColor: ring,
-        radiusMinPixels: 4, updateTriggers: { getRadius: sel, getLineWidth: sel, getFillColor: isDark(), getLineColor: isDark() },
+        radiusMinPixels: 4, updateTriggers: { getRadius: sel, getLineWidth: sel },
         onHover: hover, onClick: (info) => info.object && select(info.object, false),
       }));
     }
@@ -146,7 +118,7 @@
     const d = info.object;
     fill(tip, 
       el("div", { class: "tag" }, el("span", { class: "dot", style: `background:${cssColor(d.category)}` }), catLabel(d.category)),
-      el("div", {}, state.lang === "bn" ? d.headline_bn : d.headline_en || d.headline_bn),
+      el("div", {}, summary(d)),
       el("div", { class: "meta" }, `${placeName(d)} · ${fmtDate(d.event_date)}`));
     tip.style.left = `${info.x}px`; tip.style.top = `${info.y}px`; tip.hidden = false;
   }
@@ -167,41 +139,51 @@
     { featureType: "poi", stylers: [{ visibility: "off" }] }, { featureType: "transit", elementType: "labels.icon", stylers: [{ visibility: "off" }] },
     { elementType: "geometry", stylers: [{ saturation: -60 }, { lightness: 8 }] },
   ];
-  const MAP_STYLE_DARK = [
-    { elementType: "geometry", stylers: [{ color: "#1d1d1c" }] }, { elementType: "labels.text.fill", stylers: [{ color: "#9a9890" }] },
-    { elementType: "labels.text.stroke", stylers: [{ color: "#1a1a19" }] }, { featureType: "poi", stylers: [{ visibility: "off" }] },
-    { featureType: "road", elementType: "geometry", stylers: [{ color: "#2e2e2c" }] }, { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#3a3a37" }] },
-    { featureType: "water", elementType: "geometry", stylers: [{ color: "#0f1a24" }] }, { featureType: "transit", stylers: [{ visibility: "off" }] },
-  ];
 
   async function googleEngine(key, mapId) {
     await loadGoogle(key);
     const { Map } = await google.maps.importLibrary("maps");
     const opts = {
-      center: startView().center, zoom: startView().zoom, minZoom: 9, maxZoom: 18, mapTypeControl: false,
-      streetViewControl: false, fullscreenControl: false, zoomControl: false,
-      clickableIcons: false, gestureHandling: "greedy", backgroundColor: isDark() ? "#1a1a19" : "#f2f1ed",
+      center: startView().center, zoom: startView().zoom, minZoom: 6, maxZoom: 18, mapTypeControl: false,
+      streetViewControl: false, fullscreenControl: false, zoomControl: false, rotateControl: false, tilt: 0, heading: 0,
+      clickableIcons: false, gestureHandling: "greedy", backgroundColor: "#f2f1ed",
     };
-    if (mapId) { opts.mapId = mapId; opts.colorScheme = isDark() ? "DARK" : "LIGHT"; } else { opts.styles = isDark() ? MAP_STYLE_DARK : MAP_STYLE_LIGHT; }
+    if (mapId) { opts.mapId = mapId; opts.colorScheme = "LIGHT"; } else { opts.styles = MAP_STYLE_LIGHT; }
     const map = new Map($("#map"), opts);
     const overlay = new deck.GoogleMapsOverlay({ interleaved: Boolean(mapId), layers: [] });
     overlay.setMap(map);
-    map.addListener("click", () => {});
+    map.addListener("click", (e) => {
+      const r = $("#map").getBoundingClientRect(), de = e.domEvent;
+      if (de && "clientX" in de) inspectHeat(de.clientX - r.left, de.clientY - r.top);
+    });
+    map.addListener("bounds_changed", () => paintHeat(true));
     let lastZoom = map.getZoom();
     map.addListener("zoom_changed", () => { if (Math.abs(map.getZoom() - lastZoom) >= 0.5) { lastZoom = map.getZoom(); engine?.render(); } });
     return {
       name: "google",
       render() { overlay.setProps({ layers: layers() }); },
       zoom() { return map.getZoom() || 12; },
-      zoomBy(dz) { map.setZoom(Math.max(9, Math.min(18, (map.getZoom() || 12) + dz))); },
-      reset() { map.panTo(DHAKA); map.setZoom(12); },
+      view() {
+        const proj = map.getProjection(), b = map.getBounds();
+        if (!proj || !b) return null;
+        const nw = proj.fromLatLngToPoint(new google.maps.LatLng(b.getNorthEast().lat(), b.getSouthWest().lng()));
+        const scale = 2 ** map.getZoom();
+        return { zoom: map.getZoom(), project: (lng, lat) => {
+          const p = proj.fromLatLngToPoint(new google.maps.LatLng(lat, lng));
+          return [(p.x - nw.x) * scale, (p.y - nw.y) * scale];
+        }, unproject: (x, y) => {
+          const ll = proj.fromPointToLatLng(new google.maps.Point(nw.x + x / scale, nw.y + y / scale));
+          return [ll.lng(), ll.lat()];
+        } };
+      },
+      zoomBy(dz) { map.setZoom(Math.max(6, Math.min(18, (map.getZoom() || 12) + dz))); },
+      reset() { fitArea(); },
       flyTo(lat, lng, zoom) { map.panTo({ lat, lng }); if (zoom) map.setZoom(zoom); },
       fitTo(b) {
         if (b.single) { this.flyTo(b.lat, b.lng, 15); return; }
         map.fitBounds({ south: b.s, west: b.w, north: b.n, east: b.e }, FIT_PADDING);
         google.maps.event.addListenerOnce(map, "idle", () => { if (map.getZoom() > 16) map.setZoom(16); });
       },
-      theme() { if (!mapId) map.setOptions({ styles: isDark() ? MAP_STYLE_DARK : MAP_STYLE_LIGHT, backgroundColor: isDark() ? "#1a1a19" : "#f2f1ed" }); },
       destroy() { try { overlay.setMap(null); overlay.finalize(); } catch (e) { /* map never initialised */ } fill($("#map")); },
     };
   }
@@ -209,24 +191,27 @@
   function tileEngine() {
     const tiles = () => "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
     const base = () => new deck.TileLayer({
-      id: `base-${isDark() ? "d" : "l"}`, data: tiles(), minZoom: 0, maxZoom: 19, tileSize: 256,
+      id: "base", data: tiles(), minZoom: 0, maxZoom: 19, tileSize: 256,
       renderSubLayers: (props) => {
         const [[w, s], [e, n]] = props.tile.boundingBox;
         return new deck.BitmapLayer(props, {
           data: null, image: props.data, bounds: [w, s, e, n],
-          desaturate: isDark() ? 0.9 : 0.55, tintColor: isDark() ? [95, 95, 100] : [255, 255, 255],
+          desaturate: 0.55, tintColor: [255, 255, 255],
         });
       },
     });
     const sv = startView();
-    let view = { longitude: sv.center.lng, latitude: sv.center.lat, zoom: sv.zoom, pitch: 0, bearing: 0, minZoom: 9, maxZoom: 18 };
+    let view = { longitude: sv.center.lng, latitude: sv.center.lat, zoom: sv.zoom, pitch: 0, bearing: 0, minZoom: 6, maxZoom: 18 };
     let heatZoom = Math.round(view.zoom * 2);
     const d = new deck.Deck({
-      parent: $("#map"), initialViewState: view, controller: true, layers: [],
+      parent: $("#map"), initialViewState: view, layers: [],
+      controller: { dragRotate: false, touchRotate: false, keyboard: { rotateSpeedX: 0, rotateSpeedY: 0 } },   // north-up only
       onViewStateChange: ({ viewState }) => {
         view = viewState;
         if (Math.round(view.zoom * 2) !== heatZoom) { heatZoom = Math.round(view.zoom * 2); engine?.render(); }
+        paintHeat(true);
       },
+      onClick: (info) => { if (!info.object) inspectHeat(info.x, info.y); },
     });
     const goTo = (v) => d.setProps({ initialViewState: { ...view, ...v, transitionDuration: 300, transitionInterpolator: new deck.FlyToInterpolator() } });
     const attribution = el("div", { class: "muted", style: "position:absolute;right:6px;bottom:4px;z-index:4;font-size:11px;background:var(--surface);padding:0 6px;border-radius:4px" },
@@ -237,8 +222,13 @@
       name: "tiles",
       render() { d.setProps({ layers: [baseLayer, ...layers()] }); },
       zoom() { return view.zoom; },
-      zoomBy(dz) { goTo({ zoom: Math.max(9, Math.min(18, view.zoom + dz)) }); },
-      reset() { goTo({ latitude: DHAKA.lat, longitude: DHAKA.lng, zoom: 11.2 }); },
+      view() {
+        const el = $("#map");
+        const vp = new deck.WebMercatorViewport({ ...view, width: el.clientWidth || 800, height: el.clientHeight || 600 });
+        return { zoom: view.zoom, project: (lng, lat) => vp.project([lng, lat]), unproject: (x, y) => vp.unproject([x, y]) };
+      },
+      zoomBy(dz) { goTo({ zoom: Math.max(6, Math.min(18, view.zoom + dz)) }); },
+      reset() { fitArea(); },
       flyTo(lat, lng, zoom) {
         d.setProps({ initialViewState: { ...view, latitude: lat, longitude: lng, zoom: zoom || view.zoom, transitionDuration: 700, transitionInterpolator: new deck.FlyToInterpolator() } });
       },
@@ -249,7 +239,6 @@
         const { longitude, latitude, zoom } = vp.fitBounds([[b.w, b.s], [b.e, b.n]], { padding: FIT_PADDING, maxZoom: 16 });
         this.flyTo(latitude, longitude, zoom);
       },
-      theme() { baseLayer = base(); this.render(); },
       destroy() { d.finalize(); fill($("#map"), ); },
     };
   }
@@ -258,7 +247,7 @@
   function startView() {
     const h = new URLSearchParams(location.hash.slice(1));
     const z = parseFloat(h.get("z")), ll = (h.get("ll") || "").split(",").map(Number);
-    return { zoom: z >= 9 && z <= 18 ? z : 11.2,
+    return { zoom: z >= 6 && z <= 18 ? z : 11.2,
              center: ll.length === 2 && ll.every((x) => Number.isFinite(x)) ? { lat: ll[0], lng: ll[1] } : DHAKA };
   }
 
@@ -305,9 +294,19 @@
     const p = new URLSearchParams();
     if (state.start && state.end) { p.set("start", state.start); p.set("end", state.end); } else p.set("days", state.days);
     if (state.cats.size && state.cats.size < CAT_ORDER.length) p.set("categories", [...state.cats].join(","));
+    if (state.district) p.set("district", state.district);
     if (state.thana) p.set("thana", state.thana);
+    if (state.version?.data_version) p.set("v", state.version.data_version);    // never reuse a cached old answer
     return p.toString();
   }
+
+  // Map view for the current district selection (or all six districts)
+  function areaBounds() {
+    const d = state.meta.districts.find((x) => x.id === state.district);
+    const b = d ? d.bounds : state.meta.all_bounds;
+    return b ? { ...b } : null;
+  }
+  function fitArea() { const b = areaBounds(); if (b && engine) engine.fitTo(b); }
 
   const getJSON = async (url) => {
     const r = await fetch(url);
@@ -321,82 +320,51 @@
     const seq = ++refreshSeq;
     const q = query();
     const qc = new URLSearchParams(q); qc.delete("categories");  // chip counts ignore the category filter itself
-    const [inc, stats, all, cov] = await Promise.all([getJSON(`/api/incidents?${q}`), getJSON(`/api/stats?${q}`),
-      qc.toString() === q ? null : getJSON(`/api/stats?${qc}`), getJSON(`/api/coverage?${rangeQuery()}`)]);
+    const [inc, stats, all] = await Promise.all([getJSON(`/api/incidents?${qc}&limit=20000`), getJSON(`/api/stats?${q}`),
+      qc.toString() === q ? null : getJSON(`/api/stats?${qc}`)]);
     if (seq !== refreshSeq) return false;
-    state.coverage = cov.data;
-    state.incidents = inc.data; state.stats = stats.data; state.catCounts = (all || stats).data.by_category;
+    // the heat gets every type (hidden ones masked) so its scale stays put when chips change; lists use the filter
+    state.allIncidents = inc.data;
+    state.incidents = inc.data.filter((i) => state.cats.has(i.category));
+    HeatPaint.setData(inc.data);
+    state.mix = null;
+    state.stats = stats.data; state.catCounts = (all || stats).data.by_category;
     state.truncated = inc.headers.get("X-Truncated") === "true";
     state.totalCount = +(inc.headers.get("X-Total-Count") || inc.data.length);
     // keep the open card, but show the freshly fetched version of it
-    if (state.selected) state.selected = inc.data.find((i) => i.id === state.selected.id) || null;
+    if (state.selected) state.selected = state.incidents.find((i) => i.id === state.selected.id) || null;
     renderAll();
     if (state.truncated) note(t("truncated", { n: inc.data.length }));
     if (opts.fit) fitToResults(opts.fallback);
     return true;
   }
 
-  async function loadMeta() {
-    state.meta = (await getJSON("/api/meta")).data;
+  // Public page: labels once (/api/config), then only the small data-version check (/api/version).
+  async function loadConfig() {
+    state.meta = (await getJSON("/api/config")).data;
+    CAT_ORDER = state.meta.categories.map((c) => c.key);
+    state.cats = new Set(CAT_ORDER);
+    const mapped = state.meta.categories.filter((c) => c.visibility === "mapped" && c.hue != null);
+    HeatPaint.configure(mapped.map((c) => ({ key: c.key, hue: c.hue })));
+    // chips, dots and legend take the heat's own colour for each mapped type
+    for (const c of mapped) document.documentElement.style.setProperty(`--c-${c.key}`, HeatPaint.swatch(c.key));
+  }
+
+  async function loadVersion() {
+    state.version = (await getJSON("/api/version")).data;
     state.offline = false;
     renderStatus();
   }
 
   /* ---------- rendering ---------- */
-  function renderCoverage() {
-    const box = $("#coverage"), c = state.coverage;
-    if (!c) { box.hidden = true; return; }
-    const s = c.summary, total = c.days.length;
-    if (s.complete >= total) { box.hidden = true; return; }      // every day, today included, is complete
-    const parts = [t("covDone", { done: s.complete, total })];
-    if (s.not_collected) parts.push(t("covMissing", { n: s.not_collected }));
-    if (s.partial) parts.push(t("covPartial", { n: s.partial }));
-    if (s.processing) parts.push(t("covProcessing", { n: s.processing }));
-    if (s.failed) parts.push(t("covFailed", { n: s.failed }));
-    const busy = state.meta?.collecting;
-    const tooOld = c.days_to_collect > c.max_days_back;
-    fill(box, el("span", {}, parts.join(" · ")),
-      c.days_to_collect > 0 && !busy ? el("button", { class: "btn", type: "button", onclick: async () => {
-        const r = await fetch(`/api/scrape?days_back=${Math.min(c.max_days_back, c.days_to_collect)}`, { method: "POST", headers: { "X-DCM-UI": "1" } });
-        note(r.status === 202 ? t("started") : r.status === 409 ? t("busy") : `${t("failed")} (${r.status})`);
-        tick();
-      } }, t("covCollect")) : null,
-      tooOld ? el("span", { class: "muted" }, t("covTooOld", { n: c.max_days_back })) : null);
-    box.hidden = false;
-  }
-
-  // Coverage changes with job progress, not only with the map data: refresh it on every active poll.
-  async function refreshCoverage() {
-    try {
-      state.coverage = (await getJSON(`/api/coverage?${rangeQuery()}`)).data;
-      renderCoverage(); renderTrend();
-    } catch (e) { console.warn(e); }
-  }
-
   function renderAll() {
-    renderCoverage(); renderChips(); renderTiles(); renderRank(); renderTod(); renderTrend(); renderFeed(); renderLegend(); renderSelected();
-    engine?.render();
+    renderChips(); renderTiles(); renderRank(); renderTod(); renderTrend(); renderFeed(); renderLegend(); renderSelected();
+    engine?.render(); paintHeat();
   }
 
   function renderStatus() {
-    const m = state.meta;
-    const parts = [];
-    if (state.offline) parts.push(t("offline"));
-    // Progress of every active batch (a collection run or a reprocess), counted in articles
-    const b = (m.batches || []).reduce((a, x) => ({
-      jobs: a.jobs + x.jobs, processed: a.processed + x.processed,
-      fetch: a.fetch + (x.status === "running" ? Math.max(0, (x.discovered || 0) - (x.fetched || 0)) : 0),
-      fetched: a.fetched + (x.status === "running" ? x.fetched || 0 : 0), discovered: a.discovered + (x.status === "running" ? x.discovered || 0 : 0),
-    }), { jobs: 0, processed: 0, fetch: 0, fetched: 0, discovered: 0 });
-    if (b.fetch) parts.push(t("fetching", { done: b.fetched, total: b.discovered }));
-    if (b.jobs && b.processed < b.jobs) parts.push(t("gemmaProgress", { done: b.processed, total: b.jobs }));
-    else if (m.running) parts.push(t("running"));
-    if (!m.running && !b.jobs) parts.push(`${t("lastRun")}: ${m.last_run ? fmtTime(m.last_run.finished_at || m.last_run.started_at) : t("never")}`);
-    if (m.exact_spots_waiting) parts.push(t("spotsWaiting", { n: m.exact_spots_waiting }));
-    if (m.next_run) parts.push(`${t("nextRun")}: ${fmtTime(m.next_run)}`);
-    parts.push(`${t("model")}: ${m.model_label || m.model}`);
-    $("#status-line").textContent = parts.join(" · ");
-    $("#run-btn").disabled = m.running;
+    const v = state.version;
+    $("#status-line").textContent = state.offline ? t("offline") : v ? `${t("updated")}: ${fmtTime(v.updated_at)}` : "";
   }
 
   function applyI18n() {
@@ -407,12 +375,23 @@
       const d = +b.dataset.days; b.textContent = d === 365 ? `১ ${t("year")}`.replace("১", num(1)) : `${num(d)} ${t("days")}`;
     });
     $("#lang-btn").textContent = state.lang === "bn" ? "EN" : "বাং";
-    const sel = $("#thana"); const cur = sel.value;
-    fill(sel, el("option", { value: "" }, t("allDhaka")),
-      ...state.meta.thanas.slice().sort((a, b) => (state.lang === "bn" ? a.name_bn.localeCompare(b.name_bn, "bn") : a.name_en.localeCompare(b.name_en)))
-        .map((p) => el("option", { value: p.id }, state.lang === "bn" ? p.name_bn : p.name_en)));
-    sel.value = cur;
+    fill($("#district"), el("option", { value: "" }, t("allDistricts")),
+      ...state.meta.districts.map((d) => el("option", { value: d.id }, state.lang === "bn" ? d.bn : d.en)));
+    $("#district").value = state.district;
+    renderThanaSelect();
     renderStatus();
+  }
+
+  // Thana / upazila drill-down inside the selected district
+  function renderThanaSelect() {
+    const sel = $("#thana");
+    sel.hidden = !state.district;
+    if (!state.district) { fill(sel); return; }
+    const byName = (a, b) => (state.lang === "bn" ? a.name_bn.localeCompare(b.name_bn, "bn") : a.name_en.localeCompare(b.name_en));
+    fill(sel, el("option", { value: "" }, t("allAreas")),
+      ...state.meta.thanas.filter((p) => p.district === state.district).sort(byName)
+        .map((p) => el("option", { value: p.id }, state.lang === "bn" ? p.name_bn : p.name_en)));
+    sel.value = state.thana;
   }
 
   function renderChips() {
@@ -425,21 +404,34 @@
 
   function renderTiles() {
     const s = state.stats;
-    const topThana = s.by_thana[0];
+    const topThana = state.district ? s.by_thana[0] : s.by_district[0] && { name_bn: s.by_district[0].bn, name_en: s.by_district[0].en };
     const topCat = Object.entries(s.by_category).sort((a, b) => b[1] - a[1])[0];
     const tile = (v, k, txt) => el("div", { class: "tile" }, el("div", { class: txt ? "v txt" : "v", title: v }, v), el("div", { class: "k" }, k));
     fill($("#tiles"), 
-      tile(num(s.total), t("incidents")), tile(num(s.victims), t("victims")),
+      tile(num(s.total), t("incidents")),
+      tile((() => { const top = Object.entries(s.by_time_of_day).filter(([k]) => k !== "unknown").sort((a, b) => b[1] - a[1])[0];
+        return top ? todLabel(top[0]) : "—"; })(), t("topTime"), true),
       tile(topThana ? (state.lang === "bn" ? topThana.name_bn : topThana.name_en) : "—", t("topArea"), true),
       tile(topCat ? catLabel(topCat[0]) : "—", t("topCrime"), true));
   }
 
   function renderRank() {
+    if (!state.district) {   // all districts: rank the districts
+      const ds = state.stats.by_district;
+      const mx = Math.max(1, ...ds.map((r) => r.count));
+      fill($("#rank"), ...(ds.length ? ds.map((r, i) => el("li", {}, el("button", {
+        type: "button", onclick: () => selectDistrict(r.id),
+      }, el("span", { class: "pos" }, num(i + 1)),
+        el("span", { class: "name" }, el("b", {}, state.lang === "bn" ? r.bn : r.en),
+          el("span", { class: "bar", style: `width:${(r.count / mx) * 100}%` }, el("i", { style: "flex:1;background:var(--accent)" }))),
+        el("span", { class: "cnt" }, num(r.count))))) : [el("li", { class: "empty" }, t("noData"))]));
+      return;
+    }
     const rows = state.stats.by_thana.slice(0, 10);
     const max = Math.max(1, ...rows.map((r) => r.count));
     fill($("#rank"), ...(rows.length ? rows.map((r, i) => el("li", {}, el("button", {
       type: "button", class: state.thana === r.id ? "on" : "",
-      onclick: () => { state.thana = state.thana === r.id ? "" : r.id; $("#thana").value = state.thana; refresh({ fit: true, fallback: { lat: r.lat || DHAKA.lat, lng: r.lng || DHAKA.lng, zoom: 14 } }); },
+      onclick: () => { state.thana = state.thana === r.id ? "" : r.id; $("#thana").value = state.thana; refresh({ fit: true, fallback: r.lat ? { lat: r.lat, lng: r.lng, zoom: 13 } : null }); },
     },
       el("span", { class: "pos" }, num(i + 1)),
       el("span", { class: "name" }, el("b", {}, state.lang === "bn" ? r.name_bn : r.name_en),
@@ -465,7 +457,7 @@
     const days = [];
     for (let d = new Date(start + "T00:00:00Z"); d <= new Date(end + "T00:00:00Z"); d.setUTCDate(d.getUTCDate() + 1)) days.push(d.toISOString().slice(0, 10));
     const shown = days.slice(-120);
-    const status = Object.fromEntries((state.coverage?.days || []).map((d) => [d.date, d.status]));
+    const status = {};
     const statusLabel = { not_collected: t("notCollected"), partial: t("partialDay"), processing: t("processingDay"), failed: t("failedDay") };
     const max = Math.max(1, ...shown.map((d) => counts[d] || 0));
     const tip = $("#tooltip");
@@ -484,28 +476,42 @@
 
   function renderFeed() {
     const list = state.incidents.slice(0, 400);
-    $("#feed-count").textContent = list.length < (state.totalCount || state.incidents.length)
-      ? t("showing", { n: list.length, total: state.totalCount || state.incidents.length }) : num(state.incidents.length);
+    const hiddenTypes = CAT_ORDER.filter((k) => state.cats.has(k) && (state.meta?.area_totals_only || []).includes(k)
+                                         && state.stats?.by_category?.[k]);
+    const totalsNote = hiddenTypes.length ? el("li", { class: "empty totals-only" },
+      ...hiddenTypes.map((k) => el("p", {}, t("totalsOnlyFeed", { cat: catLabel(k), n: state.stats.by_category[k] }))),
+      // per-district numbers are totals too (same as the hotspot list); no places below district level
+      list.length ? null : el("p", { class: "muted" }, t("byDistrict"), " ",
+        (state.stats.by_district || []).map((d) => `${state.lang === "bn" ? d.bn : d.en} ${num(d.count)}`).join(" · "))) : null;
+    $("#feed-count").textContent = list.length < state.incidents.length
+      ? t("showing", { n: list.length, total: state.incidents.length }) : num(state.incidents.length);
     fill($("#feed"), ...(list.length ? list.map((i) => el("li", {}, el("button", {
       type: "button", class: `item${state.selected?.id === i.id ? " on" : ""}`, onclick: () => select(i, true),
     },
       el("span", { class: "tag" }, el("span", { class: "dot", style: `background:${cssColor(i.category)}` }), catLabel(i.category)),
-      el("h3", {}, state.lang === "bn" ? i.headline_bn : i.headline_en || i.headline_bn),
+      el("h3", {}, summary(i)),
       el("div", { class: "meta" }, el("span", {}, placeName(i)), el("span", {}, fmtDate(i.event_date)),
-        i.time_of_day !== "unknown" ? el("span", {}, todLabel(i.time_of_day)) : null, precisionBadge(i.precision))))) : [el("li", { class: "empty" }, t("noData"))]));
+        i.time_of_day !== "unknown" ? el("span", {}, todLabel(i.time_of_day)) : null, precisionBadge(i.precision))))) : [totalsNote || el("li", { class: "empty" }, t("noData"))]),
+      ...(list.length && totalsNote ? [totalsNote] : []));
   }
 
   function renderLegend() {
     const s = state.stats;
-    fill($("#legend"), 
-      state.mode !== "points" ? el("div", {}, el("div", { class: "muted" }, t("density")), el("div", { class: "ramp" }), el("div", { class: "ends" }, el("span", {}, t("fewer")), el("span", {}, t("more")))) : null,
-      state.mode !== "heat" ? el("div", { class: "cats" }, ...CAT_ORDER.filter((k) => state.cats.has(k)).map((k) => el("span", {}, el("i", { style: `background:${cssColor(k)}` }), catLabel(k)))) : null,
+    if (!s) return;                                         // a mode click before the first data arrives
+    const mapped = CAT_ORDER.filter((k) => state.cats.has(k) && !(state.meta?.area_totals_only || []).includes(k));
+    const totalsOnly = CAT_ORDER.filter((k) => state.cats.has(k) && (state.meta?.area_totals_only || []).includes(k));
+    fill($("#legend"),
+      state.mode !== "points" ? el("div", {},
+        el("div", { class: "cats" }, ...mapped.map((k) => el("span", {}, el("i", { style: `background:${HeatPaint.swatch(k)}` }), catLabel(k)))),
+        el("div", { class: "muted" }, t("blendNote"))) : null,
+      state.mode !== "heat" ? el("div", { class: "cats" }, ...mapped.map((k) => el("span", {}, el("i", { style: `background:${cssColor(k)}` }), catLabel(k)))) : null,
+      !mapped.length && totalsOnly.length ? el("div", { class: "muted" }, t("totalsOnlyNote")) : null,
       s.unlocated ? el("div", { class: "muted" }, t("unlocated", { n: s.unlocated })) : null,
       el("div", { class: "muted", style: "font-size:11px" }, t("sourceNote")));
   }
 
   function select(i, fly) {
-    state.selected = i;
+    state.selected = i; state.mix = null;
     if (fly && i.lat != null) engine?.flyTo(i.lat, i.lng, 15);
     if (fly && matchMedia("(max-width: 760px)").matches) setTab("map");
     renderSelected(); renderFeed(); engine?.render();
@@ -513,29 +519,105 @@
 
   function renderSelected() {
     const card = $("#selected"); const i = state.selected;
+    if (!i && state.mix) { renderMixCard(card, state.mix); return; }
     if (!i) { card.hidden = true; return; }
     const loc = [i.location_text, thanaName(i) && thanaName(i) !== placeName(i) ? thanaName(i) : null].filter(Boolean).join(" · ");
     fill(card, 
       el("button", { class: "close", type: "button", "aria-label": "Close", onclick: () => { state.selected = null; renderSelected(); renderFeed(); engine?.render(); } }, "×"),
       el("span", { class: "tag" }, el("span", { class: "dot", style: `background:${cssColor(i.category)}` }), catLabel(i.category)),
-      el("h3", {}, state.lang === "bn" ? i.headline_bn : i.headline_en || i.headline_bn),
+      el("h3", {}, summary(i)),
       el("div", { class: "meta" }, el("span", {}, loc), precisionBadge(i.precision)),
       el("div", { class: "meta" }, el("span", {}, fmtDate(i.event_date)), i.time_of_day !== "unknown" ? el("span", {}, todLabel(i.time_of_day)) : null,
-        i.victims ? el("span", {}, t("killedInjured", { n: i.victims })) : null),
-      i.evidence && i.evidence_ok ? el("p", { class: "quote" }, `“${i.evidence}”`) : null,
-      el("div", { class: "meta" }, el("a", { href: i.url, target: "_blank", rel: "noopener" }, `${t("read")} ↗`),
+        null),
+      el("div", { class: "meta" }, i.url ? el("a", { href: i.url, target: "_blank", rel: "noopener noreferrer" }, `${t("read")} ${publisher(i)} ↗`) : null,
         el("span", {}, `${t("published")}: ${fmtTime(i.published_at)}`),
         i.more_reports ? el("span", {}, t("moreReports", { n: i.more_reports })) : null));
     card.hidden = false;
   }
 
+  // Tap on the heat: the approximate mix of crime types that makes up the glow there (shares, not counts)
+  function renderMixCard(card, rows) {
+    const at = state.mixAt;
+    fill(card,
+      el("button", { class: "close", type: "button", "aria-label": "Close", onclick: () => { state.mix = null; renderSelected(); } }, "×"),
+      el("h3", {}, at && at.place ? t("mixAt", { place: at.place }) : t("localMix")),
+      at && at.n ? el("div", { style: "font-size:13px;margin-bottom:2px" }, t("nearCount", { n: at.n })) : null,
+      el("div", { class: "muted", style: "font-size:12px;margin-bottom:6px" }, t("localMixNote")),
+      el("ul", { class: "mix" }, ...rows.map(([k, v]) => el("li", {},
+        el("span", { class: "name" }, el("span", { class: "dot", style: `background:${HeatPaint.swatch(k)}` }), catLabel(k)),
+        el("span", { class: "bar" }, el("i", { style: `width:${v * 100}%;background:${HeatPaint.swatch(k)}` })),
+        el("span", { class: "cnt" }, `${num(Math.round(v * 100))}%`)))));
+    card.hidden = false;
+  }
+
+  /* ---------- multi-colour heat (HeatPaint on its own canvas over the map) ---------- */
+  let paintReq = null, paintRaf = 0, settleTimer = 0;
+  function paintHeat(moving) {
+    if (!engine?.view) return;
+    if (state.mode === "points") {
+      cancelAnimationFrame(paintRaf); paintRaf = 0; paintReq = null; clearTimeout(settleTimer);
+      HeatPaint.clear(); if (state.heat) { state.heat = null; engine.render(); }
+      return;
+    }
+    paintReq = { moving: Boolean(moving) };                 // the latest request wins
+    if (!paintRaf) paintRaf = requestAnimationFrame(doPaint);
+    clearTimeout(settleTimer);
+    if (moving) settleTimer = setTimeout(() => paintHeat(false), 160);   // full detail once the map settles
+  }
+  function doPaint() {
+    paintRaf = 0;
+    const req = paintReq; paintReq = null;
+    if (!req || state.mode === "points" || !engine?.view) return;
+    const v = engine.view(), box = $("#map"); if (!v) return;
+    const w = box.clientWidth, h = box.clientHeight;
+    if (!w || !h) return;                                   // map hidden (phone tab): repainted when shown
+    HeatPaint.setHidden(CAT_ORDER.filter((k) => !state.cats.has(k)));
+    const image = HeatPaint.paint(w, h, v.zoom, v.project, req.moving);
+    if (!image) { state.heat = null; engine.render(); return; }
+    // the image covers whole grid cells, so its bottom-right corner can sit slightly past the view
+    const [west, north] = v.unproject(0, 0), [east, south] = v.unproject(image.width, image.height);
+    state.heat = { image, bounds: [west, south, east, north] };
+    engine.render();
+  }
+  // Name for a spot: nearest thana/upazila (with its district) when zoomed in, the district when zoomed out
+  function placeAt(lng, lat, zoom) {
+    const km = (a, b) => { const r = Math.PI / 180, x = (b.lng - a.lng) * r * Math.cos(((a.lat + b.lat) / 2) * r), y = (b.lat - a.lat) * r;
+                           return 6371 * Math.hypot(x, y); };
+    const here = { lng, lat };
+    const dname = (id) => { const d = state.meta.districts.find((x) => x.id === id); return d ? (state.lang === "bn" ? d.bn : d.en) : ""; };
+    const near = state.meta.thanas.filter((p) => p.lat != null).map((p) => [km(here, p), p]).sort((a, b) => a[0] - b[0])[0];
+    if (!near || near[0] > 25) return "";
+    if (zoom < 9) return dname(near[1].district);
+    const name = state.lang === "bn" ? near[1].name_bn : near[1].name_en;
+    return `${name}, ${dname(near[1].district)}`;
+  }
+
+  const mercY = (lat) => { const s = Math.sin(lat * Math.PI / 180); return 0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI); };
+
+  function inspectHeat(x, y) {
+    if (state.mode === "points" || !state.heat || !engine?.view) return;
+    const v = engine.view(); if (!v) return;
+    const [lng, lat] = v.unproject(x, y), [w0, s0, e0, n0] = state.heat.bounds;
+    const fx = (lng - w0) / (e0 - w0), fy = (mercY(lat) - mercY(n0)) / (mercY(s0) - mercY(n0));
+    const rows = HeatPaint.sample(fx * state.heat.image.width, fy * state.heat.image.height);
+    state.selected = null; state.mix = rows && rows.length ? rows : null;
+    if (state.mix) {
+      // how many mapped incidents feed the glow here, and the place name at a scale that fits the zoom
+      const R = HeatPaint.radius(v.zoom);
+      const n = state.incidents.filter((i) => {
+        if (i.lat == null) return false;
+        const [px, py] = v.project(i.lng, i.lat);
+        return (px - x) ** 2 + (py - y) ** 2 <= R * R;
+      }).length;
+      state.mixAt = { place: placeAt(lng, lat, v.zoom), n };
+    }
+    renderSelected(); renderFeed(); engine?.render();
+  }
+
   function setTab(tab) {
     document.body.dataset.tab = tab;
     document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("on", b.dataset.tab === tab));
-  }
-
-  function applyTheme() {
-    if (state.theme) document.documentElement.dataset.theme = state.theme; else delete document.documentElement.dataset.theme;
+    if (tab === "map") requestAnimationFrame(() => { engine?.render(); paintHeat(); });
   }
 
   /* ---------- wiring ---------- */
@@ -550,59 +632,53 @@
     };
     $("#start").addEventListener("change", onDate); $("#end").addEventListener("change", onDate);
     $("#cats-all").addEventListener("click", () => { state.cats = new Set(CAT_ORDER); refresh({ fit: true }); });
+    $("#district").addEventListener("change", (e) => selectDistrict(e.target.value));
     $("#thana").addEventListener("change", (e) => {
       state.thana = e.target.value; const p = state.meta.thanas.find((x) => x.id === state.thana);
-      refresh({ fit: true, fallback: { lat: p ? p.lat : DHAKA.lat, lng: p ? p.lng : DHAKA.lng, zoom: p ? 14 : 12 } });
+      if (!state.thana) { refresh(); fitArea(); return; }
+      refresh({ fit: true, fallback: p && p.lat ? { lat: p.lat, lng: p.lng, zoom: 13 } : null });
     });
     document.querySelectorAll("#mode button").forEach((b) => b.addEventListener("click", () => {
       state.mode = b.dataset.mode; document.querySelectorAll("#mode button").forEach((x) => x.classList.toggle("on", x === b));
-      renderLegend(); engine?.render();
+      renderLegend(); engine?.render(); paintHeat();
     }));
+    window.addEventListener("resize", () => paintHeat());
     $("#zoom-in").addEventListener("click", () => engine?.zoomBy(1));
     $("#zoom-out").addEventListener("click", () => engine?.zoomBy(-1));
     $("#zoom-reset").addEventListener("click", () => engine?.reset());
     $("#lang-btn").addEventListener("click", () => { state.lang = state.lang === "bn" ? "en" : "bn"; store.set("dcm.lang", state.lang); applyI18n(); renderAll(); });
-    $("#theme-btn").addEventListener("click", () => {
-      state.theme = isDark() ? "light" : "dark"; store.set("dcm.theme", state.theme); applyTheme(); engine?.theme(); renderAll();
-    });
-    matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { if (!state.theme) { engine?.theme(); renderAll(); } });
     document.querySelectorAll("#tabs button").forEach((b) => b.addEventListener("click", () => setTab(b.dataset.tab)));
-    $("#run-btn").addEventListener("click", async () => {
-      const r = await fetch("/api/scrape", { method: "POST", headers: { "X-DCM-UI": "1" } });
-      note(r.status === 202 ? t("started") : r.status === 409 ? t("busy") : `${t("failed")} (${r.status})`);
-      tick();
-    });
+  }
+
+  function selectDistrict(id) {
+    state.district = id || ""; state.thana = "";
+    $("#district").value = state.district; renderThanaSelect();
+    refresh(); fitArea();
   }
 
   /* ---------- live updates ----------
-     One loop: read /api/meta every 5 s while anything is being collected, classified or geocoded, every 30 s
-     otherwise. When data_version (a database counter bumped with every visible change) moves, reload the data;
-     the new version counts as seen only after that reload succeeded. */
-  let seenVersion = null, ticking = false, timer = null, lastReload = 0;
+     Every 60 s (and when the tab becomes visible) read the tiny /api/version. When its data_version moves, reload
+     the data; the new version counts as seen only after that reload succeeded. */
+  let seenVersion = null, ticking = false, timer = null;
   async function tick() {
     clearTimeout(timer);
-    if (!ticking) {
+    if (!ticking && !document.hidden) {
       ticking = true;
       try {
-        await loadMeta();
-        const active = state.meta.running || (state.meta.batches || []).length;
-        if (active) refreshCoverage();
-        // at most one data reload per 15 s, even while exact spots arrive one by one
-        if (state.meta.data_version !== seenVersion && Date.now() - lastReload >= 15000) {
-          const v = state.meta.data_version;
-          lastReload = Date.now();
+        await loadVersion();
+        if (state.version.data_version !== seenVersion) {
+          const v = state.version.data_version;
           if (await refresh()) seenVersion = v;
         }
       } catch (e) {
-        console.warn(e); state.offline = true; if (state.meta) renderStatus();
+        console.warn(e); state.offline = true; renderStatus();
       } finally { ticking = false; }
     }
-    const busy = state.meta && (state.meta.running || state.meta.exact_spots_waiting || (state.meta.batches || []).length);
-    timer = setTimeout(tick, busy ? 5000 : 30000);
+    timer = setTimeout(tick, 60000);
   }
 
   async function main() {
-    applyTheme(); setTab("map");
+    setTab("map");
     const hd = +new URLSearchParams(location.hash.slice(1)).get("d");
     const hm = new URLSearchParams(location.hash.slice(1)).get("m");
     if (["heat", "points", "both"].includes(hm)) {
@@ -613,11 +689,14 @@
       state.days = hd;
       document.querySelectorAll("#period button").forEach((x) => x.classList.toggle("on", +x.dataset.days === hd));
     }
-    await loadMeta();
+    await loadConfig();
     applyI18n(); wire();
     await initMap();
+    engine.render();                       // the base map appears at once; data follows
+    if (!new URLSearchParams(location.hash.slice(1)).get("ll")) fitArea();
+    loadVersion().catch(console.warn);
     await refresh();
-    seenVersion = state.meta.data_version;
+    seenVersion = state.version?.data_version ?? null;
     tick();
     document.addEventListener("visibilitychange", () => { if (!document.hidden) tick(); });
   }

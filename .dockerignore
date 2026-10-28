@@ -3,7 +3,7 @@
 !requirements.txt
 !requirements-dev.txt
 !app/
-!data/dhaka_places.json
+!data/places.json
 !migrations/
 !tests/
 **/__pycache__

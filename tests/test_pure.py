@@ -1,5 +1,5 @@
 """Tests that need no database or network."""
-from datetime import date, datetime, timezone
+from datetime import timedelta, date, datetime, timezone
 from pathlib import Path
 
 import httpx
@@ -41,17 +41,24 @@ def test_gazetteer_word_boundaries():
     assert g.find_all("চাঁপাইনবাবগঞ্জে হত্যা") == []
 
 
-@pytest.mark.parametrize("text", ["কুষ্টিয়ার মিরপুরে হত্যা", "চট্টগ্রামের কোতোয়ালিতে হত্যা",
-                                  "দিনাজপুরের নবাবগঞ্জে হত্যা"])
+@pytest.mark.parametrize("text", ["কুষ্টিয়ার মিরপুরে হত্যা", "দিনাজপুরের নবাবগঞ্জে হত্যা"])
 def test_gazetteer_rejects_other_district_namesakes(text):
     assert load().find_all(text) == []
 
 
+def test_gazetteer_resolves_supported_district_namesake():
+    assert [p.id for p in load().find_all("চট্টগ্রামের কোতোয়ালিতে হত্যা")] == ["chattogram:chittagong_kotwali"]
+
+
 def test_gazetteer_integrity():
     g = load()
-    assert len([p for p in g.places if p.kind == "thana"]) == 50
+    assert len([p for p in g.places if p.kind == "thana" and p.district == "dhaka"]) == 50
+    assert {p.district for p in g.places} == {"dhaka", "chattogram", "sylhet", "khulna", "barishal", "rangpur"}
     for p in g.places:
-        assert 23.55 < p.lat < 24.0 and 90.1 < p.lng < 90.6
+        if p.district == "dhaka":
+            assert 23.55 < p.lat < 24.0 and 90.1 < p.lng < 90.6
+        elif p.lat is not None:                                    # inside Bangladesh
+            assert 20.5 < p.lat < 26.7 and 88.0 < p.lng < 92.7
         assert p.parent is None or p.parent in g.by_id
 
 
@@ -98,14 +105,16 @@ def test_full_text_decides_dhaka():
     from app.scraper import belongs_to_dhaka
     g = load()
     assert belongs_to_dhaka("bangladesh/district", "কেরানীগঞ্জে স্ত্রীকে হত্যার মামলায় রায়", g)
-    assert not belongs_to_dhaka("bangladesh/district", "চট্টগ্রাম নগরের বিবিরহাটে ছিনতাই, ঢাকা মেডিকেলে নেওয়া হয়", g)
+    assert belongs_to_dhaka("bangladesh/district", "চট্টগ্রাম নগরের বিবিরহাটে ছিনতাই, ঢাকা মেডিকেলে নেওয়া হয়", g)
+    assert not belongs_to_dhaka("bangladesh/district", "ফেনীর ছাগলনাইয়ায় ছিনতাই, ঢাকা মেডিকেলে নেওয়া হয়", g)
     assert not belongs_to_dhaka("bangladesh/district", "টঙ্গীতে শিশুকে নিপীড়ন, গাজীপুর", g)
     assert belongs_to_dhaka("bangladesh", "রাজধানীতে ছিনতাই", g)
 
 
 def _client(handler):
-    return ProthomAloClient(client=httpx.Client(transport=httpx.MockTransport(handler), follow_redirects=False),
-                            delay=0)
+    c = ProthomAloClient(client=httpx.Client(transport=httpx.MockTransport(handler), follow_redirects=False), delay=0)
+    c.ROBOTS_RETRIES = (0, 0)                     # retry once, without waiting
+    return c
 
 
 def test_robots_server_error_blocks_crawling():
@@ -167,8 +176,9 @@ def test_evidence_must_be_in_article():
 
 
 def _row(**kw):
-    base = dict(article_id=1, category="murder", place_id="mirpur11", event_date=date(2026, 10, 24),
-                time_of_day="night")
+    base = dict(article_id=1, category="murder", place_id="mirpur11", thana_id="pallabi", event_date=date(2026, 10, 24),
+                incident_date=date(2026, 10, 24), time_of_day="night", victims=1,
+                evidence="মিরপুর ১১ নম্বরে রাকিব হাসান (২৫) নামে এক যুবককে কুপিয়ে হত্যা")
     base.update(kw)
     return base
 
@@ -181,6 +191,45 @@ def test_duplicate_rule_needs_same_specific_place_and_compatible_time():
     assert not _same_event(a, _row(article_id=2, time_of_day="morning"))
     assert not _same_event(a, _row(article_id=2, event_date=date(2026, 10, 26)))
     assert not _same_event(a, _row())                                            # same article
+
+
+def test_duplicates_need_corroboration_and_more_of_it_for_a_whole_thana():
+    other = dict(incident_date=None, victims=0, evidence="অন্য একটি ঘটনা ঘটে")
+    assert not _same_event(_row(), _row(article_id=2, **other))                  # look-alike, nothing shared
+    assert _same_event(_row(), _row(article_id=2, victims=0, evidence="x"))      # same explicit date: enough for a spot
+    thana = dict(place_id="pallabi", thana_id="pallabi")
+    assert not _same_event(_row(**thana), _row(article_id=2, **thana, victims=0, evidence="x"))  # one fact only
+    assert _same_event(_row(**thana), _row(article_id=2, **thana, evidence="পল্লবীতে রাকিব হাসান (২৫) খুন"))
+    sylhet = dict(place_id="sylhet:kanaighat", thana_id="sylhet:kanaighat")
+    assert not _same_event(_row(**sylhet, evidence="কানাইঘাটে চুরি"),
+                           _row(article_id=2, **sylhet, incident_date=None, evidence="কানাইঘাটে চুরি"))
+
+
+def test_monthly_archives_are_read_whole():
+    from app.collector import discover
+    from app.sources import SOURCES
+    today = datetime.now(DHAKA_TZ)
+    edited_later = Candidate("https://www.ittefaq.com.bd/1/হত্যা", "", "হত্যা", published_at=today)          # any lastmod
+    too_old = Candidate("https://www.ittefaq.com.bd/2/হত্যা", "", "হত্যা", published_at=today - timedelta(days=60))
+
+    class Monthly:
+        source = SOURCES["ittefaq"]
+        months = []
+
+        def news_sitemap(self):
+            return []
+
+        def monthly_sitemap(self, month):
+            self.months.append(month)
+            return [edited_later, too_old] if month.month == (today - timedelta(days=40)).month else []
+
+        def daily_sitemap(self, day):
+            raise AssertionError("monthly papers have no daily files")
+    m = Monthly()
+    by_day = {}
+    found = discover(m, 40, lambda _: None, by_day)
+    assert [c.url for c in found] == [edited_later.url] and by_day == {}
+    assert len(m.months) in (2, 3)                                               # every month the window touches
 
 
 def _inc(**kw):
@@ -403,7 +452,9 @@ def test_streaming_measures_prefill_and_decode(monkeypatch):
 def test_referral_hospital_is_not_dhaka_evidence():
     from app.scraper import belongs_to_dhaka
     g = load()
-    assert not belongs_to_dhaka("bangladesh", "চট্টগ্রামে ছুরিকাঘাত, আহত ব্যক্তিকে ঢাকা মেডিকেলে নেওয়া হয়", g)
+    # Chattogram is a supported district now: Gemma decides (the Dhaka Medical referral still does not count as Dhaka)
+    assert belongs_to_dhaka("bangladesh", "চট্টগ্রামে ছুরিকাঘাত, আহত ব্যক্তিকে ঢাকা মেডিকেলে নেওয়া হয়", g)
+    assert not belongs_to_dhaka("bangladesh", "ফেনীতে ছুরিকাঘাত, আহত ব্যক্তিকে ঢাকা মেডিকেলে নেওয়া হয়", g)
     assert belongs_to_dhaka("bangladesh/crime", "চট্টগ্রামে ছুরিকাঘাত, ঢাকা মেডিকেলে নেওয়া হয়", g)   # crime section: Gemma decides
     assert belongs_to_dhaka("bangladesh", "মিরপুরে ছিনতাই, ঢাকা মেডিকেলে নেওয়া হয়", g)
 
@@ -412,7 +463,7 @@ def test_referral_hospital_is_not_dhaka_evidence():
 # ---- publication grounding (council review, 26 Oct) ---------------------------------------------
 def test_namesake_through_connector_words():
     g = load()
-    assert [p.id for p in g.find_all("চট্টগ্রাম নগরের চকবাজারে ছিনতাই")] == []
+    assert [p.id for p in g.find_all("চট্টগ্রাম নগরের চকবাজারে ছিনতাই")] == ["chattogram:chawkbazar"]
     assert [p.id for p in g.find_all("কুষ্টিয়া সদর উপজেলার মিরপুরে হামলা")] == []
     assert "chawkbazar" in [p.id for p in g.find_all("পুরান ঢাকার চকবাজারে ছিনতাই")]
 
@@ -420,7 +471,7 @@ def test_namesake_through_connector_words():
 def test_published_only_when_the_article_names_the_place():
     g = load()
     ok = build_rows(ARTICLE, ArticleAnalysis(is_crime_report=True, in_dhaka=True, incidents=[_inc()], note=""), g, {}, "auto")
-    assert ok[0]["published"] and ok[0]["located_in_dhaka"]
+    assert ok[0]["published"] and ok[0]["located"]
     invented = build_rows(ARTICLE, ArticleAnalysis(is_crime_report=True, in_dhaka=True, note="",
                                                    incidents=[_inc(place_id="badda", location_text="বাড্ডা")]), g, {}, "auto")
     assert not invented[0]["published"] and invented[0]["evidence_ok"]       # quote fine, place not in the article
@@ -466,3 +517,228 @@ def test_victims_home_is_not_the_crime_location():
                 evidence="গত রাতে রাজধানীর ইসিবি চত্বরে একটি প্রকল্পে হামলা হয়")
     assert build_rows(art3, ArticleAnalysis(is_crime_report=True, in_dhaka=True, incidents=[inc3], note=""),
                       g, {}, "auto")[0]["published"]
+
+
+
+def test_crime_in_another_district_with_a_dhaka_home_in_the_same_sentence():
+    g = load()
+    art = {**ARTICLE, "title": "ছিনতাই", "body": "চট্টগ্রামে ছিনতাইয়ের শিকার মিরপুরের বাসিন্দা এক ব্যবসায়ী। পরে মামলা হয়।"}
+    inc = _inc(place_id="mirpur", location_text="মিরপুরের",
+               evidence="চট্টগ্রামে ছিনতাইয়ের শিকার মিরপুরের বাসিন্দা এক ব্যবসায়ী")
+    assert not build_rows(art, ArticleAnalysis(is_crime_report=True, in_dhaka=True, incidents=[inc], note=""),
+                          g, {}, "auto")[0]["published"]
+    # someone *from* another district, crime in Dhaka: still published
+    art2 = {**ARTICLE, "title": "ছুরিকাঘাত", "body": "মাদারীপুরের এক যুবককে মিরপুর ১১ নম্বর মেট্রোরেল স্টেশনের নিচে ছুরিকাঘাত করা হয়েছে।"}
+    inc2 = _inc(category="assault", place_id="mirpur11", location_text="মিরপুর ১১ নম্বর মেট্রোরেল স্টেশনের নিচে",
+                evidence="মাদারীপুরের এক যুবককে মিরপুর ১১ নম্বর মেট্রোরেল স্টেশনের নিচে ছুরিকাঘাত করা হয়েছে")
+    assert build_rows(art2, ArticleAnalysis(is_crime_report=True, in_dhaka=True, incidents=[inc2], note=""),
+                      g, {}, "auto")[0]["published"]
+
+
+
+# ---- six districts (27 Oct) ---------------------------------------------------------------------
+def test_shared_place_names_resolve_by_district():
+    g = load()
+    ids = lambda t: [p.id for p in g.find_all(t)]                                 # noqa: E731
+    assert ids("সিলেটের কোতোয়ালী থানায় ছিনতাই") == ["sylhet:kotwali"]
+    assert ids("রাজধানীর কোতোয়ালী থানায় ছিনতাই") == ["kotwali"]
+    assert ids("কোতোয়ালী থানায় ছিনতাই") == []                                   # five districts have one: unused
+    # the rest of the text settles an unqualified shared name
+    assert set(ids("খুলনার খালিশপুরে হত্যা। কোতোয়ালী থানার ওসি জানান")) == {"khulna:khalishpur", "khulna:khulna_kotwali"}
+    assert ids("কুষ্টিয়ার মিরপুরে হামলা") == []                                   # unsupported district's namesake
+    assert ids("চট্টগ্রামের মিরপুরে হামলা") == []                                  # no Mirpur in Chattogram
+
+
+def test_incident_in_chattogram_is_published_with_its_district():
+    g = load()
+    art = {**ARTICLE, "title": "পাঁচলাইশে ছিনতাই", "body": "চট্টগ্রাম নগরের পাঁচলাইশ এলাকায় গতকাল রাতে এক ব্যবসায়ীর কাছ থেকে টাকা ছিনিয়ে নেওয়া হয়েছে।"}
+    inc = _inc(category="robbery", place_id="chattogram:panchlaish", district="chattogram", location_text="পাঁচলাইশ এলাকায়",
+               evidence="চট্টগ্রাম নগরের পাঁচলাইশ এলাকায় গতকাল রাতে এক ব্যবসায়ীর কাছ থেকে টাকা ছিনিয়ে নেওয়া হয়েছে")
+    rows = build_rows(art, ArticleAnalysis(is_crime_report=True, in_scope=True, incidents=[inc], note=""), g, {}, "auto")
+    assert rows[0]["published"] and rows[0]["district"] == "chattogram" and rows[0]["thana_id"] == "chattogram:panchlaish"
+    wrong = _inc(category="robbery", place_id="chattogram:panchlaish", district="dhaka", location_text="পাঁচলাইশ এলাকায়",
+                 evidence="চট্টগ্রাম নগরের পাঁচলাইশ এলাকায় গতকাল রাতে এক ব্যবসায়ীর কাছ থেকে টাকা ছিনিয়ে নেওয়া হয়েছে")
+    assert not build_rows(art, ArticleAnalysis(is_crime_report=True, in_scope=True, incidents=[wrong], note=""),
+                          g, {}, "auto")[0]["published"]                          # model district disagrees with the place
+
+
+def test_old_saved_answers_still_load_as_dhaka():
+    old = {"is_crime_report": True, "in_dhaka": True, "note": "",
+           "incidents": [{"category": "theft", "headline_bn": "চুরি", "headline_en": "Theft", "location_text": "মিরপুর",
+                          "place_id": "mirpur", "geocode_query": None, "precision": "thana", "incident_date": None,
+                          "time_of_day": "unknown", "victims": 0, "evidence": "মিরপুরে চুরি"}]}
+    a = ArticleAnalysis.model_validate(old)
+    assert a.in_scope and a.incidents[0].district == "dhaka"
+
+
+
+# ---- five more newspapers (27 Oct) ----------------------------------------------------------------
+def test_sections_and_headlines_from_each_papers_urls():
+    from app.sources import section_of, source_for_url, title_from_url
+    assert section_of("https://www.prothomalo.com/bangladesh/crime/abc123") == "bangladesh/crime"
+    assert section_of("https://samakal.com/whole-country/article/379715/%E0%A6%B9%E0%A6%A4%E0%A7%8D%E0%A6%AF%E0%A6%BE") == "whole-country"
+    assert section_of("https://www.banglatribune.com/law-and-crime/976980/x") == "law-and-crime"
+    assert section_of("https://www.banglatribune.com/country/chitagong/976981/x") == "country/chitagong"
+    assert section_of("https://www.ajkerpatrika.com/bangladesh/dhaka/ajpymd01llkbz") == "bangladesh/dhaka"
+    assert section_of("https://www.ittefaq.com.bd/817537/x") == ""                     # no sections in its URLs
+    assert source_for_url("https://www.kishoralo.com/x/y") is None
+    assert title_from_url("https://www.deshrupantor.com/730537/স্ত্রীকে-গলা-টিপে-হত্যা") == "স্ত্রীকে গলা টিপে হত্যা"
+    assert title_from_url("https://www.ajkerpatrika.com/bangladesh/dhaka/ajpymd01llkbz") == ""   # id, not a headline
+
+
+def test_untitled_archive_entries_use_the_headline_in_the_url():
+    g = load()
+    ok = Candidate("https://www.ittefaq.com.bd/817537/স্ত্রীকে-হত্যা", "", "স্ত্রীকে হত্যা")
+    sport = Candidate("https://www.ittefaq.com.bd/817538/সাকিবের-ফিফটি", "", "সাকিবের ফিফটি")
+    assert is_candidate(ok, g) and not is_candidate(sport, g)
+    assert is_candidate(Candidate("https://www.banglatribune.com/law-and-crime/1/x", "law-and-crime"), g)
+    assert is_candidate(Candidate("https://www.ajkerpatrika.com/bangladesh/khulna/ajp1", "bangladesh/khulna"), g)
+    assert not is_candidate(Candidate("https://www.ajkerpatrika.com/sports/cricket/ajp2", "sports/cricket"), g)
+    assert not is_candidate(Candidate("https://www.ajkerpatrika.com/video/ajp3", "video", "হত্যা"), g)
+
+
+DOM_PAGE = """<html><head><meta property="og:title" content="খালিশপুরে যুবককে কুপিয়ে হত্যা">
+<meta property="article:published_time" content="2026-10-26T21:10:00+06:00">
+<script type="application/ld+json">{"@type":"NewsArticle","headline":"x","datePublished":"2026-10-26T21:10:00+06:00",
+"keywords":"খুলনা, হত্যা"}</script></head><body><h1>খালিশপুরে যুবককে কুপিয়ে হত্যা</h1>
+<div class="viewport jw_article_body" itemprop="articleBody"><p>খুলনা নগরের খালিশপুর এলাকায় গতকাল রাতে এক যুবককে কুপিয়ে হত্যা করা হয়েছে।</p>
+<figure><figcaption>ছবি: সংগৃহীত</figcaption></figure><script>ads()</script>
+<p>খালিশপুর থানার ওসি জানান, এ ঘটনায় মামলার প্রস্তুতি চলছে এবং জড়িতদের ধরতে অভিযান চলছে।</p></div></body></html>"""
+
+
+def test_paper_without_json_ld_text_is_read_from_its_text_block():
+    a = parse_article(DOM_PAGE, "https://www.deshrupantor.com/730999/খালিশপুরে-হত্যা")
+    assert a.title == "খালিশপুরে যুবককে কুপিয়ে হত্যা" and a.keywords == "খুলনা, হত্যা"
+    assert a.body.splitlines()[0].startswith("খুলনা নগরের খালিশপুর") and "ছবি" not in a.body and "ads" not in a.body
+    assert a.published_at.isoformat() == "2026-10-26T21:10:00+06:00"
+    with pytest.raises(ValueError):
+        parse_article(DOM_PAGE.replace("jw_article_body", "other"), "https://www.ittefaq.com.bd/1/x")
+
+
+def test_each_paper_is_its_own_lane():
+    from app.scraper import NewsClient
+    seen = []
+
+    def handler(req):
+        seen.append(str(req.url))
+        if req.url.path == "/robots.txt":
+            return httpx.Response(200, text="User-agent: *\nDisallow: /search")
+        return httpx.Response(200, text="<urlset xmlns='http://www.sitemaps.org/schemas/sitemap/0.9'></urlset>")
+    c = NewsClient("samakal", client=httpx.Client(transport=httpx.MockTransport(handler)), delay=0)
+    c.ROBOTS_RETRIES = (0,)
+    assert c.news_sitemap() == [] and seen == ["https://samakal.com/robots.txt", "https://samakal.com/news_sitemap.xml"]
+    with pytest.raises(FetchBlocked):
+        c._get("https://www.prothomalo.com/bangladesh/crime/x")               # another paper's host
+    with pytest.raises(FetchBlocked):
+        c._get("https://samakal.com/search?q=x")
+
+
+def test_city_police_thanas_outside_wikidata():
+    ids = lambda t: [p.id for p in load().find_all(t)]                       # noqa: E731
+    assert ids("চট্টগ্রামের বায়েজিদ বোস্তামী থানা এলাকায় হত্যা") == ["chattogram:bayazid"]
+    assert ids("খুলনার লবণচরা থানায় মামলা") == ["khulna:labanchara"]
+    assert ids("রংপুরের তাজহাটে ছিনতাই") == ["rangpur:tajhat"]
+    assert ids("রংপুর মহানগরের কোতোয়ালী থানায় মামলা") == ["rangpur:rangpur_kotwali"]
+
+
+
+def test_robots_unreachable_once_is_retried():
+    calls = []
+
+    def handler(req):
+        if req.url.path == "/robots.txt":
+            calls.append(1)
+            if len(calls) == 1:
+                raise httpx.ConnectError("network not up yet")
+            return httpx.Response(200, text="User-agent: *\nAllow: /")
+        return httpx.Response(200, text="ok")
+    c = _client(handler)
+    assert c._get("https://www.prothomalo.com/bangladesh/crime/x") == "ok" and len(calls) == 2
+
+
+
+def test_politeness_backs_off_and_stops_on_refusals(monkeypatch):
+    import app.scraper as sc
+    slept = []
+    monkeypatch.setattr(sc.time, "sleep", lambda s: slept.append(s))
+    robots404 = lambda req: httpx.Response(404)                        # noqa: E731
+
+    def site(*responses):
+        seq = iter(responses)
+        return _client(lambda req: robots404(req) if req.url.path == "/robots.txt" else next(seq))
+    c = site(httpx.Response(429, headers={"retry-after": "7"}), httpx.Response(200, text="ok"))
+    assert c._get("https://www.prothomalo.com/bangladesh/crime/a") == "ok"
+    assert 7 in slept and c.delay >= 1                                 # waited as told, and slowed down for good
+    c = site(httpx.Response(429, headers={"retry-after": "7"}), httpx.Response(429, headers={"retry-after": "7"}))
+    with pytest.raises(sc.PublisherRefused) as e:
+        c._get("https://www.prothomalo.com/bangladesh/crime/b")
+    assert e.value.cooldown_until is not None                          # a second 429: leave it alone for a while
+    with pytest.raises(sc.PublisherRefused):
+        c._get("https://www.prothomalo.com/bangladesh/crime/c")        # and no new request to it this run
+    c = site(httpx.Response(403))
+    with pytest.raises(sc.PublisherRefused) as e:
+        c._get("https://www.prothomalo.com/bangladesh/crime/d")        # the first 403 stops the paper
+    assert e.value.cooldown_until is not None and c.blocked
+    c = site(httpx.Response(429, headers={"retry-after": "7200"}))
+    with pytest.raises(sc.PublisherRefused):
+        c._get("https://www.prothomalo.com/bangladesh/crime/e")        # a long deadline is respected, not shortened
+    assert 7200 not in slept
+
+
+def test_slow_down_never_speeds_up_and_crawl_delay_is_respected():
+    from app.scraper import RobotsPolicy
+    c = _client(lambda req: httpx.Response(404))
+    c.delay = 20
+    c.slow_down("test")
+    assert c.delay == 20
+    p = RobotsPolicy.parse("User-agent: *\nCrawl-delay: 10\nDisallow: /search", "DhakaCrimeMap/0.2")
+    assert p.crawl_delay == 10 and not p.can_fetch("https://x/search?q=1")
+
+
+def test_robots_refusal_is_a_refusal_not_allow_all():
+    import app.scraper as sc
+    c = _client(lambda req: httpx.Response(403) if req.url.path == "/robots.txt" else httpx.Response(200, text="ok"))
+    with pytest.raises(sc.PublisherRefused):
+        c._get("https://www.prothomalo.com/bangladesh/crime/x")
+
+
+# ---- one category list (27 Oct) -----------------------------------------------------------------
+def test_category_list_drives_the_enum_visibility_and_hues():
+    import typing
+    from app import schema
+    assert set(typing.get_args(schema.Category)) == set(schema.CATEGORIES)          # the model's enum is generated
+    assert schema.TOTALS_ONLY == set()                      # sexual violence is mapped since 28 Oct (owner)
+    assert all(schema.CATEGORIES[k]["hue"] is not None for k in schema.MAPPED)
+    assert len(schema.MAPPED) <= schema.MAX_MAPPED_COLOURS
+    assert schema.next_hue([19, 86, 305, 132, 208, 169, 266, 342]) == 52   # how sexual violence got its hue
+    assert schema.CATEGORIES["sexual_violence"]["hue"] == 52
+    from app.public import AREA_TOTALS_ONLY
+    assert AREA_TOTALS_ONLY == schema.TOTALS_ONLY
+
+
+def test_a_category_without_visibility_is_refused(monkeypatch):
+    from app import schema
+    monkeypatch.setitem(schema.CATEGORIES, "arson", {"bn": "অগ্নিসংযোগ", "en": "Arson", "family": "property"})
+    with pytest.raises(AssertionError):
+        schema._check_categories()
+
+
+def test_police_roundups_only_match_the_same_count():
+    from app.events import roundup_count, roundups_compatible
+    assert roundup_count("ডিএমপির অভিযানে ২৪ ঘণ্টায় গ্রেপ্তার ৪৯১") == 491
+    assert roundup_count("রাজধানী‌তে ২৪ ঘণ্টায় গ্রেফতার ৪৮৩, মামলা ৫৯") == 483
+    assert roundup_count("কেরানীগঞ্জে ইয়াবা তৈরির কারখানার সন্ধান, গ্রেপ্তার ২") is None
+    assert not roundups_compatible({"title": "২৪ ঘণ্টায় গ্রেপ্তার ৫০৬"}, {"title": "২৪ ঘণ্টায় গ্রেপ্তার ৪৮৩"})
+    assert roundups_compatible({"title": "২৪ ঘণ্টায় গ্রেপ্তার ৫২৭"}, {"title": "ডিএমপির অভিযানে গ্রেফতার ৫২৭"})
+    assert not roundups_compatible({"title": "২৪ ঘণ্টায় গ্রেপ্তার ৫২৭"}, {"title": "মিরপুরে যুবক খুন"})
+    assert roundups_compatible({"title": "মিরপুরে যুবক খুন"}, {"title": "মিরপুরে যুবক খুন হন"})
+
+
+def test_judge_quotes_must_be_in_the_article_verbatim_or_nearly():
+    from app.events import in_text
+    t = "সিলিন্ডার বিস্ফোরণ: ঢামেকে চিকিৎসাধীন একজনের মৃত্যু\nখুলনা বিশ্ববিদ্যালয়ের শিক্ষার্থী আজমুল হোসেনকে পিটিয়ে হত্যা করা হয়েছে।"
+    assert in_text("ঢামেকে চিকিৎসাধীন একজনের মৃত্যু হয়েছে", t)          # one word added
+    assert in_text("বি'স্ফো'রণ", t)                                        # obfuscated spelling
+    assert not in_text("খুবজন যুবক তাঁকে চুরির অভিযোগে মারধর করেন।", t)     # garbled
+    assert not in_text("রাকিব হাসান নামে এক যুবককে কুপিয়ে হত্যা", t)          # not in the article
+    assert not in_text("হত্যা", t)                                         # too short to prove anything

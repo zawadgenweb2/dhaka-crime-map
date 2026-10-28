@@ -46,19 +46,39 @@ services:
     command: ["api"]
     environment:
       <<: *db-url
+      SOURCES_DISABLED: ${SOURCES_DISABLED:-}
       HOST: 0.0.0.0
       PORT: "8100"
       SCRAPE_TIMES: ${SCRAPE_TIMES:-08:00,20:00}
       CLASSIFIER: ${CLASSIFIER:-gemma}
       GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY:-}
       GOOGLE_MAPS_MAP_ID: ${GOOGLE_MAPS_MAP_ID:-}
-      ALLOW_UI_TRIGGER: ${ALLOW_UI_TRIGGER:-true}
-      ADMIN_TOKEN: ${ADMIN_TOKEN:-}
-      SWAGGER_PREAUTHORIZE: ${SWAGGER_PREAUTHORIZE:-false}
     ports:
       - "127.0.0.1:${PORT:-8100}:8100"   # loopback only
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8100/api/health',timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  # Admin panel (login): collection, backfills, coverage, review, try-an-article, API docs. LAN/VPN only.
+  admin:
+    <<: *app
+    command: ["admin"]
+    environment:
+      <<: *db-url
+      SOURCES_DISABLED: ${SOURCES_DISABLED:-}
+      HOST: 0.0.0.0
+      ADMIN_PORT: "8101"
+      SCRAPE_TIMES: ${SCRAPE_TIMES:-08:00,20:00}
+      CLASSIFIER: ${CLASSIFIER:-gemma}
+      ADMIN_TOKEN: ${ADMIN_TOKEN:-}
+      ADMIN_PASSWORD_MIN: ${ADMIN_PASSWORD_MIN:-12}
+      PUBLISH_MODE: ${PUBLISH_MODE:-auto}
+    ports:
+      - "127.0.0.1:${ADMIN_PORT:-8101}:8101"   # loopback only
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8101/api/health',timeout=3)"]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -68,9 +88,10 @@ services:
     command: ["collector"]
     environment:
       <<: *db-url
+      SOURCES_DISABLED: ${SOURCES_DISABLED:-}
       SCRAPE_TIMES: ${SCRAPE_TIMES:-08:00,20:00}
       CLASSIFIER: ${CLASSIFIER:-gemma}
-      USER_AGENT: ${USER_AGENT:-DhakaCrimeMap/0.2 (research prototype)}
+      USER_AGENT: ${USER_AGENT:-DhakaCrimeMap/0.2 (+https://github.com/zawadgenweb2/dhaka-crime-map)}
       MAX_ARTICLES_PER_RUN: ${MAX_ARTICLES_PER_RUN:-150}
 
   classifier:
@@ -85,7 +106,7 @@ services:
       PUBLISH_MODE: ${PUBLISH_MODE:-auto}
       GEMMA_API_KEY: ${GEMMA_API_KEY:-}
       GEOCODE_ENABLED: ${GEOCODE_ENABLED:-true}
-      USER_AGENT: ${USER_AGENT:-DhakaCrimeMap/0.2 (research prototype)}
+      USER_AGENT: ${USER_AGENT:-DhakaCrimeMap/0.2 (+https://github.com/zawadgenweb2/dhaka-crime-map)}
 
   test:
     build: { context: ., target: test }

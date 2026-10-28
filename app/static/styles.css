@@ -18,31 +18,13 @@
   --accent: #2a78d6;
   --accent-ink: #ffffff;
   --shadow: 0 1px 2px rgba(0,0,0,.06), 0 8px 24px rgba(0,0,0,.08);
-  --c-murder: #e34948; --c-assault: #eb6834; --c-robbery: #6250d6; --c-theft: #eda100;
-  --c-sexual_violence: #e87ba4; --c-kidnapping: #1baf7a; --c-drugs_arms: #008300;
-  --c-fraud_extortion: #2a78d6; --c-other: #898781;
+  /* the heat's eight hues (OKLab, chroma 0.15, see heat-paint.js); sexual violence is totals-only, never painted */
+  --c-murder: #d25860; --c-assault: #a17a0c; --c-robbery: #9b69ce; --c-theft: #5a8e21;
+  --c-sexual_violence: #e87ba4; --c-kidnapping: #1e8d9b; --c-drugs_arms: #019270;
+  --c-fraud_extortion: #577cdc; --c-other: #c35ba0;
   --heat-1: #fde0d9; --heat-6: #7f1416;
 }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    color-scheme: dark;
-    --page: #0d0d0d; --surface: #1a1a19; --surface-2: #232321; --ink: #f0efec; --ink-2: #c3c2b7;
-    --muted: #898781; --line: #2c2c2a; --ring: rgba(255,255,255,.10); --accent: #3987e5;
-    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.5);
-    --c-murder: #e66767; --c-assault: #d95926; --c-robbery: #9085e9; --c-theft: #c98500;
-    --c-sexual_violence: #d55181; --c-kidnapping: #199e70; --c-drugs_arms: #008300;
-    --c-fraud_extortion: #3987e5;
-  }
-}
-:root[data-theme="dark"] {
-  color-scheme: dark;
-  --page: #0d0d0d; --surface: #1a1a19; --surface-2: #232321; --ink: #f0efec; --ink-2: #c3c2b7;
-  --muted: #898781; --line: #2c2c2a; --ring: rgba(255,255,255,.10); --accent: #3987e5;
-  --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.5);
-  --c-murder: #e66767; --c-assault: #d95926; --c-robbery: #9085e9; --c-theft: #c98500;
-  --c-sexual_violence: #d55181; --c-kidnapping: #199e70; --c-drugs_arms: #008300;
-  --c-fraud_extortion: #3987e5;
-}
+:root { color-scheme: light; }        /* light only (owner, 27 Oct): colours are tuned for a light map */
 
 * { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; }
@@ -213,7 +195,7 @@ input[type="date"], select {
   .tabs button.on { color: var(--ink); background: var(--surface-2); font-weight: 600; }
   .mapwrap { height: calc(100dvh - 56px - 58px); }
   .legend { bottom: 12px; left: 8px; max-width: calc(100% - 16px); }
-  .legend .cats { display: none; }
+  .legend .cats { font-size: 11px; gap: 2px 8px; }        /* the colour key stays on phones: colours alone mean nothing */
   .card.selected { top: auto; bottom: 8px; right: 8px; left: 8px; width: auto; }
 }
 
@@ -241,3 +223,16 @@ input[type="date"], select {
 .zoomctl button:hover { background: var(--surface-2); }
 .zoomctl button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 #zoom-reset { font-size: 16px; }
+
+/* crime mix of one area (tap a donut) */
+.selected .mix { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 6px; }
+.selected .mix li { display: grid; grid-template-columns: minmax(90px, 40%) 1fr auto; align-items: center; gap: 8px; font-size: 13px; }
+.selected .mix .name { display: inline-flex; align-items: center; gap: 6px; }
+.selected .mix .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.selected .mix .bar { height: 8px; background: var(--line, rgba(127,127,127,.15)); border-radius: 4px; overflow: hidden; }
+.selected .mix .bar i { display: block; height: 100%; border-radius: 4px; }
+.selected .mix .cnt { font-variant-numeric: tabular-nums; color: var(--muted); }
+
+/* totals-only types (sexual violence): say why there is nothing to list, instead of "no incidents" */
+.empty.totals-only { text-align: left; color: var(--ink); padding: 14px 8px; font-size: 13.5px; line-height: 1.5; }
+.empty.totals-only p { margin: 0 0 8px; }
