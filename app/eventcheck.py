@@ -2,8 +2,8 @@
 
 `python -m app events-verify` prints a report with four parts:
   1. invariants      every located published report is in exactly one active event; each event's main report is
-                     one of its own; no event holds two reports of one article; the public API serves one row per
-                     event (list and stats agree)
+                     one of its own; counts consistent; the public API serves one row per event (list and stats
+                     agree). Events holding two incidents of one article are reported as information
   2. known stories   multi-paper stories we know (Rangpur 4 killed, Sitakunda blast, ...) and how many events each
                      became (1 = shown once)
   3. residual look-alikes   pairs of separate events that still look alike (same type and place, +-1 day, different
@@ -49,10 +49,12 @@ def invariants(c) -> dict:
     out["count_mismatch"] = _q(c, """SELECT count(*) n FROM events e WHERE e.state = 'active' AND e.report_count <>
                                   (SELECT count(*) FROM event_reports er JOIN incidents i ON i.report_key = er.report_key
                                    WHERE er.event_id = e.id AND i.published)""")[0]["n"]
-    out["two_reports_same_article"] = _q(c, """SELECT count(*) n FROM (SELECT event_id, article_id FROM event_reports
-                                            GROUP BY 1, 2 HAVING count(*) > 1) x""")[0]["n"]
+    # information, not an error: Gemma sometimes splits one crime into two incidents of one article (e.g. "weapon
+    # recovered" and "yaba seized" in one shooting story); the event store puts them back together
+    out["info_events_holding_one_article_twice"] = _q(c, """SELECT count(*) n FROM (SELECT event_id, article_id
+                                            FROM event_reports GROUP BY 1, 2 HAVING count(*) > 1) x""")[0]["n"]
     out["ok"] = not any(out[k] for k in ("not_in_any_event", "in_retired_event", "main_report_not_a_member",
-                                         "count_mismatch", "two_reports_same_article"))
+                                         "count_mismatch"))
     return out
 
 
