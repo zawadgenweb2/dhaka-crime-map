@@ -16,7 +16,9 @@ CATEGORIES: dict[str, dict] = {
     "assault": {"bn": "হামলা ও সংঘর্ষ", "en": "Assault & clashes", "visibility": "mapped", "hue": 86, "family": "violent"},
     "robbery": {"bn": "ছিনতাই ও ডাকাতি", "en": "Mugging & robbery", "visibility": "mapped", "hue": 305, "family": "property"},
     "theft": {"bn": "চুরি", "en": "Theft & burglary", "visibility": "mapped", "hue": 132, "family": "property"},
-    "sexual_violence": {"bn": "যৌন সহিংসতা", "en": "Sexual violence", "visibility": "totals_only", "hue": None,
+    # mapped since 28 Oct (owner: the newspapers already protect victims; we show what they published).
+    # Hue 52 = next_hue() of the eight above, assigned once.
+    "sexual_violence": {"bn": "যৌন সহিংসতা", "en": "Sexual violence", "visibility": "mapped", "hue": 52,
                         "family": "violent"},
     "kidnapping": {"bn": "অপহরণ", "en": "Kidnapping", "visibility": "mapped", "hue": 208, "family": "violent"},
     "drugs_arms": {"bn": "মাদক ও অস্ত্র", "en": "Drugs & weapons", "visibility": "mapped", "hue": 169, "family": "drugs"},
@@ -24,7 +26,7 @@ CATEGORIES: dict[str, dict] = {
                         "family": "property"},
     "other": {"bn": "অন্যান্য", "en": "Other", "visibility": "mapped", "hue": 342, "family": "other"},
 }
-MAX_MAPPED_COLOURS = 8           # more individually coloured types than this stop being readable (council, 27 Oct)
+MAX_MAPPED_COLOURS = 9           # council advised 8 for readability; owner added sexual violence as a ninth (28 Oct)
 MAPPED = [k for k, v in CATEGORIES.items() if v["visibility"] == "mapped"]
 TOTALS_ONLY = {k for k, v in CATEGORIES.items() if v["visibility"] == "totals_only"}
 

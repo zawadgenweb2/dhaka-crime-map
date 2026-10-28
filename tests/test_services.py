@@ -784,7 +784,7 @@ def test_public_site_has_no_admin_surface_and_safe_fields():
     assert pub.post("/api/scrape").status_code in (404, 405) and pub.post("/api/classify", json={}).status_code in (404, 405)
     p = {"start": "2026-10-01", "end": "2026-10-31"}
     inc = pub.get("/api/incidents", params=p).json()
-    assert [i["category"] for i in inc] == ["murder"]                                 # sexual violence: totals only
+    assert sorted(i["category"] for i in inc) == ["murder", "sexual_violence"]        # mapped since 28 Oct (owner)
     for k in ("evidence", "headline_bn", "headline_en", "victims", "title", "location_text"):
         assert k not in inc[0]
     assert inc[0]["url"].startswith("https://www.prothomalo.com/") and inc[0]["publisher_en"] == "Prothom Alo"
@@ -961,8 +961,9 @@ def test_a_failed_judge_keeps_the_report_visible_and_retries():
         assert c.execute("SELECT attempts FROM match_queue").fetchone()["attempts"] == 1               # retried later
 
 
-def test_sexual_violence_reports_are_never_sent_to_the_judge():
+def test_totals_only_types_are_never_sent_to_the_judge(monkeypatch):
     from app.events import build_all
+    monkeypatch.setattr("app.events.TOTALS_ONLY", {"sexual_violence"})          # a type marked totals-only
     _news("ধর্ষণের অভিযোগ", "মিরপুরে ধর্ষণের অভিযোগে মামলা হয়েছে।", "prothomalo", 5, category="sexual_violence")
     _news("ধর্ষণের মামলা", "মিরপুরে ধর্ষণের মামলা হয়েছে।", "samakal", 2, category="sexual_violence")
     build_all()

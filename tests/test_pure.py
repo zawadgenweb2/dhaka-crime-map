@@ -707,10 +707,11 @@ def test_category_list_drives_the_enum_visibility_and_hues():
     import typing
     from app import schema
     assert set(typing.get_args(schema.Category)) == set(schema.CATEGORIES)          # the model's enum is generated
-    assert schema.TOTALS_ONLY == {"sexual_violence"}
+    assert schema.TOTALS_ONLY == set()                      # sexual violence is mapped since 28 Oct (owner)
     assert all(schema.CATEGORIES[k]["hue"] is not None for k in schema.MAPPED)
     assert len(schema.MAPPED) <= schema.MAX_MAPPED_COLOURS
-    assert schema.next_hue([schema.CATEGORIES[k]["hue"] for k in schema.MAPPED]) == 52   # council palette review
+    assert schema.next_hue([19, 86, 305, 132, 208, 169, 266, 342]) == 52   # how sexual violence got its hue
+    assert schema.CATEGORIES["sexual_violence"]["hue"] == 52
     from app.public import AREA_TOTALS_ONLY
     assert AREA_TOTALS_ONLY == schema.TOTALS_ONLY
 
