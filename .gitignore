@@ -32,3 +32,6 @@ data/eval/
 
 # Keep local Markdown notes and documentation out of the repository.
 *.md
+
+# Keep generated PDF reports local.
+*.pdf
