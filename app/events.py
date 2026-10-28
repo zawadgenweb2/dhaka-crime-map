@@ -444,7 +444,8 @@ def status() -> dict:
 
 
 # ---- consolidation: look-alike events judged directly ----------------------------------------------
-def consolidate(classifier, embedder=embed, min_cosine: float = 0.85, limit: int | None = None) -> dict:
+def consolidate(classifier, embedder=embed, min_cosine: float = 0.88, limit: int | None = None,
+                workers: int = 1) -> dict:
     """Pairs of separate events that look alike (district, compatible type, place or thana, within 7 days, main
     reports similar) are judged directly - their two main reports, both orders, >= 2 quote-proven facts - and merged
     when they are one crime. Repairs stories that split before a bridging report arrived. Logged, undoable (split)."""
@@ -460,22 +461,22 @@ def consolidate(classifier, embedder=embed, min_cosine: float = 0.85, limit: int
                                                 AND d.matcher_version = %s)
                               ORDER BY e1.event_date, e1.id, e2.id""",
                            (WINDOW_DAYS, sorted(TOTALS_ONLY), MATCHER_VERSION)).fetchall()
-    done = merged = 0
-    for p in pairs[:limit] if limit else pairs:
+    todo = pairs[:limit] if limit else pairs
+
+    def check(p) -> tuple[int, int]:
         with db.connect() as c:
             a = c.execute(f"SELECT e.id AS event_id, {REPORT_COLS} FROM events e JOIN incidents i ON i.id = e.primary_incident_id "
                           "JOIN articles a ON a.id = i.article_id WHERE e.id = %s AND e.state = 'active'", (p["e1"],)).fetchone()
             b = c.execute(f"SELECT e.id AS event_id, {REPORT_COLS} FROM events e JOIN incidents i ON i.id = e.primary_incident_id "
                           "JOIN articles a ON a.id = i.article_id WHERE e.id = %s AND e.state = 'active'", (p["e2"],)).fetchone()
             if not a or not b:
-                continue                                          # one side merged away already
+                return 0, 0                                       # one side merged away already
             if c.execute("""SELECT 1 FROM event_exclusions x JOIN event_reports er ON er.report_key = x.report_key
                             WHERE (x.event_id = %s AND er.event_id = %s) OR (x.event_id = %s AND er.event_id = %s)""",
                          (a["event_id"], b["event_id"], b["event_id"], a["event_id"])).fetchone():
-                continue                                          # an admin split them
+                return 0, 0                                       # an admin split them
             score = cosine(vector(c, a, embedder), vector(c, b, embedder))
             c.commit()
-        done += 1
         res = {"same": False, "facts": [], "calls": [{"verdict": "below_similarity"}]}
         if score >= min_cosine and roundups_compatible(a, b):
             res = judge(classifier, a, b)
@@ -491,5 +492,13 @@ def consolidate(classifier, embedder=embed, min_cosine: float = 0.85, limit: int
                 recompute(c, first["event_id"])
                 recompute(c, second["event_id"])
                 db.bump_revision(c)
-                merged += 1
-    return {"pairs_checked": done, "merged": merged}
+                return 1, 1
+        return 1, 0
+
+    if workers > 1:                       # the model server answers several judge requests at once
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            results = list(pool.map(check, todo))
+    else:
+        results = [check(p) for p in todo]
+    return {"pairs_checked": sum(r[0] for r in results), "merged": sum(r[1] for r in results)}

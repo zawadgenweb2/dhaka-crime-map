@@ -8,6 +8,6 @@ exec env LD_LIBRARY_PATH="$RT/lib" CUDA_VISIBLE_DEVICES=0 "$RT/bin/llama-server"
   --model "$MODEL" --alias dhaka-gemma \
   --host 127.0.0.1 --port 8090 \
   --api-key-file "$HOME/.config/dhaka-llm/api-key" \
-  --parallel 1 --ctx-size "${DHAKA_LLM_CTX:-16384}" \
+  --parallel "${DHAKA_LLM_PARALLEL:-1}" --ctx-size "${DHAKA_LLM_CTX:-16384}" \
   --n-gpu-layers 999 --threads 4 --threads-batch 8 \
   --n-predict 4096 --cache-prompt --no-context-shift --no-webui
