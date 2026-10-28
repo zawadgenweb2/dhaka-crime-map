@@ -29,3 +29,6 @@ deploy/tls/
 # Database dumps and evaluation output contain real data: never commit them
 *.dump
 data/eval/
+
+# Keep local Markdown notes and documentation out of the repository.
+*.md
