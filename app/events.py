@@ -169,7 +169,7 @@ def in_text(quote: str, text: str) -> bool:
     """The quote is in the article: verbatim, or a near-copy - one unbroken run of at least 60% of it (and at least
     15 characters) appears word for word. The model often adds or drops a word ("...মৃত্যু হয়েছে" for the title's
     "...মৃত্যু"); garbled or invented quotes still fail."""
-    q, t = _OBFUSCATION.sub("", normalize(quote)), _OBFUSCATION.sub("", normalize(text))
+    q, t = normalize(_OBFUSCATION.sub("", quote)), normalize(_OBFUSCATION.sub("", text))   # before normalising
     if len(q) < 6:
         return False
     if q in t:
