@@ -1057,3 +1057,14 @@ def test_consolidation_merges_look_alike_events_only_when_judged_same():
     finally:
         ev.MATCHER_VERSION = ev.MATCHER_VERSION[:-2]
     assert status()["events"] == 1
+
+
+def test_same_crime_filed_under_two_thanas_is_still_compared():
+    from app.events import build_all, status
+    _news("খুলনায় শিক্ষার্থী আজমুল হত্যা", "খুলনায় শিক্ষার্থী আজমুল হত্যা। পুলিশ জানায়।", "prothomalo", 9, place="khulna:harintana")
+    _news("খুলনায় শিক্ষার্থী আজমুল হত্যা: মামলা", "খুলনায় শিক্ষার্থী আজমুল হত্যা: মামলা হয়েছে।", "samakal", 2, place="khulna:khan_jahan_ali")
+    with db.tx() as c:
+        c.execute("UPDATE incidents SET district_id = 'khulna', thana_id = place_id")
+    build_all()
+    _drain(Judge("same"))
+    assert status()["events"] == 1

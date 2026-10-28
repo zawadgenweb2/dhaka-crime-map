@@ -731,3 +731,13 @@ def test_police_roundups_only_match_the_same_count():
     assert roundups_compatible({"title": "২৪ ঘণ্টায় গ্রেপ্তার ৫২৭"}, {"title": "ডিএমপির অভিযানে গ্রেফতার ৫২৭"})
     assert not roundups_compatible({"title": "২৪ ঘণ্টায় গ্রেপ্তার ৫২৭"}, {"title": "মিরপুরে যুবক খুন"})
     assert roundups_compatible({"title": "মিরপুরে যুবক খুন"}, {"title": "মিরপুরে যুবক খুন হন"})
+
+
+def test_judge_quotes_must_be_in_the_article_verbatim_or_nearly():
+    from app.events import in_text
+    t = "সিলিন্ডার বিস্ফোরণ: ঢামেকে চিকিৎসাধীন একজনের মৃত্যু\nখুলনা বিশ্ববিদ্যালয়ের শিক্ষার্থী আজমুল হোসেনকে পিটিয়ে হত্যা করা হয়েছে।"
+    assert in_text("ঢামেকে চিকিৎসাধীন একজনের মৃত্যু হয়েছে", t)          # one word added
+    assert in_text("বি'স্ফো'রণ", t)                                        # obfuscated spelling
+    assert not in_text("খুবজন যুবক তাঁকে চুরির অভিযোগে মারধর করেন।", t)     # garbled
+    assert not in_text("রাকিব হাসান নামে এক যুবককে কুপিয়ে হত্যা", t)          # not in the article
+    assert not in_text("হত্যা", t)                                         # too short to prove anything

@@ -32,12 +32,13 @@ from .schema import TOTALS_ONLY
 from .text import normalize
 
 log = logging.getLogger(__name__)
-MATCHER_VERSION = "m2-eg2-judge2-wide"   # m2: fuller excerpts, quotes checked against the whole article, +-7 days, consolidation
+MATCHER_VERSION = "m3-near-quotes-cross-thana"   # m3: near-verbatim quotes accepted; same crime filed under two thanas
 EMBED_MODEL = "embeddinggemma-2-q8"
 EMBED_URL = os.getenv("EMBED_URL", "http://127.0.0.1:8091/v1/embeddings")
 MATCH_LOCK = 7_000_005
 COMPATIBLE = {("assault", "murder"), ("murder", "assault")}     # an assault victim may die later
 TOP_K, MIN_COSINE = 3, 0.80
+CROSS_PLACE_COSINE = 0.92    # a candidate in another thana of the district must look this similar (then the judge decides)
 WINDOW_DAYS = 7          # follow-ups (investigation, post-mortem, court) arrive days later with their own date
 FACT_KINDS = ["person", "premise", "method", "object", "distinctive_circumstance"]
 
@@ -161,13 +162,30 @@ def _side(r: dict) -> str:
             f" (thana {r['thana_id']})\nevent date: {r['event_date']}\ntext:\n{excerpt(r)}")
 
 
+_OBFUSCATION = re.compile(r"[/'’‘`]")      # some papers write হ/ত্যা, বি'স্ফো'রণ
+
+
+def in_text(quote: str, text: str) -> bool:
+    """The quote is in the article: verbatim, or a near-copy - one unbroken run of at least 60% of it (and at least
+    15 characters) appears word for word. The model often adds or drops a word ("...মৃত্যু হয়েছে" for the title's
+    "...মৃত্যু"); garbled or invented quotes still fail."""
+    q, t = _OBFUSCATION.sub("", normalize(quote)), _OBFUSCATION.sub("", normalize(text))
+    if len(q) < 6:
+        return False
+    if q in t:
+        return True
+    from difflib import SequenceMatcher
+    m = SequenceMatcher(None, q, t, autojunk=False).find_longest_match(0, len(q), 0, len(t))
+    return m.size >= max(15, 0.6 * len(q))
+
+
 def _grounded(verdict: dict, a_text: str, b_text: str) -> list[dict]:
-    """Shared facts whose quotes really appear in each side's article (normalised), distinct and of allowed kinds."""
-    na, nb, out, seen = normalize(a_text), normalize(b_text), [], set()
+    """Shared facts whose quotes really appear in each side's article, distinct and of allowed kinds."""
+    out, seen = [], set()
     for f in verdict.get("shared_facts") or []:
-        qa, qb = normalize(f.get("quote_a") or ""), normalize(f.get("quote_b") or "")
         key = (f.get("kind"), normalize(f.get("fact") or ""))
-        if len(qa) >= 6 and len(qb) >= 6 and qa in na and qb in nb and f.get("kind") in FACT_KINDS and key not in seen:
+        if (f.get("kind") in FACT_KINDS and key not in seen and in_text(f.get("quote_a") or "", a_text)
+                and in_text(f.get("quote_b") or "", b_text)):
             seen.add(key)
             out.append(f)
     return out
@@ -243,13 +261,16 @@ def candidates(conn, r: dict) -> list[dict]:
                         JOIN articles a ON a.id = i.article_id
                         JOIN events e ON e.primary_incident_id = i.id AND e.state = 'active'
                         WHERE e.district_id = %s AND e.category = ANY(%s)
-                          AND (e.place_id = %s OR e.thana_id = %s OR e.place_id = %s OR e.thana_id = %s)
-                          AND abs(e.event_date - %s::date) <= %s
+                          AND ((e.place_id = %s OR e.thana_id = %s OR e.place_id = %s OR e.thana_id = %s)
+                                AND abs(e.event_date - %s::date) <= %s
+                               OR abs(e.event_date - %s::date) <= 3)
                           AND NOT EXISTS (SELECT 1 FROM event_reports x WHERE x.event_id = e.id AND x.article_id = %s)
                           AND NOT EXISTS (SELECT 1 FROM event_exclusions z WHERE z.event_id = e.id AND z.report_key = %s)
                           AND NOT EXISTS (SELECT 1 FROM event_reports y WHERE y.report_key = %s AND y.event_id = e.id)""",
                         (r["district_id"], cats, r["place_id"], r["thana_id"], r["thana_id"], r["place_id"],
-                         r["event_date"], WINDOW_DAYS, r["article_id"], r["report_key"], r["report_key"])).fetchall()
+                         r["event_date"], WINDOW_DAYS, r["event_date"], r["article_id"], r["report_key"], r["report_key"])).fetchall()
+    for c in rows:   # same place/thana, or only the same district (needs a stricter similarity later)
+        c["same_place"] = bool({c["place_id"], c["thana_id"]} & {r["place_id"], r["thana_id"]} - {None})
     # both reports state the date and they differ by more than a day: not the same episode
     return [c for c in rows if not (r["incident_date"] and c["incident_date"]
                                     and abs((r["incident_date"] - c["incident_date"]).days) > 1)]
@@ -272,7 +293,8 @@ def reduce_report(key: str, classifier, embedder=embed) -> str:
         if cands:
             rv = vector(c, r, embedder)
             scored = sorted(((cosine(rv, vector(c, x, embedder)), x) for x in cands), key=lambda t: -t[0])
-            scored = [(s, x) for s, x in scored if s >= MIN_COSINE][:TOP_K]
+            scored = [(s, x) for s, x in scored
+                      if s >= (MIN_COSINE if x["same_place"] else CROSS_PLACE_COSINE)][:TOP_K]
             c.commit()                                           # keep the vectors even if the judge fails
     passed, looked, merged_pair = [], [], None
     for score, cand in scored:                                   # model calls happen outside any transaction
@@ -453,8 +475,9 @@ def consolidate(classifier, embedder=embed, min_cosine: float = 0.88, limit: int
         pairs = c.execute(f"""SELECT e1.id e1, e2.id e2 FROM events e1 JOIN events e2 ON e1.id < e2.id
                               AND e1.state = 'active' AND e2.state = 'active' AND e1.district_id = e2.district_id
                               AND (e1.category = e2.category OR (e1.category, e2.category) IN (('assault','murder'),('murder','assault')))
-                              AND (e1.place_id = e2.place_id OR e1.thana_id = e2.thana_id)
-                              AND abs(e1.event_date - e2.event_date) <= %s
+                              AND ((e1.place_id = e2.place_id OR e1.thana_id = e2.thana_id)
+                                   AND abs(e1.event_date - e2.event_date) <= %s
+                                   OR abs(e1.event_date - e2.event_date) <= 3)
                               AND e1.category NOT IN (SELECT unnest(%s::text[]))
                               WHERE NOT EXISTS (SELECT 1 FROM match_decisions d WHERE d.stage = 'consolidate'
                                                 AND d.event_id = e1.id AND d.candidate_key = e2.id::text
@@ -462,6 +485,13 @@ def consolidate(classifier, embedder=embed, min_cosine: float = 0.88, limit: int
                               ORDER BY e1.event_date, e1.id, e2.id""",
                            (WINDOW_DAYS, sorted(TOTALS_ONLY), MATCHER_VERSION)).fetchall()
     todo = pairs[:limit] if limit else pairs
+    with db.connect() as c:          # which pairs share a place/thana (others need the stricter similarity)
+        place = {r["id"]: (r["place_id"], r["thana_id"]) for r in c.execute(
+            "SELECT id, place_id, thana_id FROM events WHERE state = 'active'")}
+
+    def same_place(p) -> bool:
+        a_, b_ = place.get(p["e1"], (None, None)), place.get(p["e2"], (None, None))
+        return bool(set(a_) & set(b_) - {None})
 
     def check(p) -> tuple[int, int]:
         with db.connect() as c:
@@ -478,7 +508,7 @@ def consolidate(classifier, embedder=embed, min_cosine: float = 0.88, limit: int
             score = cosine(vector(c, a, embedder), vector(c, b, embedder))
             c.commit()
         res = {"same": False, "facts": [], "calls": [{"verdict": "below_similarity"}]}
-        if score >= min_cosine and roundups_compatible(a, b):
+        if score >= (min_cosine if same_place(p) else max(min_cosine, CROSS_PLACE_COSINE)) and roundups_compatible(a, b):
             res = judge(classifier, a, b)
         with db.tx() as c:
             c.execute("SELECT pg_advisory_xact_lock(%s)", (MATCH_LOCK,))
