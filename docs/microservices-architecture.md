@@ -174,7 +174,7 @@ secret store; they must never be baked into the image (the Dockerfile copies onl
 `data/places.json`).
 
 **Host dependencies outside Docker** (install once per GPU host, see `deploy/inhouse-llm/`): `dhaka-llm` (llama.cpp,
-Gemma 4 E2B, port 8090, 3 parallel slots) and `dhaka-embed` (EmbeddingGemma 2, port 8091) as systemd user services
+Gemma 4 E2B, port 8090; parallel slots via the drop-in `deploy/inhouse-llm/dhaka-llm-parallel.conf`: `DHAKA_LLM_PARALLEL=4`, `DHAKA_LLM_CTX=49152` = 12K tokens per slot on the 12 GB in-house GPU) and `dhaka-embed` (EmbeddingGemma 2, port 8091) as systemd user services
 with lingering enabled. The classifier uses host networking to reach them on loopback.
 
 **Ports:** public 8100 and admin 8101 (HTTPS; bind addresses `API_BIND`, `ADMIN_BIND`), Postgres on loopback 55432
