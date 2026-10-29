@@ -525,8 +525,9 @@ def test_victims_home_is_not_the_crime_location():
     art4 = {**ARTICLE, "body": "ধামরাই থানার পুলিশ জানায়, পিকআপ উদ্ধার হয়েছে। টাঙ্গাইল সদর উপজেলার করটিয়ায় ডাকাতি হয়।"}
     inc4 = _inc(category="robbery", place_id="dhamrai", location_text="টাঙ্গাইল সদর উপজেলার করটিয়ায়",
                 evidence="ধামরাই থানার পুলিশ জানায়, পিকআপ উদ্ধার হয়েছে")
-    assert not build_rows(art4, ArticleAnalysis(is_crime_report=True, in_dhaka=True, incidents=[inc4], note=""),
-                          g, {}, "auto")[0]["published"]
+    row4 = build_rows(art4, ArticleAnalysis(is_crime_report=True, in_dhaka=True, incidents=[inc4], note=""), g, {}, "auto")[0]
+    # never at Dhamrai; since 29 Oct counted in Tangail district (its location phrase names it), without a point
+    assert row4["place_id"] is None and row4["district"] == "tangail" and row4["published"]
     # the incident's own sentence says রাজধানী and the article names the place: published (e.g. ECB Chattar,
     # not in the place list, inside Cantonment)
     art3 = {**ARTICLE, "body": "ক্যান্টনমেন্ট থানার পুলিশ জানায়, মামলা হয়েছে। গত রাতে রাজধানীর ইসিবি চত্বরে একটি প্রকল্পে হামলা হয়।"}
@@ -575,8 +576,9 @@ def test_incident_in_chattogram_is_published_with_its_district():
     assert rows[0]["published"] and rows[0]["district"] == "chattogram" and rows[0]["thana_id"] == "chattogram:panchlaish"
     wrong = _inc(category="robbery", place_id="chattogram:panchlaish", district="dhaka", location_text="পাঁচলাইশ এলাকায়",
                  evidence="চট্টগ্রাম নগরের পাঁচলাইশ এলাকায় গতকাল রাতে এক ব্যবসায়ীর কাছ থেকে টাকা ছিনিয়ে নেওয়া হয়েছে")
-    assert not build_rows(art, ArticleAnalysis(is_crime_report=True, in_scope=True, incidents=[wrong], note=""),
-                          g, {}, "auto")[0]["published"]                          # model district disagrees with the place
+    row = build_rows(art, ArticleAnalysis(is_crime_report=True, in_scope=True, incidents=[wrong], note=""), g, {}, "auto")[0]
+    # the model's district is wrong, but the text itself names Chattogram for this place: the text wins
+    assert row["published"] and row["district"] == "chattogram" and row["place_id"] == "chattogram:panchlaish"
 
 
 def test_old_saved_answers_still_load_as_dhaka():
@@ -725,10 +727,9 @@ def test_category_list_drives_the_enum_visibility_and_hues():
     from app import schema
     assert set(typing.get_args(schema.Category)) == set(schema.CATEGORIES)          # the model's enum is generated
     assert schema.TOTALS_ONLY == set()                      # sexual violence is mapped since 28 Oct (owner)
-    assert all(schema.CATEGORIES[k]["hue"] is not None for k in schema.MAPPED)
+    assert all(schema.CATEGORIES[k]["color"] for k in schema.MAPPED)
     assert len(schema.MAPPED) <= schema.MAX_MAPPED_COLOURS
-    assert schema.next_hue([19, 86, 305, 132, 208, 169, 266, 342]) == 52   # how sexual violence got its hue
-    assert schema.CATEGORIES["sexual_violence"]["hue"] == 52
+    assert len({schema.CATEGORIES[k]["color"] for k in schema.MAPPED}) == len(schema.MAPPED)   # all distinct
     from app.public import AREA_TOTALS_ONLY
     assert AREA_TOTALS_ONLY == schema.TOTALS_ONLY
 
@@ -808,3 +809,40 @@ def test_section_patterns():
     g = load()
     assert is_candidate(Candidate("https://www.ajkerpatrika.com/bangladesh/rajshahi/ajp9", "bangladesh/rajshahi"), g)
     assert is_candidate(Candidate("https://www.ajkerpatrika.com/bangladesh/mymensingh/ajp8", "bangladesh/mymensingh"), g)
+
+
+# ---- recall: do not lose crimes for want of a catalogued place (29 Oct) ------------------------------
+def test_near_verbatim_quote_counts():
+    body = "পুলিশ জানায়, গতকাল রাতে নিজ বাড়িতে এক ব্যবসায়ীকে কুপিয়ে হত্যা করা হয়।"
+    assert evidence_ok("গতকাল রাতে নিজ বাড়িতে এক ব্যবসায়ীকে কুপিয়ে হত্যা করা হয়েছে", "", body)   # one word changed
+    assert not evidence_ok("একটি সম্পূর্ণ বানানো বাক্য যা লেখায় কোথাও নেই", "", body)
+
+
+def test_crime_with_only_a_district_is_counted_at_district_level():
+    g = load()
+    body = "ভোলায় পূর্ব শত্রুতার জেরে এক যুবককে কুপিয়ে হত্যা করা হয়েছে। পুলিশ ঘটনাস্থল পরিদর্শন করেছে।"
+    art = {**ARTICLE, "title": "যুবককে কুপিয়ে হত্যা", "body": body}
+    inc = _inc(category="murder", place_id=None, district="bhola", location_text="ভোলায়", precision="city",
+               evidence="ভোলায় পূর্ব শত্রুতার জেরে এক যুবককে কুপিয়ে হত্যা করা হয়েছে")
+    row = build_rows(art, ArticleAnalysis(is_crime_report=True, in_scope=True, incidents=[inc], note=""), g, {}, "auto")[0]
+    assert row["published"] and row["district"] == "bhola" and row["place_id"] is None and row["lat"] is None
+
+
+def test_wrong_place_falls_back_to_the_district_the_text_names():
+    g = load()
+    body = "রাজশাহীতে চোর সন্দেহে দুই তরুণকে গাছে বেঁধে মারধর করা হয়েছে।"
+    art = {**ARTICLE, "title": "চোর সন্দেহে মারধর", "body": body}
+    inc = _inc(category="assault", place_id="adabor", district="dhaka", location_text="রাজশাহীতে",
+               evidence="রাজশাহীতে চোর সন্দেহে দুই তরুণকে গাছে বেঁধে মারধর করা হয়েছে")
+    row = build_rows(art, ArticleAnalysis(is_crime_report=True, in_scope=True, incidents=[inc], note=""), g, {}, "auto")[0]
+    assert row["published"] and row["district"] == "rajshahi" and row["place_id"] is None      # never Dhaka's Adabor
+
+
+def test_a_home_district_in_the_quote_does_not_place_the_crime():
+    g = load()
+    body = "মাদারীপুরের এক যুবককে কুপিয়ে হত্যা করা হয়েছে।"
+    art = {**ARTICLE, "title": "যুবককে হত্যা", "body": body}
+    inc = _inc(category="murder", place_id=None, district=None, location_text="এলাকায়", precision="city",
+               evidence="মাদারীপুরের এক যুবককে কুপিয়ে হত্যা করা হয়েছে")
+    row = build_rows(art, ArticleAnalysis(is_crime_report=True, in_scope=True, incidents=[inc], note=""), g, {}, "auto")[0]
+    assert not row["published"]                       # only a genitive "from Madaripur", and the model gave no district

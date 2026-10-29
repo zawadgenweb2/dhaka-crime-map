@@ -4,8 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>বাংলাদেশ অপরাধ মানচিত্র</title>
-<meta name="description" content="Prothom Alo crime reports in Dhaka, classified and mapped by neighbourhood.">
-<link rel="stylesheet" href="/static/styles.css?v=20261029">
+<meta name="description" content="Crime reports from Bangladeshi newspapers, mapped across all 64 districts.">
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@6.14.0/dist/maplibre-gl.css">
+<link rel="stylesheet" href="/static/styles.css?v=20261029c">
 </head>
 <body>
 <header class="topbar">
@@ -77,7 +78,7 @@
     <div class="zoomctl" role="group" aria-label="Zoom">
       <button id="zoom-in" type="button" aria-label="Zoom in" title="Zoom in">+</button>
       <button id="zoom-out" type="button" aria-label="Zoom out" title="Zoom out">−</button>
-      <button id="zoom-reset" type="button" aria-label="Show all of Dhaka" title="Show all of Dhaka">⌂</button>
+      <button id="zoom-reset" type="button" aria-label="Back to the selected area" title="Back to the selected area">⌂</button>
     </div>
     <div class="tooltip" id="tooltip" hidden></div>
     <article class="card selected" id="selected" hidden></article>
@@ -88,7 +89,9 @@
     <div class="row-between">
       <h2 data-i18n="reports">প্রতিবেদন</h2>
       <span class="muted" id="feed-count"></span>
+      <button class="close feed-close" id="feed-close" type="button" aria-label="Close">×</button>
     </div>
+    <div class="feed-area" id="feed-area" hidden></div>
     <ul class="feed-list" id="feed"></ul>
   </aside>
 </main>
@@ -100,7 +103,13 @@
 </nav>
 
 <script src="https://unpkg.com/deck.gl@9.4.0/dist.min.js"></script>
-<script src="/static/heat-paint.js?v=20261029"></script>
-<script src="/static/app.js?v=20261029"></script>
+<!-- clean vector basemap (MapLibre 6 is an ES module); the page falls back to raster tiles if it does not load -->
+<script type="module">
+  try { window.maplibregl = await import("https://unpkg.com/maplibre-gl@6.14.0/dist/maplibre-gl.mjs"); }
+  catch (e) { console.warn("maplibre-gl not loaded", e); }
+  window.dispatchEvent(new Event("maplibre-ready"));
+</script>
+<script src="/static/heat-paint.js?v=20261029c"></script>
+<script src="/static/app.js?v=20261029c"></script>
 </body>
 </html>

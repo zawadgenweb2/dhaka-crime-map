@@ -63,12 +63,13 @@ def create_public_app() -> FastAPI:
     def config(response: Response):
         """Labels and lists for the page (categories, times of day, areas, map key)."""
         gaz = load_gazetteer()
+        centres = {d["id"]: {"lat": d.get("lat"), "lng": d.get("lng")} for d in gaz.districts}   # district bubbles
         response.headers["Cache-Control"] = "public, max-age=300"
         return {
             "categories": [{"key": k, **v} for k, v in CATEGORIES.items()],
             "time_of_day": [{"key": k, **v} for k, v in TIME_OF_DAY.items()],
             "divisions": [{"id": k, **v, "bounds": gaz.bounds(division=k)} for k, v in DIVISIONS.items()],
-            "districts": [{"id": k, **v, "bounds": gaz.bounds(k)} for k, v in DISTRICTS.items()],
+            "districts": [{"id": k, **v, "bounds": gaz.bounds(k), **centres.get(k, {})} for k, v in DISTRICTS.items()],
             "all_bounds": gaz.bounds(),
             "thanas": [p.to_dict() for p in gaz.places if p.kind in ("thana", "upazila")],
             "area_totals_only": sorted(AREA_TOTALS_ONLY),

@@ -150,6 +150,28 @@ Place names shared by several districts (Kotwali, Mirpur, Kaliganj...) are resol
 or elsewhere in the text, and dropped when still ambiguous. The public page filters by division, then district; the
 hotspot list ranks divisions, then the division's districts, then the district's thanas and upazilas.
 
+### Public map design (29 Oct 2026, owner decisions after two Codex council rounds)
+
+- **One colour-blended heat at every zoom.** Crime types blend in OKLab, chroma-preserving, so mixes stay vivid.
+  District bubbles were tried and removed (owner): a bubble's single mixed colour could look like another crime
+  type, while the heat shows the overlap itself.
+- **Country view stays readable.** Dhaka has hundreds of times the reports of a typical district, so the strength
+  scale is logarithmic when zoomed out (a lone report pale, Dhaka deep) and square-root when zoomed in (blended
+  between zoom 8 and 10). The glow never gets smaller than 11 px.
+- **Tap for reports.** Zoomed out, a tap opens the district under the finger: exact counts per crime type in the
+  card, and its reports in the Reports panel. Zoomed in, a tap lists the reports around that spot.
+- **Colours**: nine high-contrast category colours in `app/schema.py`, checked for colour-vision deficiencies
+  (CIEDE2000 under normal vision and Machado-simulated protan/deutan/tritan).
+- **Basemap**: OpenFreeMap's Positron vector style (no key, OpenStreetMap data) drawn by MapLibre GL 6.14. Area
+  colours are removed (parks, land cover, buildings, road surfaces; water is a neutral light grey). Road lines,
+  road, river and place names stay, plus every district's name when zoomed out. The heat is a raster layer *under*
+  the labels, so names stay readable. If the vector map cannot load, the page falls back to OpenStreetMap raster
+  tiles (`#base=tiles` forces this for testing). Check OpenFreeMap's and OSM's usage terms before a high-traffic
+  public launch, or self-host the tiles.
+- **District-level reports**: an incident whose text names its district but no catalogued place is published at
+  district level (counted in the district's totals and Reports; no heat point), and the event matcher deduplicates
+  it within the district.
+
 ## 9. Build, release and deployment (CI/CD handoff)
 
 One image serves every role; the command picks it (`api`, `admin`, `collector`, `classifier`, `migrate`). The

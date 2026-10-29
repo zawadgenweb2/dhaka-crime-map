@@ -10,23 +10,29 @@ from pydantic import BaseModel, Field, model_validator
 # THE category list (single source of truth): the model's enum, the prompt, storage checks, the public API, filters,
 # legend, map colours and the painter all derive from it. Order = display order.
 #   visibility: "mapped" (points, links, heat) or "totals_only" (counted in totals, never located or linked publicly)
-#   hue: permanent OKLab hue (degrees) of a mapped category; never changed once published (see next_hue below)
+#   color: the category's map colour (sRGB hex). Nine high-contrast colours chosen on 29 Oct (owner: "8 crimes super
+#          contrasty"), distinct in hue AND lightness. Checked by the Codex council (CIEDE2000 under normal vision and
+#          simulated protan/deutan/tritan, Machado 2009): every pair >= 18 for normal vision, >= 6.5 for the
+#          colour-blind simulations; every colour >= 3:1 against the #fcfcfb page. Keep a published colour unless the
+#          owner changes it; re-run that check when adding one.
 #   family: grouping for when there are too many colours (violent / property / drugs / other)
-# To add a category: add an entry with visibility and family; for a mapped one set hue = next_hue(...) once.
+# To add a category: add an entry with visibility, family and (mapped) a colour far from the others.
 CATEGORIES: dict[str, dict] = {
-    "murder": {"bn": "হত্যা", "en": "Murder", "visibility": "mapped", "hue": 19, "family": "violent"},
-    "assault": {"bn": "হামলা ও সংঘর্ষ", "en": "Assault & clashes", "visibility": "mapped", "hue": 86, "family": "violent"},
-    "robbery": {"bn": "ছিনতাই ও ডাকাতি", "en": "Mugging & robbery", "visibility": "mapped", "hue": 305, "family": "property"},
-    "theft": {"bn": "চুরি", "en": "Theft & burglary", "visibility": "mapped", "hue": 132, "family": "property"},
+    "murder": {"bn": "হত্যা", "en": "Murder", "visibility": "mapped", "color": "#d7191c", "family": "violent"},
+    "assault": {"bn": "হামলা ও সংঘর্ষ", "en": "Assault & clashes", "visibility": "mapped", "color": "#e66101",
+                "family": "violent"},
+    "robbery": {"bn": "ছিনতাই ও ডাকাতি", "en": "Mugging & robbery", "visibility": "mapped", "color": "#7b3fbf",
+                "family": "property"},
+    "theft": {"bn": "চুরি", "en": "Theft & burglary", "visibility": "mapped", "color": "#7f6000", "family": "property"},
     # mapped since 28 Oct (owner: the newspapers already protect victims; we show what they published).
-    # Hue 52 = next_hue() of the eight above, assigned once.
-    "sexual_violence": {"bn": "যৌন সহিংসতা", "en": "Sexual violence", "visibility": "mapped", "hue": 52,
+    "sexual_violence": {"bn": "যৌন সহিংসতা", "en": "Sexual violence", "visibility": "mapped", "color": "#e7298a",
                         "family": "violent"},
-    "kidnapping": {"bn": "অপহরণ", "en": "Kidnapping", "visibility": "mapped", "hue": 208, "family": "violent"},
-    "drugs_arms": {"bn": "মাদক ও অস্ত্র", "en": "Drugs & weapons", "visibility": "mapped", "hue": 169, "family": "drugs"},
-    "fraud_extortion": {"bn": "প্রতারণা ও চাঁদাবাজি", "en": "Fraud & extortion", "visibility": "mapped", "hue": 266,
-                        "family": "property"},
-    "other": {"bn": "অন্যান্য", "en": "Other", "visibility": "mapped", "hue": 342, "family": "other"},
+    "kidnapping": {"bn": "অপহরণ", "en": "Kidnapping", "visibility": "mapped", "color": "#4a90e2", "family": "violent"},
+    "drugs_arms": {"bn": "মাদক ও অস্ত্র", "en": "Drugs & weapons", "visibility": "mapped", "color": "#1a9850",
+                   "family": "drugs"},
+    "fraud_extortion": {"bn": "প্রতারণা ও চাঁদাবাজি", "en": "Fraud & extortion", "visibility": "mapped",
+                        "color": "#00a3a3", "family": "property"},
+    "other": {"bn": "অন্যান্য", "en": "Other", "visibility": "mapped", "color": "#6e6e6e", "family": "other"},
 }
 MAX_MAPPED_COLOURS = 9           # council advised 8 for readability; owner added sexual violence as a ninth (28 Oct)
 MAPPED = [k for k, v in CATEGORIES.items() if v["visibility"] == "mapped"]
@@ -34,23 +40,14 @@ TOTALS_ONLY = {k for k, v in CATEGORIES.items() if v["visibility"] == "totals_on
 
 
 def _check_categories() -> None:
+    import re
     for k, v in CATEGORIES.items():                       # fail closed: every entry states its public visibility
         assert v.get("visibility") in ("mapped", "totals_only"), f"category {k}: visibility missing"
         assert v.get("bn") and v.get("en") and v.get("family"), f"category {k}: labels/family missing"
-        assert (v["visibility"] == "mapped") == (v.get("hue") is not None), f"category {k}: mapped needs a hue"
-    hues = [CATEGORIES[k]["hue"] for k in MAPPED]
-    assert len(set(hues)) == len(hues), "two mapped categories share a hue"
-
-
-def next_hue(existing: list[float], chroma: float = 0.15) -> int:
-    """Hue for a new mapped category: the whole degree whose OKLab colour (fixed chroma) is farthest from every
-    existing hue's (ties to the smaller angle). With today's eight hues this is 52 degrees (council palette review).
-    Run once when adding a category and store the result in CATEGORIES; never recompute published hues."""
-    import math
-    vec = lambda h: (chroma * math.cos(math.radians(h)), chroma * math.sin(math.radians(h)))   # noqa: E731
-    old = [vec(h) for h in existing]
-    # distances rounded so float noise cannot break an exact tie (52 and 53 tie today; the smaller angle wins)
-    return max(range(360), key=lambda h: (round(min(math.dist(vec(h), o) for o in old), 9) if old else 0, -h))
+        assert (v["visibility"] == "mapped") == bool(v.get("color")), f"category {k}: mapped needs a colour"
+        assert not v.get("color") or re.fullmatch(r"#[0-9a-f]{6}", v["color"]), f"category {k}: colour must be #rrggbb"
+    colours = [CATEGORIES[k]["color"] for k in MAPPED]
+    assert len(set(colours)) == len(colours), "two mapped categories share a colour"
 
 
 _check_categories()
