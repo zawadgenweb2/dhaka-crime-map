@@ -6,7 +6,8 @@
      the hue direction are the weighted mean, but the chroma is the weighted mean of the types' chromas, so a mix stays
      as vivid as its parts instead of averaging to grey-brown (thanas below C 0.05: 39 -> 5 on 90 days of data).
      A mixed hue can resemble a third type; the tap card lists the exact counts.
-   - strength from the total only: t = 1 - exp(-3 sqrt(T / Q95)), alpha = 0.95 (2t - t^2); faint glow is also lighter
+   - strength from the total only: t = 1 - exp(-3 s), s = sqrt(T / Q95) zoomed in and log(1+T)/log(1+Q95)
+     at country zoom (see strength()), alpha = 0.95 (2t - t^2); faint glow is also lighter
      (blended toward white), the core is the full colour. On the near-white map, strength reads as opacity.
    - Q95 = 95th percentile of the density at every incident, for the current zoom (held while panning or hiding
      types). The square root compresses the total only (never a type's share).
@@ -58,9 +59,19 @@
   }
 
   // Kernel size grows with zoom (half as fast as the map) so hotspots stay readable from country to street.
-  const sigmaPx = (z) => Math.max(9, Math.min(55, 20 * 2 ** ((z - 12) * 0.45)));
+  // the floor (11 px) keeps a lone incident visible when zoomed out without smearing whole regions together
+  const sigmaPx = (z) => Math.max(11, Math.min(55, 20 * 2 ** ((z - 12) * 0.45)));
   const kernelR = (z) => 2.5 * sigmaPx(z);                  // triweight reaches exactly 0 here: no rims
   const tri = (d2, R2) => (d2 < R2 ? (1 - d2 / R2) ** 3 : 0);
+
+  /* Strength 0..1 of a total density T (reference D0 = Q95 at this zoom). Zoomed in: sqrt(T/D0) as before. Zoomed out
+     to the country: a log scale, because Dhaka has hundreds of times the reports of a typical district and a sqrt
+     scale left most districts invisible (council: 3 -> 39 of 57 districts clearly visible); blended between 8 and 10. */
+  function strength(T, D0, z) {
+    const sq = Math.sqrt(T / D0), lg = Math.log1p(T) / Math.log1p(D0);
+    const w = Math.min(1, Math.max(0, (z - 8) / 2));
+    return 1 - Math.exp(-((1 - w) * 2.2 * lg + w * 3 * sq));      // country: a lone report pale, Dhaka deep
+  }
 
   // Web Mercator world pixels at zoom z (for D0, independent of the map engine and of panning)
   function world(lng, lat, z) {
@@ -134,7 +145,7 @@
         if (d) { T += d; L += d * LAB[k][0]; a += d * LAB[k][1]; b += d * LAB[k][2]; ch += d * CH[k]; }
       }
       if (T < 1e-3) continue;
-      const t = 1 - Math.exp(-3 * Math.sqrt(T / D0));
+      const t = strength(T, D0, zoom);
       vivid(L / T, a / T, b / T, ch / T, lab);
       foreground(lab[0], lab[1], lab[2], t, rgb);
       px[c * 4] = rgb[0]; px[c * 4 + 1] = rgb[1]; px[c * 4 + 2] = rgb[2];
