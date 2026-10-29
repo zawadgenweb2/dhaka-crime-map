@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>বাংলাদেশ অপরাধ মানচিত্র</title>
 <meta name="description" content="Crime reports from Bangladeshi newspapers, mapped across all 64 districts.">
-<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@6.14.0/dist/maplibre-gl.css">
-<link rel="stylesheet" href="/static/styles.css?v=20261029c">
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@6.15.0/dist/maplibre-gl.css">
+<link rel="stylesheet" href="/static/styles.css?v=20261029d">
 </head>
 <body>
 <header class="topbar">
@@ -105,11 +105,11 @@
 <script src="https://unpkg.com/deck.gl@9.4.0/dist.min.js"></script>
 <!-- clean vector basemap (MapLibre 6 is an ES module); the page falls back to raster tiles if it does not load -->
 <script type="module">
-  try { window.maplibregl = await import("https://unpkg.com/maplibre-gl@6.14.0/dist/maplibre-gl.mjs"); }
+  try { window.maplibregl = await import("https://unpkg.com/maplibre-gl@6.15.0/dist/maplibre-gl.mjs"); }
   catch (e) { console.warn("maplibre-gl not loaded", e); }
   window.dispatchEvent(new Event("maplibre-ready"));
 </script>
-<script src="/static/heat-paint.js?v=20261029c"></script>
-<script src="/static/app.js?v=20261029c"></script>
+<script src="/static/heat-paint.js?v=20261029d"></script>
+<script src="/static/app.js?v=20261029d"></script>
 </body>
 </html>

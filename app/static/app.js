@@ -234,6 +234,15 @@
     // no coloured areas (parks, land cover, land use, buildings, road surfaces); lines and names stay
     const drop = /^(park|landcover|landuse|aeroway|airport|building|highway-shield|road_shield|highway_path|railway_transit|railway_service|road_area)/;
     style.layers = style.layers.filter((l) => !drop.test(l.id));
+    // Bangla labels: MapLibre's glyph files cannot join Bangla letters (conjuncts like ন্দ, vowel signs like ি that go
+    // before the consonant). font-faces gives it the real Noto Sans Bengali font for the Bengali block, which the
+    // browser shapes cluster by cluster; other scripts keep using the style's glyph files.
+    const bengali = [{ url: new URL("/static/fonts/noto-sans-bengali-bengali-wght-normal.woff2", location.href).href,
+                       "unicode-range": ["U+0980-09FF", "U+200C-200D", "U+25CC"] }];
+    const fonts = new Set(["Noto Sans Regular", ...style.layers.flatMap((l) => {
+      const f = l.layout?.["text-font"]; return Array.isArray(f) && f.every((x) => typeof x === "string") ? f : [];
+    })]);
+    style["font-faces"] = Object.fromEntries([...fonts].map((f) => [f, bengali]));
     for (const l of style.layers) {
       l.paint = l.paint || {};
       if (l.id === "background") l.paint["background-color"] = "#fcfcfb";
@@ -245,6 +254,7 @@
         l.paint["text-color"] = /country|state/.test(l.id) ? "#9a9a96" : /water/.test(l.id) ? "#6f8a99" : "#45453f";
         l.paint["text-halo-color"] = "#fcfcfb";
         l.paint["text-halo-width"] = 1.4;
+        l.layout["text-letter-spacing"] = 0;                 // spacing pulls Bangla letter clusters apart
         // main roads named from zoom 11.5, other streets from 14 (landmarks people navigate by); rivers stay named
         if (l.id === "highway-name-major") l.minzoom = 11.5;
         if (l.id === "highway-name-minor") l.minzoom = 14;
