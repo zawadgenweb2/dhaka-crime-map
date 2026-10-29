@@ -59,7 +59,7 @@ def enqueue(conn, keys, priority: int = 0) -> None:
 
 # ---- embeddings ------------------------------------------------------------------------------------
 def report_text(r: dict) -> str:
-    return (f"{r['category']} | {r['place_id'] or ''} | {r['event_date']}\n{r['title'] or ''}\n"
+    return (f"{r['category']} | {r['place_id'] or r['district_id'] or ''} | {r['event_date']}\n{r['title'] or ''}\n"
             f"{r['location_text'] or ''}\n{r['evidence'] or ''}")
 
 
@@ -158,8 +158,8 @@ def excerpt(r: dict, limit: int = 2800) -> str:
 
 
 def _side(r: dict) -> str:
-    return (f"published: {r['published_at']}\ncrime type: {r['category']}\nplace: {r['place_id']}"
-            f" (thana {r['thana_id']})\nevent date: {r['event_date']}\ntext:\n{excerpt(r)}")
+    return (f"published: {r['published_at']}\ncrime type: {r['category']}\nplace: {r['place_id'] or 'somewhere in the district'}"
+            f" (thana {r['thana_id'] or '-'}, district {r['district_id']})\nevent date: {r['event_date']}\ntext:\n{excerpt(r)}")
 
 
 _OBFUSCATION = re.compile(r"[/'’‘`]")      # some papers write হ/ত্যা, বি'স্ফো'রণ
@@ -225,9 +225,11 @@ def _decide(conn, key: str, event_id, cand, stage, outcome, score=None, evidence
 
 
 def recompute(conn, event_id: int) -> None:
-    """The event's fields come from its earliest-published current report; no reports = retired."""
+    """The event's fields come from its earliest-published current report with a place (a district-level report
+    leads only when no report has a place, so the map keeps a point); no reports = retired."""
     rows = conn.execute(REPORT_SQL + """ JOIN event_reports er ON er.report_key = i.report_key
-                        WHERE er.event_id = %s AND i.published ORDER BY a.published_at NULLS LAST, i.article_id, i.id""",
+                        WHERE er.event_id = %s AND i.published
+                        ORDER BY i.place_id IS NULL, a.published_at NULLS LAST, i.article_id, i.id""",
                         (event_id,)).fetchall()
     if not rows:
         conn.execute("""UPDATE events SET state = 'retired', primary_incident_id = NULL, primary_report_key = NULL,
@@ -280,8 +282,8 @@ def reduce_report(key: str, classifier, embedder=embed) -> str:
     """Match one report into the event store. Returns the outcome."""
     with db.connect() as c:
         r = c.execute(REPORT_SQL + " WHERE i.report_key = %s ORDER BY i.id DESC LIMIT 1", (key,)).fetchone()
-    if r is None or not r["published"] or not r["place_id"] or not r["event_date"]:
-        with db.tx() as c:                                       # gone, unpublished or unlocated: not on the map
+    if r is None or not r["published"] or not (r["place_id"] or r["district_id"]) or not r["event_date"]:
+        with db.tx() as c:                                       # gone, unpublished or without a district: not shown
             c.execute("SELECT pg_advisory_xact_lock(%s)", (MATCH_LOCK,))
             _unlink(c, key)
             db.bump_revision(c)
@@ -370,7 +372,7 @@ def run_queue_item(classifier, embedder=embed) -> str | None:
             c.execute("SELECT pg_advisory_xact_lock(%s)", (MATCH_LOCK,))
             r = c.execute(REPORT_SQL + " WHERE i.report_key = %s AND i.published ORDER BY i.id DESC LIMIT 1",
                           (item["report_key"],)).fetchone()
-            if r and r["place_id"] and r["event_date"] and not c.execute(
+            if r and (r["place_id"] or r["district_id"]) and r["event_date"] and not c.execute(
                     "SELECT 1 FROM event_reports WHERE report_key = %s", (item["report_key"],)).fetchone():
                 _new_event(c, r, _decide(c, item["report_key"], None, None, "final", "error", None, {"error": str(e)[:300]}))
                 db.bump_revision(c)
@@ -446,7 +448,7 @@ def build_all() -> dict:
         n = assign_keys(c)
         keys = [r["report_key"] for r in c.execute(
             """SELECT i.report_key FROM incidents i JOIN articles a ON a.id = i.article_id
-               WHERE i.published AND i.place_id IS NOT NULL AND i.event_date IS NOT NULL
+               WHERE i.published AND i.district_id IS NOT NULL AND i.event_date IS NOT NULL
                ORDER BY a.published_at NULLS LAST, i.article_id, i.id""")]
         enqueue(c, keys, priority=2)
         c.execute("""INSERT INTO app_flags (key, value) VALUES ('events_backfill', 'enqueued')

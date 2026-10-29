@@ -74,9 +74,9 @@ def requeue_set_aside(days: int) -> dict:
     return {"run_id": run_id if arts else None, "articles_queued": len(arts)}
 
 
-def rematerialize() -> dict:
-    """Re-apply today's checks (place grounding, dates, duplicates) to every article's saved Gemma answer.
-    No model calls. Only the article's current analysis version is used."""
+def rematerialize(since: str | None = None) -> dict:
+    """Re-apply today's checks (place grounding, dates, duplicates) to every article's saved Gemma answer, or only
+    to articles classified at or after `since` (ISO timestamp). No model calls. Only the current analysis version."""
     from .gazetteer import load as load_gazetteer
     from .schema import ArticleAnalysis
     from .store import materialize
@@ -87,7 +87,9 @@ def rematerialize() -> dict:
                             FROM articles a
                             JOIN jobs j ON j.article_id = a.id AND j.analysis_version = a.analysis_version
                             JOIN LATERAL (SELECT * FROM analyses y WHERE y.job_id = j.id ORDER BY y.id DESC LIMIT 1) x ON true
-                            WHERE a.status = 'classified' AND x.backend = 'gemma' AND NOT x.legacy""").fetchall()
+                            WHERE a.status = 'classified' AND x.backend = 'gemma' AND NOT x.legacy
+                              AND (%s::timestamptz IS NULL OR a.classified_at >= %s::timestamptz)""",
+                         (since, since)).fetchall()
     for t in todo:
         with db.tx() as c:
             art = c.execute("SELECT * FROM articles WHERE id = %s FOR UPDATE", (t["article_id"],)).fetchone()

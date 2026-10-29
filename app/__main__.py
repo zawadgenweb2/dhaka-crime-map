@@ -47,7 +47,7 @@ def main(argv: list[str] | None = None) -> int:
     cn.add_argument("--max", type=int, default=None, help="article cap for this run (default MAX_ARTICLES_PER_RUN)")
     rp = sub.add_parser("reprocess-all"); rp.add_argument("--yes", action="store_true")
     rq = sub.add_parser("requeue-set-aside"); rq.add_argument("--days", type=int, default=29)
-    sub.add_parser("rematerialize")
+    rm = sub.add_parser("rematerialize"); rm.add_argument("--since", default=None, help="ISO time: only articles classified since")
     rf = sub.add_parser("refilter-skipped"); rf.add_argument("--days", type=int, default=29)
     rn = sub.add_parser("requeue-no-text"); rn.add_argument("source"); rn.add_argument("--days", type=int, default=29)
     sub.add_parser("rebuild-duplicates")
@@ -125,7 +125,7 @@ def main(argv: list[str] | None = None) -> int:
         print(refilter_skipped(args.days))
     elif args.cmd == "rematerialize":
         from .reprocess import rematerialize
-        print(rematerialize())
+        print(rematerialize(args.since))
     elif args.cmd == "requeue-set-aside":
         from .reprocess import requeue_set_aside
         print(requeue_set_aside(args.days))

@@ -19,9 +19,10 @@
   --accent-ink: #ffffff;
   --shadow: 0 1px 2px rgba(0,0,0,.06), 0 8px 24px rgba(0,0,0,.08);
   /* the heat's eight hues (OKLab, chroma 0.15, see heat-paint.js); sexual violence is totals-only, never painted */
-  --c-murder: #d25860; --c-assault: #a17a0c; --c-robbery: #9b69ce; --c-theft: #5a8e21;
-  --c-sexual_violence: #e87ba4; --c-kidnapping: #1e8d9b; --c-drugs_arms: #019270;
-  --c-fraud_extortion: #577cdc; --c-other: #c35ba0;
+  /* defaults only; the page sets each type's colour from the server's category list (app/schema.py) */
+  --c-murder: #d7191c; --c-assault: #e66101; --c-robbery: #7b3fbf; --c-theft: #7f6000;
+  --c-sexual_violence: #e7298a; --c-kidnapping: #4a90e2; --c-drugs_arms: #1a9850;
+  --c-fraud_extortion: #00a3a3; --c-other: #6e6e6e;
   --heat-1: #fde0d9; --heat-6: #7f1416;
 }
 :root { color-scheme: light; }        /* light only (owner, 27 Oct): colours are tuned for a light map */
@@ -141,6 +142,13 @@ input[type="date"], select {
 .legend .cats { display: flex; flex-wrap: wrap; gap: 4px 10px; }
 .legend .cats span { display: inline-flex; align-items: center; gap: 4px; }
 .legend .cats i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; box-shadow: 0 0 0 1.5px var(--surface); }
+.legend .hint { font-size: 12px; color: var(--ink-2); margin-top: 6px; }
+.legend details.more { margin-top: 4px; }
+.legend details.more summary { cursor: pointer; font-size: 12px; color: var(--accent); list-style-position: inside; }
+.legend details.more > div { margin-top: 4px; }
+.legend .sizes { display: flex; align-items: flex-end; gap: 14px; margin: 8px 0 4px; }
+.legend .sizes span { display: inline-flex; flex-direction: column; align-items: center; gap: 2px; font-size: 11px; color: var(--muted); }
+.legend .sizes i { display: block; border-radius: 50%; border: 1.25px solid rgba(45,45,45,.8); background: rgba(120,120,120,.18); }
 .tooltip {
   position: absolute; z-index: 10; pointer-events: none; background: var(--surface); color: var(--ink);
   border-radius: 8px; padding: 6px 9px; box-shadow: var(--shadow); font-size: 13px; max-width: 280px;
@@ -158,6 +166,15 @@ input[type="date"], select {
 }
 
 /* feed */
+.feed-area {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 0 0 10px; padding: 8px 10px;
+  border-radius: 10px; background: var(--surface-2); font-size: 13px;
+}
+.feed-area[hidden] { display: none; }
+.feed-area .area-pin { width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--accent); flex: none; }
+.feed-area .area-txt { flex: 1; min-width: 0; font-weight: 600; }
+.area-open { display: none; margin-top: 8px; }
+@media (max-width: 1100px) { .area-open { display: inline-block; } }
 .feed-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .item {
   display: block; width: 100%; text-align: left; cursor: pointer; border: 1px solid var(--line);
@@ -174,9 +191,18 @@ input[type="date"], select {
 
 .tabs { display: none; }
 
+.feed-close { display: none; border: 0; background: none; font-size: 20px; cursor: pointer; color: var(--muted); }
 @media (max-width: 1100px) {
   .layout { grid-template-columns: 280px 1fr; }
   .feed { display: none; }
+}
+/* medium screens: the Reports list opens as a drawer over the map (from an area card) */
+@media (min-width: 761px) and (max-width: 1100px) {
+  body.feed-open .feed {
+    display: block; position: fixed; top: 0; right: 0; bottom: 0; width: min(380px, 92vw); z-index: 30;
+    overflow-y: auto; background: var(--surface); box-shadow: -8px 0 24px rgba(0,0,0,.14); padding: 14px 16px;
+  }
+  body.feed-open .feed-close { display: inline-block; position: static; margin-left: 8px; }
 }
 @media (max-width: 760px) {
   .topbar { padding: 8px 16px; }

@@ -206,6 +206,12 @@ class Gazetteer:
             return True
         return not any(self.get(pid) and self.get(pid).district == district for pid in self.grounded_places(n))
 
+    def sole_district(self, text: str) -> str | None:
+        """The one district a phrase names by a district word (ভোলায়, রাজধানীতে), else None. Place names are not used:
+        a namesake (মিরপুর in Kushtia and Dhaka) would pick the wrong district."""
+        named = self.district_mentions(text or "")
+        return next(iter(named)) if len(named) == 1 else None
+
     def lead_in_other_district(self, body: str, district: str = "dhaka") -> bool:
         """News leads say where it happened: "চট্টগ্রাম নগরের ..." vs "রাজধানীর মিরপুরে ..."."""
         return self.names_other_district((body or "").split("।", 1)[0][:300], district)

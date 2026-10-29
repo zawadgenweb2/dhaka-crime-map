@@ -10,9 +10,14 @@
       daily: "প্রতিদিনের ঘটনা", reports: "প্রতিবেদন", tabFilters: "ফিল্টার", tabMap: "মানচিত্র", tabFeed: "প্রতিবেদন",
       incidents: "ঘটনা", victims: "হতাহত", topArea: "শীর্ষ এলাকা", topCrime: "প্রধান অপরাধ",
       updated: "হালনাগাদ", topTime: "বেশি ঘটনার সময়", read: "পড়ুন:", moreReports: "আরও {n}টি প্রতিবেদন", noData: "এই ফিল্টারে কোনো ঘটনা নেই",
-      exact: "নির্দিষ্ট স্থান", neighbourhood: "এলাকা", thana: "থানা পর্যায়", city: "স্থান অস্পষ্ট",
-      unlocated: "{n}টি ঘটনার স্থান অস্পষ্ট, মানচিত্রে নেই", fewer: "কম", more: "বেশি", density: "ঘটনার ঘনত্ব", blendNote: "প্রতিটি অপরাধের নিজস্ব রং; একাধিক ধরন মিশলে রংও মেশে। গাঢ় রং = বেশি প্রতিবেদিত ঘটনা (এই দৃশ্যের তুলনায়)। মানচিত্রে ট্যাপ করে মিশ্রণ দেখুন।",
-      localMix: "এখানকার আনুমানিক মিশ্রণ", mixAt: "{place}: আনুমানিক মিশ্রণ", nearCount: "এখানে আশপাশে মানচিত্রে প্রায় {n}টি ঘটনা",
+      exact: "নির্দিষ্ট স্থান", neighbourhood: "এলাকা", thana: "থানা পর্যায়", city: "জেলা পর্যায়",
+      unlocated: "{n}টি ঘটনার শুধু জেলা জানা: জেলার বৃত্তে গোনা, হিটম্যাপে নেই", fewer: "কম", more: "বেশি", density: "ঘটনার ঘনত্ব", blendNote: "প্রতিটি অপরাধের নিজস্ব রং; একাধিক ধরন মিশলে রংও মেশে (মিশ্র রং আনুমানিক, সঠিক সংখ্যা ট্যাপ করে দেখুন)। গাঢ় = এই জুমে বেশি প্রতিবেদিত ঘটনা।",
+      howToRead: "কীভাবে পড়বেন", bubbleHint: "বৃত্তে ট্যাপ: জেলার প্রতিবেদন · জুম: হিটম্যাপ", heatHint: "মানচিত্রে ট্যাপ: সেখানকার প্রতিবেদন",
+      pointsNote: "প্রতিটি বিন্দু একটি প্রতিবেদিত ঘটনা; রং = অপরাধের ধরন।",
+      districtReports: "{place} জেলায় {n}টি প্রতিবেদন", bubbleNote: "বৃত্ত = জেলা; বড় = বেশি প্রতিবেদন, রং = অপরাধের মিশ্রণ। ট্যাপ করুন: সংখ্যা ও প্রতিবেদন; জুম করুন: হিটম্যাপ।",
+      bubbleScaleSqrt: "(ক্ষেত্রফল বর্গমূল স্কেলে, এই ফিল্টারের সবচেয়ে বেশি জেলার তুলনায়; সবচেয়ে ছোট বৃত্ত = দেখার জন্য ন্যূনতম আকার)", bubbleScaleLog: "(ক্ষেত্রফল: লগ স্কেল)", reportsWord: "প্রতিবেদন",
+      areaReports: "{place}: {n}টি প্রতিবেদন", clearArea: "সব প্রতিবেদন দেখান", showAreaReports: "এখানকার {n}টি প্রতিবেদন দেখুন", thisArea: "এই এলাকা",
+      areaCount: "বৃত্তের ভেতরে {n}টি প্রতিবেদন", localMix: "এখানকার আনুমানিক মিশ্রণ", mixAt: "{place}: আনুমানিক মিশ্রণ", nearCount: "এখানে আশপাশে মানচিত্রে প্রায় {n}টি ঘটনা",
       totalsOnlyFeed: "{cat}: {n}টি ঘটনা। ভুক্তভোগীর গোপনীয়তার জন্য এই ধরনের ঘটনা শুধু মোট সংখ্যায় দেখানো হয়; মানচিত্রে স্থান ও প্রতিবেদনের লিংক দেখানো হয় না।",
       byDistrict: "জেলা অনুযায়ী:", localMixNote: "কাছের ম্যাপকৃত ঘটনা থেকে রঙের ভাগ; এই রাস্তার ঘটনার সংখ্যা নয়।",
       totalsOnlyNote: "এই ধরন শুধু মোট সংখ্যায় গোনা হয়; স্থান ও প্রতিবেদনের লিংক দেখানো হয় না।", areaTotal: "{n}টি ঘটনা", crimeMix: "অপরাধের ধরন",
@@ -28,10 +33,15 @@
       daily: "Incidents per day", reports: "Reports", tabFilters: "Filters", tabMap: "Map", tabFeed: "Reports",
       incidents: "Incidents", victims: "Killed / injured", topArea: "Top area", topCrime: "Top crime",
       updated: "Updated", topTime: "Most common time", read: "Read on", moreReports: "{n} more reports", noData: "No incidents match these filters",
-      exact: "Exact spot", neighbourhood: "Neighbourhood", thana: "Thana level", city: "Location unclear",
-      unlocated: "{n} incidents have no clear location and are not on the map", fewer: "fewer", more: "more",
-      density: "Incident density", blendNote: "Each crime type has its own colour; where types overlap, the colours blend. Deeper colour = more reported incidents (relative to this view). Tap the map to see the mix.",
-      localMix: "Approximate local mix", mixAt: "{place}: approximate mix", nearCount: "About {n} mapped incidents around here",
+      exact: "Exact spot", neighbourhood: "Neighbourhood", thana: "Thana level", city: "District level",
+      unlocated: "{n} incidents are known only to their district: counted in its circle, not in the heatmap", fewer: "fewer", more: "more",
+      density: "Incident density", blendNote: "Each crime type has its own colour; where types overlap the colours blend (a mixed colour is approximate: tap for exact counts). Deeper = more reported incidents at this zoom.",
+      howToRead: "How to read", bubbleHint: "Tap a circle: the district's reports · zoom in: heatmap", heatHint: "Tap the map: the reports there",
+      pointsNote: "Each dot is one reported incident; colour = crime type.",
+      districtReports: "{n} reports in {place} district", bubbleNote: "Circle = district; bigger = more reports, colour = crime mix. Tap for count and reports; zoom in for the heatmap.",
+      bubbleScaleSqrt: "(area on a square-root scale, relative to the busiest district in this filter; the smallest circles are a minimum size for visibility)", bubbleScaleLog: "(area: log scale)", reportsWord: "reports",
+      areaReports: "{place}: {n} reports", clearArea: "Show all reports", showAreaReports: "Show the {n} reports here", thisArea: "This area",
+      areaCount: "{n} reports inside the circle", localMix: "Approximate local mix", mixAt: "{place}: approximate mix", nearCount: "About {n} mapped incidents around here",
       totalsOnlyFeed: "{cat}: {n} incidents. To protect victims, this type is counted in totals only; locations and report links are not shown on the map.",
       byDistrict: "By district:", localMixNote: "Shares of the glow from nearby mapped incidents, not counts for this street.",
       totalsOnlyNote: "This type is counted in totals only; locations and report links are not shown.", areaTotal: "{n} incidents", crimeMix: "Crime mix", published: "Published", killedInjured: "{n} killed/injured",
@@ -63,9 +73,54 @@
 
   const state = {
     lang: store.get("dcm.lang", "bn"), days: 7, start: "", end: "",
-    cats: new Set(CAT_ORDER), division: "", district: "", thana: "", mode: "heat", meta: null, incidents: [], stats: null, selected: null, mix: null, heat: null,
+    cats: new Set(CAT_ORDER), division: "", district: "", thana: "", area: null, mode: "heat", meta: null, incidents: [], stats: null, selected: null, mix: null, heat: null,
   };
   let engine = null;
+
+  /* Country and division views show one bubble per district (every district with reports stays visible; Dhaka's
+     concentration made the heat faint everywhere else); a chosen district, or zooming in, shows the heat.
+     Owner's choice (29 Oct, of three previews): blended colour, square-root area, calm vector basemap.
+     #base=tiles forces the raster fallback (for testing). */
+  const STYLE = { scale: "sqrt", bubble: "mix", veil: 0.5,
+                  base: new URLSearchParams(location.hash.slice(1)).get("base") === "tiles" ? "osm" : "vector" };
+  const BUBBLE_MAX_ZOOM = 9;
+  // re-render on half-zoom steps, and at once when the zoom crosses the bubble/heat threshold
+  const zoomStep = (z0, z1) => Math.abs(z1 - z0) >= 0.5 || (z0 < BUBBLE_MAX_ZOOM) !== (z1 < BUBBLE_MAX_ZOOM);
+  const bubbleView = () => state.mode !== "points" && !state.district && !!engine && engine.zoom() < BUBBLE_MAX_ZOOM;
+  const districtMeta = (id) => state.meta.districts.find((x) => x.id === id);
+  function districtCentre(d) {
+    if (d.lat != null) return { lat: d.lat, lng: d.lng };
+    const b = d.bounds; return b ? { lat: (b.s + b.n) / 2, lng: (b.w + b.e) / 2 } : null;
+  }
+  // Reports per district for the current data (cached per data load): count, per-type counts, centre, colour
+  let bubbleCache = { src: null, rows: [] };
+  function districtBubbles() {
+    if (bubbleCache.src === state.incidents) return bubbleCache.rows;
+    const by = new Map();
+    for (const i of state.incidents) {
+      if (!i.district_id) continue;
+      let d = by.get(i.district_id);
+      if (!d) by.set(i.district_id, (d = { id: i.district_id, n: 0, cats: {} }));
+      d.n += 1; d.cats[i.category] = (d.cats[i.category] || 0) + 1;
+    }
+    const rows = [];
+    for (const d of by.values()) {
+      const m = districtMeta(d.id), c = m && districtCentre(m);
+      if (!c) continue;
+      const main = Object.entries(d.cats).sort((x, y) => y[1] - x[1])[0][0];
+      rows.push({ ...d, ...c, meta: m, main,
+                  color: STYLE.bubble === "main" ? HeatPaint.mixColor({ [main]: 1 }) : HeatPaint.mixColor(d.cats) });
+    }
+    rows.sort((a, b) => b.n - a.n);                         // big ones drawn first, small ones stay on top
+    bubbleCache = { src: state.incidents, rows };
+    return rows;
+  }
+  // Radius in pixels: area on a square-root (or log) scale of the count, relative to the busiest district in view
+  function bubbleRadius(n, nMax, zoom) {
+    const rMax = Math.max(18, Math.min(46, 30 * 2 ** ((zoom - 7.2) * 0.5))), rMin = 4.5;
+    const f = STYLE.scale === "log" ? Math.sqrt(Math.log1p(n) / Math.log1p(nMax)) : (n / nMax) ** 0.25;
+    return Math.max(rMin, rMax * f);
+  }
 
   const t = (k, vars = {}) => (I18N[state.lang][k] || k).replace(/\{(\w+)\}/g, (_, v) => num(vars[v]));
   const num = (n) => state.lang === "bn" ? String(n).replace(/\d/g, (d) => "০১২৩৪৫৬৭৮৯"[d]) : String(n);
@@ -90,14 +145,31 @@
     return [d.lng + Math.cos(a) * r, d.lat + Math.sin(a) * r];
   }
 
+  let ptsCache = { src: null, rows: [] };
+  const mappedPoints = () => (ptsCache.src === state.incidents ? ptsCache.rows
+    : (ptsCache = { src: state.incidents, rows: state.incidents.filter((i) => i.lat != null) }).rows);
   function layers() {
-    const pts = state.incidents.filter((i) => i.lat != null);
     const out = [];
-    if (state.mode !== "points" && state.heat) {
+    if (bubbleView()) {
+      const rows = districtBubbles(), nMax = Math.max(1, ...rows.map((r) => r.n)), z = engine.zoom();
+      const sel = state.area?.district;
+      out.push(new deck.ScatterplotLayer({
+        id: "bubbles", data: rows, pickable: true, stroked: true, filled: true,
+        radiusUnits: "pixels", lineWidthUnits: "pixels",
+        getPosition: (d) => [d.lng, d.lat], getRadius: (d) => bubbleRadius(d.n, nMax, z),
+        getFillColor: (d) => [...d.color, d.id === sel ? 250 : 215],
+        getLineColor: (d) => (d.id === sel ? [20, 20, 20, 255] : [45, 45, 45, 200]),
+        getLineWidth: (d) => (d.id === sel ? 3 : 1.25),
+        updateTriggers: { getRadius: [nMax, Math.round(z * 4), STYLE.scale], getFillColor: sel, getLineColor: sel, getLineWidth: sel },
+        onHover: bubbleHover, onClick: (info) => info.object && selectBubble(info.object),
+      }));
+    }
+    if (state.mode !== "points" && state.heat && !bubbleView()) {
       out.push(new deck.BitmapLayer({ id: "heat", image: state.heat.image, bounds: state.heat.bounds,
                                       textureParameters: { minFilter: "linear", magFilter: "linear" } }));
     }
-    if (state.mode !== "heat") {
+    if (state.mode !== "heat" && !bubbleView()) {            // in bubble view the bubbles stand for the points
+      const pts = mappedPoints();
       const ring = [252, 252, 251];
       const colors = Object.fromEntries(CAT_ORDER.map((k) => [k, rgb(cssColor(k))]));
       const sel = state.selected?.id;
@@ -109,7 +181,44 @@
         onHover: hover, onClick: (info) => info.object && select(info.object, false),
       }));
     }
+    if (state.area && !state.area.district) {               // the tapped area whose reports the feed lists
+      out.push(new deck.ScatterplotLayer({
+        id: "area", data: [state.area], getPosition: (d) => [d.lng, d.lat], getRadius: (d) => d.m, radiusUnits: "meters",
+        stroked: true, filled: true, getFillColor: [26, 26, 25, 18], getLineColor: [26, 26, 25, 200],
+        lineWidthUnits: "pixels", getLineWidth: 2, pickable: false, updateTriggers: { getRadius: state.area.m },
+      }));
+    }
     return out;
+  }
+
+  // Called on every render: when the view switches between bubbles and heat, swap the legend and the heat image
+  let lastBubble = null, lastBubbleZoom = null;
+  function syncView() {
+    const b = bubbleView();
+    if (b === lastBubble) {                               // bubble sizes follow the zoom: keep the size key in step
+      const zk = b && Math.round(engine.zoom() * 2);
+      if (b && zk !== lastBubbleZoom) { lastBubbleZoom = zk; queueMicrotask(renderLegend); }
+      return;
+    }
+    lastBubble = b;
+    if (b) { HeatPaint.clear(); state.heat = null; }
+    if (state.area) { state.area = null; state.mix = null; }   // a district or a ring belongs to one representation
+    queueMicrotask(() => { renderLegend(); renderSelected(); renderFeed(); if (!b) paintHeat(); });
+  }
+
+  function bubbleHover(info) {
+    const tip = $("#tooltip");
+    if (!info.object) { tip.hidden = true; return; }
+    const d = info.object;
+    fill(tip, el("div", {}, el("b", {}, label(d.meta)), ` · ${num(d.n)} ${t("reportsWord")}`));
+    tip.style.left = `${info.x}px`; tip.style.top = `${info.y}px`; tip.hidden = false;
+  }
+  // Tap a district bubble: its exact count and type mix in the card, its reports in the feed
+  function selectBubble(d) {
+    state.selected = null;
+    state.area = { district: d.id };
+    areaCard();
+    renderSelected(); renderFeed(); engine?.render();
   }
 
   function hover(info) {
@@ -158,10 +267,10 @@
     });
     map.addListener("bounds_changed", () => paintHeat(true));
     let lastZoom = map.getZoom();
-    map.addListener("zoom_changed", () => { if (Math.abs(map.getZoom() - lastZoom) >= 0.5) { lastZoom = map.getZoom(); engine?.render(); } });
+    map.addListener("zoom_changed", () => { if (zoomStep(lastZoom, map.getZoom())) { lastZoom = map.getZoom(); engine?.render(); } });
     return {
       name: "google",
-      render() { overlay.setProps({ layers: layers() }); },
+      render() { syncView(); overlay.setProps({ layers: layers() }); },
       zoom() { return map.getZoom() || 12; },
       view() {
         const proj = map.getProjection(), b = map.getBounds();
@@ -188,6 +297,81 @@
     };
   }
 
+  /* Clean vector basemap (no key, no signup): OpenFreeMap's Positron style drawn by MapLibre, calmed further so only
+     what helps to find a place stays - no parks, land cover or icons, faint water, near-white land, quiet labels in
+     the page's language. deck.gl draws bubbles and heat on top. Falls back to the OSM tiles if it cannot load. */
+  const VECTOR_STYLE_URL = "https://tiles.openfreemap.org/styles/positron";
+  const labelField = (lang) => (lang === "bn"
+    ? ["coalesce", ["get", "name:bn"], ["get", "name:nonlatin"], ["get", "name"]]
+    : ["coalesce", ["get", "name_en"], ["get", "name:latin"], ["get", "name"]]);
+  function calmStyle(style, lang) {
+    const drop = /^(park|landcover|landuse|aeroway|airport|building|highway-shield|road_shield|highway_path|railway_transit|railway_service)/;
+    style.layers = style.layers.filter((l) => !drop.test(l.id));
+    for (const l of style.layers) {
+      l.paint = l.paint || {};
+      if (l.id === "background") l.paint["background-color"] = "#fcfcfb";
+      if (l.id === "water") l.paint["fill-color"] = "#e3e9ec";
+      if (l.id === "waterway") l.paint["line-color"] = "#e3e9ec";
+      if (l.type === "symbol") {
+        l.layout = { ...(l.layout || {}), "text-field": labelField(lang) };
+        l.paint["text-color"] = /country|state/.test(l.id) ? "#9a9a96" : "#55554f";
+        l.paint["text-halo-color"] = "#fcfcfb";
+        if (/^highway-name|waterway_line_label|water_name/.test(l.id)) l.layout.visibility = "none";   // street names: noise
+      }
+    }
+    return style;
+  }
+  const maplibreReady = () => (window.maplibregl ? Promise.resolve()
+    : new Promise((res) => { addEventListener("maplibre-ready", res, { once: true }); setTimeout(res, 8000); }));
+
+  async function vectorEngine() {
+    await maplibreReady();
+    if (!window.maplibregl || !deck.MapboxOverlay) throw new Error("vector map library not available");
+    const r = await fetch(VECTOR_STYLE_URL);
+    if (!r.ok) throw new Error(`basemap style: HTTP ${r.status}`);
+    const style = calmStyle(await r.json(), state.lang);
+    const sv = startView();
+    const map = new maplibregl.Map({   // eslint-disable-line no-undef
+      container: $("#map"), style, center: [sv.center.lng, sv.center.lat], zoom: sv.zoom, minZoom: 5.5, maxZoom: 18,
+      dragRotate: false, pitchWithRotate: false, touchPitch: false, attributionControl: { compact: true },
+    });
+    try {
+      map.touchZoomRotate.disableRotation();
+      // the style must load; slow tiles may follow (a timeout with the style loaded is fine)
+      await new Promise((res, rej) => {
+        map.once("load", res);
+        map.once("error", (e) => { if (!map.isStyleLoaded()) rej(e.error || new Error("basemap error")); });
+        setTimeout(() => (map.isStyleLoaded() ? res() : rej(new Error("basemap timeout"))), 12000);
+      });
+    } catch (e) { try { map.remove(); } catch (_) { /* never created */ } throw e; }
+    const overlay = new deck.MapboxOverlay({ interleaved: false, layers: [],
+      onClick: (info) => { if (!info.object) inspectHeat(info.x, info.y); } });
+    map.addControl(overlay);
+    let lastZ = map.getZoom();
+    map.on("move", () => paintHeat(true));
+    map.on("zoom", () => { if (zoomStep(lastZ, map.getZoom())) { lastZ = map.getZoom(); engine?.render(); } });
+    return {
+      name: "vector",
+      render() { syncView(); overlay.setProps({ layers: layers() }); },
+      zoom() { return map.getZoom(); },
+      view() {
+        return { zoom: map.getZoom(), project: (lng, lat) => { const p = map.project([lng, lat]); return [p.x, p.y]; },
+                 unproject: (x, y) => { const l = map.unproject([x, y]); return [l.lng, l.lat]; } };
+      },
+      zoomBy(dz) { map.easeTo({ zoom: Math.max(5.5, Math.min(18, map.getZoom() + dz)), duration: 300 }); },
+      reset() { fitArea(); },
+      flyTo(lat, lng, zoom) { map.flyTo({ center: [lng, lat], zoom: zoom || map.getZoom(), duration: 700 }); },
+      fitTo(b) {
+        if (b.single) { this.flyTo(b.lat, b.lng, 15); return; }
+        map.fitBounds([[b.w, b.s], [b.e, b.n]], { padding: FIT_PADDING, maxZoom: 16, duration: 600 });
+      },
+      setLang(lang) {
+        for (const l of map.getStyle().layers) if (l.type === "symbol") map.setLayoutProperty(l.id, "text-field", labelField(lang));
+      },
+      destroy() { try { map.remove(); } catch (e) { /* already gone */ } fill($("#map")); },
+    };
+  }
+
   function tileEngine() {
     const tiles = () => "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
     const base = () => new deck.TileLayer({
@@ -196,19 +380,22 @@
         const [[w, s], [e, n]] = props.tile.boundingBox;
         return new deck.BitmapLayer(props, {
           data: null, image: props.data, bounds: [w, s, e, n],
-          desaturate: 0.55, tintColor: [255, 255, 255],
+          desaturate: 1,
         });
       },
     });
     const sv = startView();
     let view = { longitude: sv.center.lng, latitude: sv.center.lat, zoom: sv.zoom, pitch: 0, bearing: 0, minZoom: 6, maxZoom: 18 };
-    let heatZoom = Math.round(view.zoom * 2);
+    let heatZoom = Math.round(view.zoom * 2), prevZoom = view.zoom;
     const d = new deck.Deck({
       parent: $("#map"), initialViewState: view, layers: [],
       controller: { dragRotate: false, touchRotate: false, keyboard: { rotateSpeedX: 0, rotateSpeedY: 0 } },   // north-up only
       onViewStateChange: ({ viewState }) => {
         view = viewState;
-        if (Math.round(view.zoom * 2) !== heatZoom) { heatZoom = Math.round(view.zoom * 2); engine?.render(); }
+        if (Math.round(view.zoom * 2) !== heatZoom || zoomStep(prevZoom, view.zoom)) {
+          heatZoom = Math.round(view.zoom * 2); engine?.render();
+        }
+        prevZoom = view.zoom;
         paintHeat(true);
       },
       onClick: (info) => { if (!info.object) inspectHeat(info.x, info.y); },
@@ -218,9 +405,12 @@
       "© OpenStreetMap contributors");
     $("#map").append(attribution);
     let baseLayer = base();
+    // a white veil over the grey tiles: near-white background, place names still readable, data stays punchy
+    const veil = new deck.SolidPolygonLayer({ id: "veil", data: [{ p: [[-180, -85], [180, -85], [180, 85], [-180, 85]] }],
+      getPolygon: (d) => d.p, getFillColor: [255, 255, 255, Math.round(255 * STYLE.veil)], pickable: false });
     return {
       name: "tiles",
-      render() { d.setProps({ layers: [baseLayer, ...layers()] }); },
+      render() { syncView(); d.setProps({ layers: [baseLayer, veil, ...layers()] }); },
       zoom() { return view.zoom; },
       view() {
         const el = $("#map");
@@ -253,17 +443,20 @@
 
   function note(msg) { const n = $("#map-note"); n.textContent = msg; n.hidden = !msg; if (msg) setTimeout(() => (n.hidden = true), 9000); }
 
-  function googleFailed() {
+  async function googleFailed() {
     if (engine?.name !== "google") return;
-    engine.destroy(); engine = tileEngine(); engine.render(); note(t("keyFailed"));
+    engine.destroy(); engine = null; note(t("keyFailed"));
+    try { engine = await vectorEngine(); } catch (e) { console.warn(e); fill($("#map")); engine = tileEngine(); }
+    engine.render(); fitArea(); refresh().catch(console.warn);
   }
 
   async function initMap() {
     const key = state.meta.google_maps_api_key;
     if (key) {
       try { engine = await googleEngine(key, state.meta.google_maps_map_id); return; } catch (e) { console.warn(e); note(t("keyFailed")); }
-    } else {
-      note(t("noKey"));
+    }
+    if (STYLE.base === "vector") {
+      try { engine = await vectorEngine(); return; } catch (e) { console.warn("vector basemap unavailable, using tiles", e); fill($("#map")); }
     }
     engine = tileEngine();
   }
@@ -318,7 +511,13 @@
 
   // Each refresh gets a number; an older response that arrives late never overwrites a newer one.
   let refreshSeq = 0;
+  // Never throws: a failed request keeps the last data on screen and says so (the next tick retries)
   async function refresh(opts = {}) {
+    try { return await refreshData(opts); } catch (e) {
+      console.warn("refresh failed", e); state.offline = true; renderStatus(); return false;
+    }
+  }
+  async function refreshData(opts) {
     const seq = ++refreshSeq;
     const q = query();
     const qc = new URLSearchParams(q); qc.delete("categories");  // chip counts ignore the category filter itself
@@ -330,6 +529,7 @@
     state.incidents = inc.data.filter((i) => state.cats.has(i.category));
     HeatPaint.setData(inc.data);
     state.mix = null;
+    if (state.area) areaCard();                        // a live update keeps the chosen area, with fresh counts
     state.stats = stats.data; state.catCounts = (all || stats).data.by_category;
     state.truncated = inc.headers.get("X-Truncated") === "true";
     state.totalCount = +(inc.headers.get("X-Total-Count") || inc.data.length);
@@ -346,8 +546,8 @@
     state.meta = (await getJSON("/api/config")).data;
     CAT_ORDER = state.meta.categories.map((c) => c.key);
     state.cats = new Set(CAT_ORDER);
-    const mapped = state.meta.categories.filter((c) => c.visibility === "mapped" && c.hue != null);
-    HeatPaint.configure(mapped.map((c) => ({ key: c.key, hue: c.hue })));
+    const mapped = state.meta.categories.filter((c) => c.visibility === "mapped" && c.color);
+    HeatPaint.configure(mapped.map((c) => ({ key: c.key, color: c.color })));
     // chips, dots and legend take the heat's own colour for each mapped type
     for (const c of mapped) document.documentElement.style.setProperty(`--c-${c.key}`, HeatPaint.swatch(c.key));
   }
@@ -479,8 +679,44 @@
 
   function precisionBadge(p) { return el("span", { class: "badge" }, t(p || "city")); }
 
+  /* Tapped area: the reports whose point lies inside the circle that feeds the glow at the tap (same radius as the
+     painter's kernel), kept in metres so it survives panning, zooming and live data updates. */
+  function areaIncidents() {
+    const a = state.area; if (!a) return state.incidents;
+    if (a.district) return state.incidents.filter((i) => i.district_id === a.district);
+    const r = Math.PI / 180, k = Math.cos(a.lat * r) * 6371000 * r, m2 = a.m * a.m;
+    return state.incidents.filter((i) => i.lat != null
+      && ((i.lng - a.lng) * k) ** 2 + ((i.lat - a.lat) * 6371000 * r) ** 2 <= m2);
+  }
+  function setArea(area) { state.area = area; if (!area) state.mix = null; renderFeed(); engine?.render(); }
+  // Name of the selected area in the current language (derived at render, so a language switch updates it)
+  function areaPlace(a) {
+    if (!a) return "";
+    if (a.district) { const m = districtMeta(a.district); return m ? label(m) : ""; }
+    return placeAt(a.lng, a.lat, a.zoom) || t("thisArea");
+  }
+  // The card for the selected area: exact counts per type of the same reports the Reports list shows
+  function areaCard() {
+    const here = areaIncidents(), cats = {};
+    for (const i of here) cats[i.category] = (cats[i.category] || 0) + 1;
+    state.mix = CAT_ORDER.filter((k) => cats[k]).map((k) => [k, cats[k] / Math.max(1, here.length)])
+      .sort((a, b) => b[1] - a[1]);
+    state.mixAt = { n: here.length, cats, district: Boolean(state.area?.district) };
+    return here.length;
+  }
+
+  function renderAreaChip(n) {
+    const box = $("#feed-area"); if (!box) return;
+    if (!state.area) { box.hidden = true; fill(box); return; }
+    fill(box, el("span", { class: "area-pin", "aria-hidden": "true" }), el("span", { class: "area-txt" },
+      t("areaReports", { place: areaPlace(state.area), n })),
+      el("button", { type: "button", class: "link", onclick: () => { state.mix = null; setArea(null); renderSelected(); } }, t("clearArea")));
+    box.hidden = false;
+  }
+
   function renderFeed() {
-    const list = state.incidents.slice(0, 400);
+    const all = areaIncidents(), list = all.slice(0, 400);
+    renderAreaChip(all.length);
     const hiddenTypes = CAT_ORDER.filter((k) => state.cats.has(k) && (state.meta?.area_totals_only || []).includes(k)
                                          && state.stats?.by_category?.[k]);
     const totalsNote = hiddenTypes.length ? el("li", { class: "empty totals-only" },
@@ -488,8 +724,7 @@
       // per-district numbers are totals too (same as the hotspot list); no places below district level
       list.length ? null : el("p", { class: "muted" }, t("byDistrict"), " ",
         (state.stats.by_district || []).slice(0, 12).map((d) => `${label(d)} ${num(d.count)}`).join(" · "))) : null;
-    $("#feed-count").textContent = list.length < state.incidents.length
-      ? t("showing", { n: list.length, total: state.incidents.length }) : num(state.incidents.length);
+    $("#feed-count").textContent = list.length < all.length ? t("showing", { n: list.length, total: all.length }) : num(all.length);
     fill($("#feed"), ...(list.length ? list.map((i) => el("li", {}, el("button", {
       type: "button", class: `item${state.selected?.id === i.id ? " on" : ""}`, onclick: () => select(i, true),
     },
@@ -500,19 +735,34 @@
       ...(list.length && totalsNote ? [totalsNote] : []));
   }
 
+  // Legend: colour key, size key (bubbles), one short hint; the longer explanation folds away so the map stays visible
   function renderLegend() {
     const s = state.stats;
     if (!s) return;                                         // a mode click before the first data arrives
     const mapped = CAT_ORDER.filter((k) => state.cats.has(k) && !(state.meta?.area_totals_only || []).includes(k));
     const totalsOnly = CAT_ORDER.filter((k) => state.cats.has(k) && (state.meta?.area_totals_only || []).includes(k));
-    fill($("#legend"),
-      state.mode !== "points" ? el("div", {},
-        el("div", { class: "cats" }, ...mapped.map((k) => el("span", {}, el("i", { style: `background:${HeatPaint.swatch(k)}` }), catLabel(k)))),
-        el("div", { class: "muted" }, t("blendNote"))) : null,
-      state.mode !== "heat" ? el("div", { class: "cats" }, ...mapped.map((k) => el("span", {}, el("i", { style: `background:${cssColor(k)}` }), catLabel(k)))) : null,
+    const bubbles = bubbleView();
+    let sizes = null;
+    if (bubbles) {                                           // size key with real counts
+      const rows = districtBubbles(), nMax = Math.max(1, ...rows.map((r) => r.n)), z = engine.zoom();
+      const steps = [...[1, 10, 100, 1000, 10000].filter((v) => v < nMax * 0.6).slice(-2), nMax];
+      sizes = el("div", { class: "sizes" }, ...steps.map((v) => {
+        const r = bubbleRadius(v, nMax, z);
+        return el("span", {}, el("i", { style: `width:${2 * r}px;height:${2 * r}px` }), num(v));
+      }));
+    }
+    const more = el("details", { class: "more" }, el("summary", {}, t("howToRead")),
+      el("div", { class: "muted" }, bubbles ? [t("bubbleNote"), " ", t("bubbleScaleSqrt")] : state.mode === "points" ? t("pointsNote") : t("blendNote")),
       !mapped.length && totalsOnly.length ? el("div", { class: "muted" }, t("totalsOnlyNote")) : null,
       s.unlocated ? el("div", { class: "muted" }, t("unlocated", { n: s.unlocated })) : null,
       el("div", { class: "muted", style: "font-size:11px" }, t("sourceNote")));
+    if (state.legendOpen) more.open = true;
+    more.addEventListener("toggle", () => { state.legendOpen = more.open; });
+    fill($("#legend"),
+      el("div", { class: "cats" }, ...mapped.map((k) => el("span", {}, el("i", { style: `background:${HeatPaint.swatch(k)}` }), catLabel(k)))),
+      sizes,
+      el("div", { class: "hint" }, t(bubbles ? "bubbleHint" : "heatHint")),
+      more);
   }
 
   function select(i, fly) {
@@ -544,14 +794,16 @@
   function renderMixCard(card, rows) {
     const at = state.mixAt;
     fill(card,
-      el("button", { class: "close", type: "button", "aria-label": "Close", onclick: () => { state.mix = null; renderSelected(); } }, "×"),
-      el("h3", {}, at && at.place ? t("mixAt", { place: at.place }) : t("localMix")),
-      at && at.n ? el("div", { style: "font-size:13px;margin-bottom:2px" }, t("nearCount", { n: at.n })) : null,
-      el("div", { class: "muted", style: "font-size:12px;margin-bottom:6px" }, t("localMixNote")),
+      el("button", { class: "close", type: "button", "aria-label": "Close", onclick: () => { state.mix = null; setArea(null); renderSelected(); } }, "×"),
+      el("h3", {}, state.area ? areaPlace(state.area) : t("thisArea")),
+      at && at.n ? el("div", { style: "font-size:13px;margin-bottom:2px" },
+        at.district ? t("districtReports", { place: areaPlace(state.area), n: at.n }) : t("areaCount", { n: at.n })) : null,
       el("ul", { class: "mix" }, ...rows.map(([k, v]) => el("li", {},
         el("span", { class: "name" }, el("span", { class: "dot", style: `background:${HeatPaint.swatch(k)}` }), catLabel(k)),
         el("span", { class: "bar" }, el("i", { style: `width:${v * 100}%;background:${HeatPaint.swatch(k)}` })),
-        el("span", { class: "cnt" }, `${num(Math.round(v * 100))}%`)))));
+        el("span", { class: "cnt" }, at && at.cats ? num(at.cats[k]) : `${num(Math.round(v * 100))}%`)))),
+      state.area && at && at.n ? el("button", { type: "button", class: "link area-open", onclick: () => setTab("feed") },
+        t("showAreaReports", { n: at.n })) : null);
     card.hidden = false;
   }
 
@@ -573,6 +825,7 @@
     paintRaf = 0;
     const req = paintReq; paintReq = null;
     if (!req || state.mode === "points" || !engine?.view) return;
+    if (bubbleView()) { if (state.heat) { state.heat = null; HeatPaint.clear(); engine.render(); } return; }   // bubbles instead
     const v = engine.view(), box = $("#map"); if (!v) return;
     const w = box.clientWidth, h = box.clientHeight;
     if (!w || !h) return;                                   // map hidden (phone tab): repainted when shown
@@ -597,29 +850,27 @@
     return `${name}, ${dname(near[1].district)}`;
   }
 
-  const mercY = (lat) => { const s = Math.sin(lat * Math.PI / 180); return 0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI); };
 
+  // Tap on the map (not on a point): the local mix of the glow (heat views) and the reports of that area in the feed
   function inspectHeat(x, y) {
-    if (state.mode === "points" || !state.heat || !engine?.view) return;
+    if (!engine?.view) return;
     const v = engine.view(); if (!v) return;
-    const [lng, lat] = v.unproject(x, y), [w0, s0, e0, n0] = state.heat.bounds;
-    const fx = (lng - w0) / (e0 - w0), fy = (mercY(lat) - mercY(n0)) / (mercY(s0) - mercY(n0));
-    const rows = HeatPaint.sample(fx * state.heat.image.width, fy * state.heat.image.height);
-    state.selected = null; state.mix = rows && rows.length ? rows : null;
-    if (state.mix) {
-      // how many mapped incidents feed the glow here, and the place name at a scale that fits the zoom
-      const R = HeatPaint.radius(v.zoom);
-      const n = state.incidents.filter((i) => {
-        if (i.lat == null) return false;
-        const [px, py] = v.project(i.lng, i.lat);
-        return (px - x) ** 2 + (py - y) ** 2 <= R * R;
-      }).length;
-      state.mixAt = { place: placeAt(lng, lat, v.zoom), n };
-    }
+    if (bubbleView()) { state.mix = null; state.selected = null; setArea(null); renderSelected(); return; }
+    const [lng, lat] = v.unproject(x, y);
+    // the circle that feeds the glow here (kernel radius), in metres; points view: a finger-sized circle
+    const px = state.mode === "points" ? 28 : HeatPaint.radius(v.zoom);
+    const mPerPx = 156543.03392 * Math.cos(lat * Math.PI / 180) / 2 ** v.zoom;
+    state.selected = null; state.area = { lng, lat, m: px * mPerPx, zoom: v.zoom };
+    // the card and the Reports list show the same reports: exact counts per type inside the ring
+    if (!areaCard()) { state.area = null; state.mix = null; }   // nothing reported here: back to the full list
     renderSelected(); renderFeed(); engine?.render();
   }
 
   function setTab(tab) {
+    // medium screens (761-1100 px) have no tabs: the Reports list opens as a drawer over the map
+    if (tab === "feed" && matchMedia("(min-width: 761px) and (max-width: 1100px)").matches) {
+      document.body.classList.add("feed-open"); return;
+    }
     document.body.dataset.tab = tab;
     document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("on", b.dataset.tab === tab));
     if (tab === "map") requestAnimationFrame(() => { engine?.render(); paintHeat(); });
@@ -637,6 +888,7 @@
     };
     $("#start").addEventListener("change", onDate); $("#end").addEventListener("change", onDate);
     $("#cats-all").addEventListener("click", () => { state.cats = new Set(CAT_ORDER); refresh({ fit: true }); });
+    $("#feed-close").addEventListener("click", () => document.body.classList.remove("feed-open"));
     $("#division").addEventListener("change", (e) => selectDivision(e.target.value));
     $("#district").addEventListener("change", (e) => selectDistrict(e.target.value));
     document.querySelectorAll("#mode button").forEach((b) => b.addEventListener("click", () => {
@@ -647,19 +899,19 @@
     $("#zoom-in").addEventListener("click", () => engine?.zoomBy(1));
     $("#zoom-out").addEventListener("click", () => engine?.zoomBy(-1));
     $("#zoom-reset").addEventListener("click", () => engine?.reset());
-    $("#lang-btn").addEventListener("click", () => { state.lang = state.lang === "bn" ? "en" : "bn"; store.set("dcm.lang", state.lang); applyI18n(); renderAll(); });
+    $("#lang-btn").addEventListener("click", () => { state.lang = state.lang === "bn" ? "en" : "bn"; store.set("dcm.lang", state.lang); $("#tooltip").hidden = true; applyI18n(); engine?.setLang?.(state.lang); renderAll(); });
     document.querySelectorAll("#tabs button").forEach((b) => b.addEventListener("click", () => setTab(b.dataset.tab)));
   }
 
   function selectDivision(id) {
-    state.division = id || ""; state.district = ""; state.thana = "";
+    state.division = id || ""; state.district = ""; state.thana = ""; state.area = null; state.mix = null;
     $("#division").value = state.division; renderDistrictSelect();
     refresh(); fitArea();
   }
   function selectDistrict(id) {
     const d = state.meta.districts.find((x) => x.id === id);
     if (d && d.division !== state.division) { state.division = d.division; $("#division").value = d.division; }
-    state.district = id || ""; state.thana = "";
+    state.district = id || ""; state.thana = ""; state.area = null; state.mix = null;
     renderDistrictSelect();
     refresh(); fitArea();
   }

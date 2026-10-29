@@ -150,6 +150,25 @@ Place names shared by several districts (Kotwali, Mirpur, Kaliganj...) are resol
 or elsewhere in the text, and dropped when still ambiguous. The public page filters by division, then district; the
 hotspot list ranks divisions, then the division's districts, then the district's thanas and upazilas.
 
+### Public map design (29 Oct 2026, reviewed by the Codex council)
+
+- **Country and division views: one bubble per district.** Area grows with the square root of the district's
+  reports, relative to the busiest district in the current filter (at country scale Dhaka has hundreds of times the
+  median district, so a single heat scale hid almost every other district). Colour = the blended mix of crime types;
+  tap = exact counts per type plus the district's reports in the Reports panel.
+- **District chosen, or zoom >= 9: the local heat** (one kernel per incident, types blended in OKLab,
+  chroma-preserving so mixes stay vivid). Tap = a ring; the Reports panel lists the reports inside it and the card
+  shows their exact counts per type.
+- **Colours**: nine high-contrast category colours in `app/schema.py`, checked for colour-vision deficiencies
+  (CIEDE2000 under normal vision and Machado-simulated protan/deutan/tritan).
+- **Basemap**: OpenFreeMap's Positron vector style (no key, OpenStreetMap data) drawn by MapLibre GL 6.14,
+  stripped of parks, land cover, icons and street names; labels follow the page language. If it cannot load, the page
+  falls back to OpenStreetMap raster tiles (`#base=tiles` forces this for testing). Check OpenFreeMap's and OSM's
+  usage terms before a high-traffic public launch, or self-host the tiles.
+- **District-level reports**: an incident whose text names its district but no catalogued place is published at
+  district level (counted in the bubble, totals and Reports; no heat point), and the event matcher deduplicates it
+  within the district.
+
 ## 9. Build, release and deployment (CI/CD handoff)
 
 One image serves every role; the command picks it (`api`, `admin`, `collector`, `classifier`, `migrate`). The

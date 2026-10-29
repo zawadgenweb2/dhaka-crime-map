@@ -1,7 +1,7 @@
 """Checks that the event store does what the map promises: each real crime once, nothing lost, nothing over-merged.
 
 `python -m app events-verify` prints a report with four parts:
-  1. invariants      every located published report is in exactly one active event; each event's main report is
+  1. invariants      every published report with a district is in exactly one active event; each event's main report is
                      one of its own; counts consistent; the public API serves one row per event (list and stats
                      agree). Events holding two incidents of one article are reported as information
   2. known stories   multi-paper stories we know (Rangpur 4 killed, Sitakunda blast, ...) and how many events each
@@ -36,7 +36,7 @@ def _q(c, sql, params=()):
 
 
 def invariants(c) -> dict:
-    eligible = """i.published AND i.place_id IS NOT NULL AND i.event_date IS NOT NULL AND i.report_key IS NOT NULL"""
+    eligible = """i.published AND i.district_id IS NOT NULL AND i.event_date IS NOT NULL AND i.report_key IS NOT NULL"""
     out = {}
     out["eligible_reports"] = _q(c, f"SELECT count(*) n FROM incidents i WHERE {eligible}")[0]["n"]
     out["not_in_any_event"] = _q(c, f"""SELECT count(*) n FROM incidents i WHERE {eligible} AND NOT EXISTS

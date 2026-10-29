@@ -12,6 +12,7 @@ from datetime import date, datetime, timedelta
 
 from . import db
 from .config import settings
+from .events import in_text
 from .gazetteer import Gazetteer, distance_km
 from .geocode import geocode, is_cached
 from .schema import CATEGORIES, ArticleAnalysis, Incident
@@ -68,8 +69,10 @@ def clean_incident_date(value: str | None, pub_day: date | None) -> date | None:
 
 
 def evidence_ok(evidence: str | None, title: str, body: str) -> bool:
+    """The quote is in the article, word for word or as a near-copy (one unbroken run of >= 60% of it, >= 15
+    characters): the model often adds or drops a word. Invented quotes still fail (same rule as the event matcher)."""
     ev = normalize(evidence or "")
-    return len(ev) >= 8 and ev in normalize(f"{title} {body}")
+    return len(ev) >= 8 and (ev in normalize(f"{title} {body}") or in_text(evidence or "", f"{title}\n{body}"))
 
 
 # ---- duplicate grouping ------------------------------------------------------------------------
@@ -167,16 +170,27 @@ def build_rows(article: dict, analysis: ArticleAnalysis, gaz: Gazetteer,
         loc = locate(inc, gaz, geocoded, source)
         inc_date = clean_incident_date(inc.incident_date, upper)
         quoted = evidence_ok(inc.evidence, article["title"] or "", article["body"] or "")
-        # Auto-publish only if the place is one the article names (the shortlist), its district agrees with the
-        # model's district, and neither the first sentence, the quote's own sentence, nor the location phrase puts
-        # the incident in another district. The model's district alone is never enough.
+        # Located (a point on the map) only if the place is one the article names (the shortlist), its district
+        # agrees with the model's district or with the district the text itself names for this incident, and
+        # neither the first sentence, the quote's own sentence, nor the location phrase puts the incident in
+        # another district. The model's district alone is never enough.
         d = loc["district"]
+        quote_sentence = gaz.quote_sentence(article["body"] or "", inc.evidence)
+        # The district the text names for this incident by a district word: in the location phrase itself, or in the
+        # quote's sentence when the model agrees (a district there can be someone's home: "মাদারীপুরের যুবক").
+        loc_d, quote_d = gaz.sole_district(inc.location_text), gaz.sole_district(quote_sentence)
+        text_d = loc_d or (quote_d if quote_d and inc.district == quote_d else None)
         located = bool(loc["place_id"]) and (loc["place_id"] in grounded or loc["thana_id"] in grounded) \
-            and (inc.district is None or inc.district == d) \
+            and (inc.district is None or d in (inc.district, loc_d, quote_d)) \
             and not gaz.lead_in_other_district(article["body"] or "", d) \
-            and not gaz.names_other_district(gaz.quote_sentence(article["body"] or "", inc.evidence), d) \
+            and not gaz.names_other_district(quote_sentence, d) \
             and not gaz.names_other_district(inc.location_text, d)
-        ok = quoted and located
+        if not located and text_d and not gaz.lead_in_other_district(article["body"] or "", text_d):
+            # No reliable point, but the text names the district: counted at district level (district bubble,
+            # totals and reports list; no heat point), so a crime is not lost for want of a catalogued place.
+            loc = {**loc, "place_id": None, "thana_id": None, "lat": None, "lng": None, "geocoded": False,
+                   "precision": "city", "district": text_d}
+        ok = quoted and (located or bool(loc["district"] and not loc["place_id"]))
         rows.append({
             **loc, "category": inc.category, "headline_bn": inc.headline_bn, "headline_en": inc.headline_en,
             "location_text": inc.location_text, "incident_date": inc_date, "event_date": inc_date or pub_day or fetched_day or upper,
@@ -185,8 +199,8 @@ def build_rows(article: dict, analysis: ArticleAnalysis, gaz: Gazetteer,
             "evidence_ok": quoted, "located": located, "passes": ok,
             "published": ok and publish_mode == "auto",
             "review_status": ("auto" if publish_mode == "auto" else "pending") if ok else "failed",
-            "geocode_query": inc.geocode_query if inc.geocode_query and loc["place_id"] else None,
-            "geocode_state": "todo" if inc.geocode_query and loc["place_id"] and not loc["geocoded"] else "none",
+            "geocode_query": inc.geocode_query if inc.geocode_query and loc["place_id"] and located else None,
+            "geocode_state": "todo" if inc.geocode_query and loc["place_id"] and located and not loc["geocoded"] else "none",
         })
     return rows
 

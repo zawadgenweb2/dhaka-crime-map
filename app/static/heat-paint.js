@@ -1,22 +1,32 @@
 /* Multi-colour crime heat: each mapped crime type glows in its own colour; where types overlap the colours mix in
-   OKLab by their true shares (council colour model, 27 Oct 2026).
+   OKLab by their true shares (council colour model, 27 Oct 2026; high-contrast colours 29 Oct).
 
    - density: one triweight kernel (same size for every type) per incident, in screen space on a coarse grid
-   - colour: OKLab mean of the types' (a, b) vectors weighted by their densities; tone from the total only:
-       t = 1 - exp(-3 sqrt(T / Q95)),  alpha = 0.9 (2t - t^2),  L* = 0.78 - 0.18 t (light map only),
-     with the foreground's luminance fixed at L*^3 so the mix of types never changes how strong a place looks
+   - colour: the types' colours blended in OKLab by their density shares, chroma-preserving (council, 29 Oct): L and
+     the hue direction are the weighted mean, but the chroma is the weighted mean of the types' chromas, so a mix stays
+     as vivid as its parts instead of averaging to grey-brown (thanas below C 0.05: 39 -> 5 on 90 days of data).
+     A mixed hue can resemble a third type; the tap card lists the exact counts.
+   - strength from the total only: t = 1 - exp(-3 sqrt(T / Q95)), alpha = 0.95 (2t - t^2); faint glow is also lighter
+     (blended toward white), the core is the full colour. On the near-white map, strength reads as opacity.
    - Q95 = 95th percentile of the density at every incident, for the current zoom (held while panning or hiding
-     types). The square root compresses the total only (never a type's share): the busiest place still reaches
-     t = 0.95, while a city with a tenth of its density shows at t = 0.6 instead of 0.15.
+     types). The square root compresses the total only (never a type's share).
    Exposed as window.HeatPaint. */
 (() => {
   "use strict";
-  // The mapped categories and their permanent hues come from the server's category list (configure()).
-  const CHROMA = 0.15;                                   // "Vivid"; gamut-guarded below
-  let KEYS = [], K = 0, IDX = {}, AB = [];
-  function configure(categories) {                       // [{key, hue}], mapped categories only, in display order
+  // The mapped categories and their colours come from the server's category list (configure()).
+  let KEYS = [], K = 0, IDX = {}, LAB = [], HEX = [], CH = [];
+  const toLin = (c) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+  function hexToLab(hex) {
+    const [r, g, b] = [1, 3, 5].map((i) => toLin(parseInt(hex.slice(i, i + 2), 16) / 255));
+    const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
+    const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
+    const s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
+    return [0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s, 1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s,
+            0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s];
+  }
+  function configure(categories) {                       // [{key, color}], mapped categories only, in display order
     KEYS = categories.map((c) => c.key); K = KEYS.length; IDX = Object.fromEntries(KEYS.map((k, i) => [k, i]));
-    AB = categories.map((c) => [CHROMA * Math.cos(c.hue * Math.PI / 180), CHROMA * Math.sin(c.hue * Math.PI / 180)]);
+    HEX = categories.map((c) => c.color); LAB = HEX.map(hexToLab); CH = LAB.map(([, a, b]) => Math.hypot(a, b));
     state.pts = []; state.d0 = null;
   }
 
@@ -27,16 +37,21 @@
     return [4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s, -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
             -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s];
   }
-  // Foreground colour for a mixture direction (a, b) at strength t; luminance normalised to L*^3, gamut by shrinking (a, b)
-  function foreground(a, b, t, out) {
-    const L = 0.78 - 0.18 * t, Y0 = L * L * L;              // light map: more crime = deeper
+  // sRGB colour of a mix (OKLab L, a, b) at strength t: the full colour at t = 1, lighter toward the faint edge;
+  // out-of-gamut mixes keep their lightness and lose a little chroma
+  // chroma-preserving blend: (L, A, B) weighted means, Ct = weighted mean chroma; scale (A, B) to Ct
+  function vivid(L, A, B, Ct, out3) {
+    const m = Math.hypot(A, B);
+    if (m > 1e-9) { A *= Ct / m; B *= Ct / m; } else { A = 0; B = 0; }
+    out3[0] = L; out3[1] = A; out3[2] = B; return out3;
+  }
+  function foreground(L, a, b, t, out) {
+    const Lt = L + (1 - t) * (0.97 - L) * 0.6;
     let k = 1, V;
     for (let i = 0; i < 6; i++) {
-      V = labToLin(L, a * k, b * k);
-      const f = Y0 / (0.2126 * V[0] + 0.7152 * V[1] + 0.0722 * V[2]);
-      V[0] *= f; V[1] *= f; V[2] *= f;
+      V = labToLin(Lt, a * k, b * k);
       if (V[0] >= 0 && V[0] <= 1 && V[1] >= 0 && V[1] <= 1 && V[2] >= 0 && V[2] <= 1) break;
-      k *= 0.8;
+      k *= 0.85;
     }
     for (let j = 0; j < 3; j++) out[j] = Math.round(255 * toSrgb(Math.min(1, Math.max(0, V[j]))));
     return out;
@@ -110,15 +125,20 @@
       }
     }
     const on = KEYS.map((k) => !state.off.has(k));
-    const img = new ImageData(W, H), px = img.data, rgb = [0, 0, 0], D0 = state.d0;
+    const img = new ImageData(W, H), px = img.data, rgb = [0, 0, 0], lab = [0, 0, 0], D0 = state.d0;
     for (let c = 0; c < W * H; c++) {
-      let T = 0, a = 0, b = 0;
-      for (let k = 0; k < K; k++) { if (!on[k]) continue; const d = D[c * K + k]; if (d) { T += d; a += d * AB[k][0]; b += d * AB[k][1]; } }
+      let T = 0, L = 0, a = 0, b = 0, ch = 0;
+      for (let k = 0; k < K; k++) {
+        if (!on[k]) continue;
+        const d = D[c * K + k];
+        if (d) { T += d; L += d * LAB[k][0]; a += d * LAB[k][1]; b += d * LAB[k][2]; ch += d * CH[k]; }
+      }
       if (T < 1e-3) continue;
       const t = 1 - Math.exp(-3 * Math.sqrt(T / D0));
-      foreground(a / T, b / T, t, rgb);
+      vivid(L / T, a / T, b / T, ch / T, lab);
+      foreground(lab[0], lab[1], lab[2], t, rgb);
       px[c * 4] = rgb[0]; px[c * 4 + 1] = rgb[1]; px[c * 4 + 2] = rgb[2];
-      px[c * 4 + 3] = Math.round(255 * 0.9 * (2 * t - t * t));
+      px[c * 4 + 3] = Math.round(255 * 0.95 * (2 * t - t * t));
     }
     state.grid = { W, H, CELL, D, on };
     const small = document.createElement("canvas"); small.width = W; small.height = H;
@@ -144,9 +164,22 @@
     return KEYS.map((k, i) => [k, g.on[i] ? g.D[c * K + i] / T : 0]).filter((r) => r[1] >= 0.01).sort((p, q) => q[1] - p[1]);
   }
 
-  // Solid colour of a type at full strength (legend swatches)
-  const swatch = (key) => { const [a, b] = AB[IDX[key]]; return `rgb(${foreground(a, b, 1, [0, 0, 0]).join(",")})`; };
+  /* Colour of a district bubble: the OKLab mean of the types' vectors weighted by their counts, at a fixed strong
+     tone (same colour model as the heat, so a bubble and the heat of the same mix match). counts: {key: n} */
+  function mixColor(counts, t = 1) {
+    let T = 0, L = 0, a = 0, b = 0, ch = 0;
+    for (const [k, n] of Object.entries(counts)) {
+      const i = IDX[k]; if (i === undefined || !n) continue;
+      T += n; L += n * LAB[i][0]; a += n * LAB[i][1]; b += n * LAB[i][2]; ch += n * CH[i];
+    }
+    if (!T) return [120, 120, 120];
+    const v = vivid(L / T, a / T, b / T, ch / T, [0, 0, 0]);
+    return foreground(v[0], v[1], v[2], t, [0, 0, 0]);
+  }
 
-  window.HeatPaint = { configure, setData, setHidden, paint, clear, sample, swatch, keys: () => KEYS.slice(),
+  // Solid colour of a type at full strength (legend swatches)
+  const swatch = (key) => HEX[IDX[key]] || "#898781";
+
+  window.HeatPaint = { configure, setData, setHidden, paint, clear, sample, swatch, mixColor, keys: () => KEYS.slice(),
                        radius: (z) => kernelR(z) };          // how far (px) one incident's glow reaches
 })();
