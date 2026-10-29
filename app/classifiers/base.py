@@ -32,14 +32,12 @@ class Classifier(ABC):
         return self.classify(article), {}
 
 
-_INSTRUCTIONS = """You analyse Bangla newspaper articles and extract crime incidents that happened inside the \
-supported districts, for a public crime heat map of Bangladesh.
+_INSTRUCTIONS = """You analyse Bangla newspaper articles and extract crime incidents that happened in Bangladesh, \
+for a public crime heat map of the country.
 
-Scope - six districts only (district key in brackets): Dhaka [dhaka] (the 50 DMP thanas plus Savar, Ashulia, Dhamrai, \
-Keraniganj, Dohar and Nawabganj), Chattogram [chattogram], Sylhet [sylhet], Khulna [khulna], Barishal [barishal] and \
-Rangpur [rangpur], each meaning the whole district (city and upazilas). Every other district is OUT of scope, \
-including neighbours such as Gazipur, Narayanganj, Cox's Bazar, Bagerhat, Sunamganj or Gaibandha. A place named \
-right after another district ("কুষ্টিয়ার মিরপুরে", "চট্টগ্রামের কোতোয়ালীতে") belongs to that district. Where the crime \
+Scope - all 64 districts of Bangladesh (keys of the districts an article names are given with it). Crimes outside Bangladesh are OUT of \
+scope. A place named right after a district ("কুষ্টিয়ার মিরপুরে", "চট্টগ্রামের কোতোয়ালীতে") belongs to that district: \
+many upazila and thana names exist in several districts (Kotwali, Kaliganj, Shibganj, Mirpur...). Where the crime \
 happened decides the district, not a victim's home, an arrest or court location, or a hospital the victim was taken to.
 
 What counts as an incident: a specific criminal event at an identifiable place - murder, assault or violent \
@@ -57,7 +55,7 @@ A round-up article about different crimes can produce several entries. Never inv
 Categories (use the key): {categories}
 
 Location - this matters most:
-- district: the key of the supported district where the crime happened, or null if it was elsewhere or unclear. \
+- district: the key of the district where the crime happened, or null if it was outside Bangladesh or unclear. \
 A round-up article can contain incidents in several districts.
 - location_text: the most specific place phrase as written, e.g. "মিরপুর ১১ নম্বর মেট্রোরেল স্টেশনের নিচে".
 - place_id: the MOST specific catalogue entry that contains the location (landmark > area > thana). If the \
@@ -102,11 +100,13 @@ def user_message(article: Article) -> str:
 _COMPACT_CATALOGUE = (
     "Place candidates are given per article in the user message (`place_candidates`): only places this article "
     "mentions, plus their parent thanas, each with its district. Use only those ids for place_id, or null, and set "
-    "district to that place's district. An empty list means the article names no place in a supported district: then "
-    "the incidents are probably out of scope.\n\n"
+    "district to that place's district. `district_candidates` lists the districts the article names (key | Bangla | "
+    "English); use those keys. An empty place list means the article names no place the catalogue knows: then use "
+    "the district named in the text if any, place_id null.\n\n"
     "Dates: never calculate dates yourself. `recent_dates` lists the publication day and the 7 days before it with "
     "their Bangla weekday names. 'আজ' = the day marked today, 'গতকাল' = the day marked yesterday, a weekday name "
-    "(e.g. শনিবার) = the most recent listed day with that name. If the event is older or unclear, use null.\n\n"
+    "(e.g. শনিবার) = the most recent listed day with that name. An older event keeps its date only if the article "
+    "states it explicitly (e.g. '২০২৪ সালের ১৮ জুলাই' = 2024-07-18); if the date is unclear, use null.\n\n"
     "Category rules: murder only if someone was killed; a shooting, stabbing or beating where nobody died is assault "
     "(attempted murder = assault); taking property by force or threat on the spot = robbery; taking it secretly = "
     "theft; demanding money by threats = fraud_extortion; drugs_arms only when drugs or weapons were seized (an arrest for another crime is not drugs_arms). Holding someone to extort money is one incident: kidnapping if the victim was abducted or confined, otherwise fraud_extortion. "
@@ -115,8 +115,8 @@ _WEEKDAYS_BN = ["সোমবার", "মঙ্গলবার", "বুধব�
 
 
 def candidate_places(article: Article) -> list:
-    """Places the article mentions (gazetteer matcher, namesakes excluded) plus their thanas. If it names no place in a
-    supported district the list is empty and place_id can only be null: offering every thana invited invented locations."""
+    """Places the article mentions (gazetteer matcher, namesakes excluded) plus their thanas. If it names no known place
+    the list is empty and place_id can only be null: offering every thana invited invented locations."""
     from ..gazetteer import REFERRAL_PLACES
     gaz = load_gazetteer()
     out = []
@@ -127,6 +127,15 @@ def candidate_places(article: Article) -> list:
             if q not in out:
                 out.append(q)
     return out
+
+
+def district_candidates(article: Article, candidates: list) -> list[str]:
+    """Districts the article names by a district word, plus the districts of its place candidates."""
+    from ..schema import DISTRICTS
+    gaz = load_gazetteer()
+    named = gaz.district_mentions(f"{article.title}\n{article.keywords}\n{article.body}")
+    keys = [*sorted(named), *(p.district for p in candidates)]
+    return [f"{k} | {DISTRICTS[k]['bn']} | {DISTRICTS[k]['en']}" for k in dict.fromkeys(keys) if k in DISTRICTS]
 
 
 @lru_cache(maxsize=1)
@@ -149,6 +158,7 @@ def compact_user_message(article: Article, candidates: list) -> str:
             for i in range(8)] if pub else [],
         "place_candidates": [f"{p.id} | {p.name_bn} | {p.name_en} | {p.kind} | thana: {p.parent or p.id} | "
                              f"district: {p.district}" for p in candidates],
+        "district_candidates": district_candidates(article, candidates),
         "section": article.section, "keywords": article.keywords,
         "title": article.title, "body": article.body,
     }, ensure_ascii=False)

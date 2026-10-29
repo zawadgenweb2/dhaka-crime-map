@@ -4,7 +4,7 @@
 
   const I18N = {
     bn: {
-      title: "বাংলাদেশ অপরাধ মানচিত্র", district: "জেলা", allDistricts: "সব জেলা (৬টি)", allAreas: "সব থানা / উপজেলা", period: "সময়কাল", from: "শুরু", to: "শেষ",
+      title: "বাংলাদেশ অপরাধ মানচিত্র", place: "বিভাগ ও জেলা", allDivisions: "সব বিভাগ (৮টি)", allDistricts: "বিভাগের সব জেলা", period: "সময়কাল", from: "শুরু", to: "শেষ",
       crimeType: "অপরাধের ধরন", all: "সব", area: "থানা / এলাকা", allDhaka: "সমগ্র ঢাকা", mapView: "মানচিত্র",
       heat: "হিটম্যাপ", both: "দুটোই", points: "ঘটনা", hotspots: "সবচেয়ে বেশি ঘটনা", timeOfDay: "দিনের কোন সময়ে",
       daily: "প্রতিদিনের ঘটনা", reports: "প্রতিবেদন", tabFilters: "ফিল্টার", tabMap: "মানচিত্র", tabFeed: "প্রতিবেদন",
@@ -22,7 +22,7 @@
       showing: "{n}/{total}", offline: "সার্ভারে পৌঁছানো যাচ্ছে না; পুরোনো তথ্য দেখানো হচ্ছে",
     },
     en: {
-      title: "Bangladesh Crime Map", district: "District", allDistricts: "All 6 districts", allAreas: "All thanas / upazilas", period: "Period", from: "From", to: "To",
+      title: "Bangladesh Crime Map", place: "Division & district", allDivisions: "All 8 divisions", allDistricts: "All districts of the division", period: "Period", from: "From", to: "To",
       crimeType: "Crime type", all: "All", area: "Thana / area", allDhaka: "All of Dhaka", mapView: "Map",
       heat: "Heatmap", both: "Both", points: "Incidents", hotspots: "Most incidents", timeOfDay: "Time of day",
       daily: "Incidents per day", reports: "Reports", tabFilters: "Filters", tabMap: "Map", tabFeed: "Reports",
@@ -63,7 +63,7 @@
 
   const state = {
     lang: store.get("dcm.lang", "bn"), days: 7, start: "", end: "",
-    cats: new Set(CAT_ORDER), district: "", thana: "", mode: "heat", meta: null, incidents: [], stats: null, selected: null, mix: null, heat: null,
+    cats: new Set(CAT_ORDER), division: "", district: "", thana: "", mode: "heat", meta: null, incidents: [], stats: null, selected: null, mix: null, heat: null,
   };
   let engine = null;
 
@@ -294,16 +294,18 @@
     const p = new URLSearchParams();
     if (state.start && state.end) { p.set("start", state.start); p.set("end", state.end); } else p.set("days", state.days);
     if (state.cats.size && state.cats.size < CAT_ORDER.length) p.set("categories", [...state.cats].join(","));
+    if (state.division) p.set("division", state.division);
     if (state.district) p.set("district", state.district);
     if (state.thana) p.set("thana", state.thana);
     if (state.version?.data_version) p.set("v", state.version.data_version);    // never reuse a cached old answer
     return p.toString();
   }
 
-  // Map view for the current district selection (or all six districts)
+  // Map view for the current selection: a district, a division, or the whole country
   function areaBounds() {
     const d = state.meta.districts.find((x) => x.id === state.district);
-    const b = d ? d.bounds : state.meta.all_bounds;
+    const dv = state.meta.divisions.find((x) => x.id === state.division);
+    const b = d ? d.bounds : dv ? dv.bounds : state.meta.all_bounds;
     return b ? { ...b } : null;
   }
   function fitArea() { const b = areaBounds(); if (b && engine) engine.fitTo(b); }
@@ -375,23 +377,24 @@
       const d = +b.dataset.days; b.textContent = d === 365 ? `১ ${t("year")}`.replace("১", num(1)) : `${num(d)} ${t("days")}`;
     });
     $("#lang-btn").textContent = state.lang === "bn" ? "EN" : "বাং";
-    fill($("#district"), el("option", { value: "" }, t("allDistricts")),
-      ...state.meta.districts.map((d) => el("option", { value: d.id }, state.lang === "bn" ? d.bn : d.en)));
-    $("#district").value = state.district;
-    renderThanaSelect();
+    fill($("#division"), el("option", { value: "" }, t("allDivisions")),
+      ...state.meta.divisions.map((d) => el("option", { value: d.id }, label(d))));
+    $("#division").value = state.division;
+    renderDistrictSelect();
     renderStatus();
   }
 
-  // Thana / upazila drill-down inside the selected district
-  function renderThanaSelect() {
-    const sel = $("#thana");
-    sel.hidden = !state.district;
-    if (!state.district) { fill(sel); return; }
-    const byName = (a, b) => (state.lang === "bn" ? a.name_bn.localeCompare(b.name_bn, "bn") : a.name_en.localeCompare(b.name_en));
-    fill(sel, el("option", { value: "" }, t("allAreas")),
-      ...state.meta.thanas.filter((p) => p.district === state.district).sort(byName)
-        .map((p) => el("option", { value: p.id }, state.lang === "bn" ? p.name_bn : p.name_en)));
-    sel.value = state.thana;
+  const label = (x) => (state.lang === "bn" ? x.bn : x.en);
+  // District drill-down inside the selected division (alphabetical in the page's language)
+  function renderDistrictSelect() {
+    const sel = $("#district");
+    sel.hidden = !state.division;
+    if (!state.division) { fill(sel); return; }
+    const byName = (a, b) => label(a).localeCompare(label(b), state.lang === "bn" ? "bn" : "en");
+    fill(sel, el("option", { value: "" }, t("allDistricts")),
+      ...state.meta.districts.filter((d) => d.division === state.division).sort(byName)
+        .map((d) => el("option", { value: d.id }, label(d))));
+    sel.value = state.district;
   }
 
   function renderChips() {
@@ -404,7 +407,8 @@
 
   function renderTiles() {
     const s = state.stats;
-    const topThana = state.district ? s.by_thana[0] : s.by_district[0] && { name_bn: s.by_district[0].bn, name_en: s.by_district[0].en };
+    const top = state.district ? s.by_thana[0] : (state.division ? s.by_district : s.by_division)[0];
+    const topThana = top && { name_bn: top.name_bn || top.bn, name_en: top.name_en || top.en };
     const topCat = Object.entries(s.by_category).sort((a, b) => b[1] - a[1])[0];
     const tile = (v, k, txt) => el("div", { class: "tile" }, el("div", { class: txt ? "v txt" : "v", title: v }, v), el("div", { class: "k" }, k));
     fill($("#tiles"), 
@@ -416,11 +420,11 @@
   }
 
   function renderRank() {
-    if (!state.district) {   // all districts: rank the districts
-      const ds = state.stats.by_district;
+    if (!state.district) {   // whole country: rank the divisions; one division: rank its districts
+      const ds = (state.division ? state.stats.by_district : state.stats.by_division || []).slice(0, 10);
       const mx = Math.max(1, ...ds.map((r) => r.count));
       fill($("#rank"), ...(ds.length ? ds.map((r, i) => el("li", {}, el("button", {
-        type: "button", onclick: () => selectDistrict(r.id),
+        type: "button", onclick: () => (state.division ? selectDistrict(r.id) : selectDivision(r.id)),
       }, el("span", { class: "pos" }, num(i + 1)),
         el("span", { class: "name" }, el("b", {}, state.lang === "bn" ? r.bn : r.en),
           el("span", { class: "bar", style: `width:${(r.count / mx) * 100}%` }, el("i", { style: "flex:1;background:var(--accent)" }))),
@@ -431,7 +435,8 @@
     const max = Math.max(1, ...rows.map((r) => r.count));
     fill($("#rank"), ...(rows.length ? rows.map((r, i) => el("li", {}, el("button", {
       type: "button", class: state.thana === r.id ? "on" : "",
-      onclick: () => { state.thana = state.thana === r.id ? "" : r.id; $("#thana").value = state.thana; refresh({ fit: true, fallback: r.lat ? { lat: r.lat, lng: r.lng, zoom: 13 } : null }); },
+      onclick: () => { state.thana = state.thana === r.id ? "" : r.id; if (!state.thana) { refresh(); fitArea(); return; }
+                       refresh({ fit: true, fallback: r.lat ? { lat: r.lat, lng: r.lng, zoom: 13 } : null }); },
     },
       el("span", { class: "pos" }, num(i + 1)),
       el("span", { class: "name" }, el("b", {}, state.lang === "bn" ? r.name_bn : r.name_en),
@@ -482,7 +487,7 @@
       ...hiddenTypes.map((k) => el("p", {}, t("totalsOnlyFeed", { cat: catLabel(k), n: state.stats.by_category[k] }))),
       // per-district numbers are totals too (same as the hotspot list); no places below district level
       list.length ? null : el("p", { class: "muted" }, t("byDistrict"), " ",
-        (state.stats.by_district || []).map((d) => `${state.lang === "bn" ? d.bn : d.en} ${num(d.count)}`).join(" · "))) : null;
+        (state.stats.by_district || []).slice(0, 12).map((d) => `${label(d)} ${num(d.count)}`).join(" · "))) : null;
     $("#feed-count").textContent = list.length < state.incidents.length
       ? t("showing", { n: list.length, total: state.incidents.length }) : num(state.incidents.length);
     fill($("#feed"), ...(list.length ? list.map((i) => el("li", {}, el("button", {
@@ -632,12 +637,8 @@
     };
     $("#start").addEventListener("change", onDate); $("#end").addEventListener("change", onDate);
     $("#cats-all").addEventListener("click", () => { state.cats = new Set(CAT_ORDER); refresh({ fit: true }); });
+    $("#division").addEventListener("change", (e) => selectDivision(e.target.value));
     $("#district").addEventListener("change", (e) => selectDistrict(e.target.value));
-    $("#thana").addEventListener("change", (e) => {
-      state.thana = e.target.value; const p = state.meta.thanas.find((x) => x.id === state.thana);
-      if (!state.thana) { refresh(); fitArea(); return; }
-      refresh({ fit: true, fallback: p && p.lat ? { lat: p.lat, lng: p.lng, zoom: 13 } : null });
-    });
     document.querySelectorAll("#mode button").forEach((b) => b.addEventListener("click", () => {
       state.mode = b.dataset.mode; document.querySelectorAll("#mode button").forEach((x) => x.classList.toggle("on", x === b));
       renderLegend(); engine?.render(); paintHeat();
@@ -650,9 +651,16 @@
     document.querySelectorAll("#tabs button").forEach((b) => b.addEventListener("click", () => setTab(b.dataset.tab)));
   }
 
+  function selectDivision(id) {
+    state.division = id || ""; state.district = ""; state.thana = "";
+    $("#division").value = state.division; renderDistrictSelect();
+    refresh(); fitArea();
+  }
   function selectDistrict(id) {
+    const d = state.meta.districts.find((x) => x.id === id);
+    if (d && d.division !== state.division) { state.division = d.division; $("#division").value = d.division; }
     state.district = id || ""; state.thana = "";
-    $("#district").value = state.district; renderThanaSelect();
+    renderDistrictSelect();
     refresh(); fitArea();
   }
 

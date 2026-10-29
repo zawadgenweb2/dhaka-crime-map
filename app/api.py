@@ -26,7 +26,7 @@ from . import auth, db
 from .config import ROOT, settings
 from .gazetteer import load as load_gazetteer
 from .scheduler import next_run
-from .schema import CATEGORIES, DISTRICTS, TIME_OF_DAY
+from .schema import CATEGORIES, DISTRICTS, DIVISIONS, TIME_OF_DAY
 from .sources import enabled_sources
 from .scraper import DHAKA_TZ
 
@@ -67,7 +67,8 @@ MAX_WAITING_PREVIEWS = 5
 
 
 def _filters(start: str | None, end: str | None, days: int | None, categories: str | None,
-             thana: str | None, district: str | None = None) -> tuple[str, list, date, date]:
+             thana: str | None, district: str | None = None,
+             division: str | None = None) -> tuple[str, list, date, date]:
     today = datetime.now(DHAKA_TZ).date()
     try:
         end_d = date.fromisoformat(end) if end else today
@@ -95,6 +96,13 @@ def _filters(start: str | None, end: str | None, days: int | None, categories: s
         if cats:
             where.append("i.category = ANY(%s)")
             params.append(cats)
+    if division:
+        if division not in DIVISIONS:
+            raise HTTPException(400, f"unknown division: {division}")
+        if district and DISTRICTS.get(district, {}).get("division") != division:   # never silently widen or empty
+            raise HTTPException(400, f"{district} is not in {division}")
+        where.append("i.district_id = ANY(%s)")
+        params.append([k for k, v in DISTRICTS.items() if v["division"] == division])
     if district:
         if district not in DISTRICTS:
             raise HTTPException(400, f"unknown district: {district}")
@@ -214,7 +222,7 @@ def create_app() -> FastAPI:
     def health():
         with db.connect() as c:
             c.execute("SELECT 1")
-        return {"ok": True}
+        return {"ok": True, "version": settings.version}
 
     @app.get("/api/meta")
     def meta():
@@ -271,9 +279,10 @@ def create_app() -> FastAPI:
     @app.get("/api/incidents")
     def incidents(response: Response, start: str | None = None, end: str | None = None,
                   days: int | None = Query(None, ge=1, le=3650), categories: str | None = None,
-                  thana: str | None = None, district: str | None = None, limit: int = Query(10000, ge=1, le=20000)):
+                  thana: str | None = None, district: str | None = None, division: str | None = None,
+                  limit: int = Query(10000, ge=1, le=20000)):
         """Published, non-duplicate Gemma incidents. X-Total-Count / X-Truncated tell clients when `limit` cut it."""
-        where, params, _, _ = _filters(start, end, days, categories, thana, district)
+        where, params, _, _ = _filters(start, end, days, categories, thana, district, division)
         with db.connect() as c:
             total = c.execute(f"SELECT count(*) n FROM incidents i WHERE {where}", params).fetchone()["n"]
             response.headers["X-Total-Count"] = str(total)
@@ -301,8 +310,8 @@ def create_app() -> FastAPI:
     @app.get("/api/stats")
     def stats(start: str | None = None, end: str | None = None, days: int | None = Query(None, ge=1, le=3650),
               categories: str | None = None, thana: str | None = None,
-              district: str | None = None):
-        where, params, start_d, end_d = _filters(start, end, days, categories, thana, district)
+              district: str | None = None, division: str | None = None):
+        where, params, start_d, end_d = _filters(start, end, days, categories, thana, district, division)
         gaz = load_gazetteer()
         with db.connect() as c:
             def q(sql):

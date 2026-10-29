@@ -1,6 +1,8 @@
 """Shared output schema for every classifier (in-house Gemma model; keyword rules offline)."""
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
@@ -55,12 +57,12 @@ _check_categories()
 
 Category = Literal[tuple(CATEGORIES)]          # the model's enum, generated from the list above
 Precision = Literal["exact", "neighbourhood", "thana", "city"]
-District = Literal["dhaka", "chattogram", "sylhet", "khulna", "barishal", "rangpur"]
-DISTRICTS: dict[str, dict[str, str]] = {
-    "dhaka": {"bn": "ঢাকা", "en": "Dhaka"}, "chattogram": {"bn": "চট্টগ্রাম", "en": "Chattogram"},
-    "sylhet": {"bn": "সিলেট", "en": "Sylhet"}, "khulna": {"bn": "খুলনা", "en": "Khulna"},
-    "barishal": {"bn": "বরিশাল", "en": "Barishal"}, "rangpur": {"bn": "রংপুর", "en": "Rangpur"},
-}
+# Divisions and districts of Bangladesh (8 and 64, Bangladesh National Portal), from data/places.json
+_PLACES = json.loads((Path(__file__).resolve().parent.parent / "data" / "places.json").read_text(encoding="utf-8"))
+DIVISIONS: dict[str, dict[str, str]] = {d["id"]: {"bn": d["name_bn"], "en": d["name_en"]} for d in _PLACES["divisions"]}
+DISTRICTS: dict[str, dict[str, str]] = {d["id"]: {"bn": d["name_bn"], "en": d["name_en"], "division": d["division"]}
+                                        for d in _PLACES["districts"]}
+District = Literal[tuple(DISTRICTS)]           # the model's enum: all 64 districts
 TimeOfDay = Literal["morning", "afternoon", "evening", "night", "unknown"]
 
 TIME_OF_DAY = {
@@ -74,7 +76,7 @@ TIME_OF_DAY = {
 
 class Incident(BaseModel):
     category: Category
-    district: District | None = Field(None, description="Supported district where the crime happened, or null")
+    district: District | None = Field(None, description="District of Bangladesh where the crime happened, or null")
     headline_bn: str = Field(description="One-line Bangla summary of this incident (max ~90 chars)")
     headline_en: str = Field(description="Same summary in English")
     location_text: str = Field(description="Most specific location phrase exactly as written in the article")
@@ -91,7 +93,7 @@ class Incident(BaseModel):
 
 class ArticleAnalysis(BaseModel):
     is_crime_report: bool
-    in_scope: bool = Field(description="True only if at least one incident happened inside a supported district")
+    in_scope: bool = Field(description="True only if at least one incident happened in Bangladesh")
     incidents: list[Incident]
     note: str = Field(description="One short sentence on why incidents were or were not extracted")
 

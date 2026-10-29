@@ -57,6 +57,8 @@ class Settings:
     # Machine token for scripts (X-Admin-Token) on the admin app only; people log in with their own accounts.
     admin_token: str = os.getenv("ADMIN_TOKEN", "")
 
+    # Build identity (the image's git commit, set by the build: docker build --build-arg GIT_SHA=...)
+    version: str = os.getenv("APP_VERSION", "dev")
 
 
 settings = Settings()

@@ -24,6 +24,7 @@ class Source:
     body_selectors: tuple[str, ...] = ()        # empty = JSON-LD articleBody (Prothom Alo)
     crime_sections: frozenset[str] = frozenset()        # always worth downloading
     title_after_download: frozenset[str] = frozenset()  # untitled archive entries downloaded in these sections
+                                                        # ("country/*" = every section under "country")
     sections_in_path: bool = True               # False: URLs carry no section (numeric id + slug)
     title_in_url: bool = False                  # the URL slug is the headline (usable when a sitemap has no title)
 
@@ -48,12 +49,11 @@ SOURCES: dict[str, Source] = {s.key: s for s in [
            frozenset({"www.banglatribune.com", "banglatribune.com"}), "/news-sitemap.xml",
            archive="monthly", archive_path="/archive_{month}.xml", body_selectors=(".jw_article_body",),
            crime_sections=frozenset({"law-and-crime"}), title_in_url=True,
-           title_after_download=frozenset({"country", "national"})),
+           title_after_download=frozenset({"country", "country/*", "national"})),
     Source("ajkerpatrika", "আজকের পত্রিকা", "Ajker Patrika", "https://www.ajkerpatrika.com",
            frozenset({"www.ajkerpatrika.com", "ajkerpatrika.com"}), "/news-sitemap.xml",
            archive="daily", archive_path="/sitemap/{day}.xml", body_selectors=(".block-full_richtext",),
-           title_after_download=frozenset({"national", "bangladesh/dhaka", "bangladesh/chattogram", "bangladesh/sylhet",
-                                           "bangladesh/khulna", "bangladesh/barisal", "bangladesh/rangpur"})),
+           title_after_download=frozenset({"national", "bangladesh/*"})),
     Source("deshrupantor", "দেশ রূপান্তর", "Desh Rupantor", "https://www.deshrupantor.com",
            frozenset({"www.deshrupantor.com", "deshrupantor.com"}), "/news-sitemap.xml",
            archive="monthly", archive_path="/{month}.xml", body_selectors=(".jw_article_body",),
@@ -69,6 +69,17 @@ def enabled_sources() -> list[Source]:
 def source_for_url(url: str) -> Source | None:
     host = (urlsplit(url).hostname or "").lower()
     return next((s for s in SOURCES.values() if host in s.hosts), None)
+
+
+def section_matches(section: str, patterns) -> bool:
+    """`section` is one of `patterns`; a pattern "country/*" matches every section under "country" (not "country")."""
+    for pat in patterns:
+        if pat.endswith("/*"):
+            if section.startswith(pat[:-1]):
+                return True
+        elif section == pat:
+            return True
+    return False
 
 
 def section_of(url: str) -> str:

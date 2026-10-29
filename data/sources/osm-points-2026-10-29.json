@@ -1,0 +1,40 @@
+{
+ "note": "Points from OpenStreetMap Nominatim (ODbL), looked up once for places without a Wikidata point.",
+ "points": {
+  "bogura:mokamtola": {
+   "lat": 25.01202,
+   "lng": 89.36956,
+   "osm": "node/12997206850",
+   "match": "North Bengal Public School Mokamtola, School, Rangpur - Bogra Highway, শিবগঞ্জ, শিবগঞ্জ উপজেলা (বগুড়া), বগুড়া জেলা, রাজ",
+   "query": "Mokamtola, Bogura, Bangladesh"
+  },
+  "chattogram:bakalia": {
+   "lat": 22.34957,
+   "lng": 91.84329,
+   "osm": "way/1364427789",
+   "match": "Bakalia Access Road, চট্টগ্রাম, চট্টগ্রাম শহর, চট্টগ্রাম জেলা, চট্টগ্রাম বিভাগ, 4000, বাংলাদেশ",
+   "query": "Bakalia, Chattogram, Bangladesh"
+  },
+  "cumilla:bangra": {
+   "lat": 23.71565,
+   "lng": 90.98414,
+   "osm": "node/13683833897",
+   "match": "বাঙ্গরা, মুরাদনগর উপজেলা, কুমিল্লা জেলা, চট্টগ্রাম বিভাগ, 3543, বাংলাদেশ",
+   "query": "বাঙ্গরা, কুমিল্লা"
+  },
+  "khulna:khulna_sadar": {
+   "lat": 22.79848,
+   "lng": 89.57298,
+   "osm": "relation/19687440",
+   "match": "খুলনা সদর, খুলনা জেলা, খুলনা বিভাগ, 9100, বাংলাদেশ",
+   "query": "Khulna Sadar, Khulna, Bangladesh"
+  },
+  "rajshahi:chandrima": {
+   "lat": 24.38096,
+   "lng": 88.6227,
+   "osm": "way/553191841",
+   "match": "Chandrima R/A Cultural Centre, স্টেশন রোড, পদ্মা আবাসিক এলাকা, কাদিরগঞ্জ, রাজশাহী, রাজশাহী জেলা, রাজশাহী বিভাগ, 6207, বা",
+   "query": "Chandrima, Rajshahi, Bangladesh"
+  }
+ }
+}

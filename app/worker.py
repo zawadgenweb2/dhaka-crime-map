@@ -270,6 +270,20 @@ class Worker:
         # queue empty: tidy a few look-alike events (each pair is judged once per matcher version)
         return consolidate(self.classifier, limit=3)["pairs_checked"] > 0
 
+    def _match_loop(self):
+        """The cross-paper matcher on its own thread (one model-server slot), so a long classification queue (a
+        backfill or reprocess-all) never leaves reports unmatched for hours. Classify threads also help when idle."""
+        while not self.stop.is_set():
+            if time.monotonic() < self.paused_until:
+                self.stop.wait(15)
+                continue
+            try:
+                if not self.run_match():
+                    self.stop.wait(5)
+            except Exception:
+                log.exception("matcher iteration failed")
+                self.stop.wait(10)
+
     def _geocode_loop(self):
         """Exact spots for published incidents, one at a time through the shared Nominatim lane."""
         while not self.stop.is_set():
@@ -292,6 +306,8 @@ class Worker:
                  settings.classify_concurrency)
         threads = [threading.Thread(target=self._loop, name=f"classify-{i}", daemon=True)
                    for i in range(max(1, settings.classify_concurrency))]
+        if hasattr(self.classifier, "chat_json"):
+            threads.append(threading.Thread(target=self._match_loop, name="match", daemon=True))
         if self.use_geocoder and settings.geocode_enabled:
             threads.append(threading.Thread(target=self._geocode_loop, name="geocode", daemon=True))
         for t in threads:

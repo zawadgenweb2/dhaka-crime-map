@@ -1,0 +1,73 @@
+{
+ "note": "For every place outside the curated Dhaka catalogue: in how many articles does its name appear, and in how many of those is its district also named? A real upazila is usually reported with its district; a common word is not. Names seen in >= 30 articles with their district in < 30% of them must have their district in the text to count as the place. Places named like another district (Faridpur upazila in Pabna) are always on the list.",
+ "rule": {
+  "min_articles": 30,
+  "max_share_with_district": 0.3
+ },
+ "names": {
+  "কিশোরগঞ্জ": {
+   "articles": 356,
+   "with_its_district": 0.06
+  },
+  "গোপালপুর": {
+   "articles": 86,
+   "with_its_district": 0.16
+  },
+  "চকবাজার": {
+   "articles": 132,
+   "with_its_district": 0.3
+  },
+  "জাজিরা": {
+   "articles": 251,
+   "with_its_district": 0.22
+  },
+  "তালা": {
+   "articles": 518,
+   "with_its_district": 0.08
+  },
+  "নাজিরপুর": {
+   "articles": 34,
+   "with_its_district": 0.26
+  },
+  "পলাশ": {
+   "articles": 312,
+   "with_its_district": 0.11
+  },
+  "ফরিদপুর": {
+   "articles": 455,
+   "with_its_district": 0.08
+  },
+  "বিমানবন্দর": {
+   "articles": 1234,
+   "with_its_district": 0.06
+  },
+  "বিরল": {
+   "articles": 119,
+   "with_its_district": 0.06
+  },
+  "বেড়া": {
+   "articles": 452,
+   "with_its_district": 0.07
+  },
+  "মিরপুর": {
+   "articles": 1163,
+   "with_its_district": 0.03
+  },
+  "মেঘনা": {
+   "articles": 197,
+   "with_its_district": 0.19
+  },
+  "শেরপুর": {
+   "articles": 188,
+   "with_its_district": 0.31
+  },
+  "সোনারগাঁও": {
+   "articles": 70,
+   "with_its_district": 0.29
+  },
+  "হরিপুর": {
+   "articles": 50,
+   "with_its_district": 0.2
+  }
+ }
+}

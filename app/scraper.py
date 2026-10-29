@@ -25,7 +25,7 @@ from defusedxml import ElementTree as ET
 
 from .config import settings
 from .gazetteer import Gazetteer
-from .sources import SOURCES, Source, section_of, source_for_url, title_from_url
+from .sources import SOURCES, Source, section_matches, section_of, source_for_url, title_from_url
 from .text import crime_signal, normalize
 
 log = logging.getLogger(__name__)
@@ -36,8 +36,10 @@ NS = {"s": "http://www.sitemaps.org/schemas/sitemap/0.9", "n": "http://www.googl
 CRIME_SECTIONS = set().union(*(s.crime_sections for s in SOURCES.values()))
 # Not articles (no text to read)
 NON_ARTICLE_SECTIONS = {"video", "videos", "photo", "photos", "gallery", "amp", "topic", "tags", "author", "https:", "http:"}
-# District-news sections: a bare "ঢাকা" there is not the capital
-DISTRICT_SECTIONS = {"bangladesh/district", "whole-country"}
+# District-news sections (whole country, by division): a bare "ঢাকা" there is not the capital
+DISTRICT_SECTIONS = {"bangladesh/district", "whole-country", "country", "country/*", "bangladesh/dhaka",
+                     "bangladesh/chattogram", "bangladesh/rajshahi", "bangladesh/khulna", "bangladesh/barisal",
+                     "bangladesh/barishal", "bangladesh/sylhet", "bangladesh/rangpur", "bangladesh/mymensingh"}
 MAX_BYTES = 8 * 1024 * 1024
 
 
@@ -109,7 +111,7 @@ def is_candidate(c: Candidate, gaz: Gazetteer) -> bool:
     if c.section in src.crime_sections:
         return True
     if not c.title and not c.keywords:
-        return c.section in src.title_after_download
+        return section_matches(c.section, src.title_after_download)
     return crime_signal(f"{c.title} {c.keywords}") > 0
 
 
@@ -119,14 +121,14 @@ CAPITAL_TERMS = [normalize(t) for t in ("রাজধানী", "ডিএম�
 
 
 def belongs_to_districts(section: str, text: str, gaz: Gazetteer) -> bool:
-    """Stage 2, after download: could the story be in one of the supported districts? Gemma makes the final call.
-    Crime/capital sections: any supported district or place named. Other sections: a place of a supported district
-    (not a referral hospital) or, outside district news, a capital term or another supported district's name."""
+    """Stage 2, after download: could the story be in Bangladesh? Gemma makes the final call.
+    Crime/capital sections: any district or place named. Other sections: a place (not a referral hospital), a
+    district other than Dhaka (a bare "ঢাকায়" is often "taken to Dhaka") or, outside district news, a capital term."""
     if section in CRIME_SECTIONS:
         return gaz.mentions_supported(text)
     if gaz.grounded_places(text) or gaz.district_mentions(text) - {"dhaka"}:
         return True
-    if section in DISTRICT_SECTIONS:
+    if section_matches(section, DISTRICT_SECTIONS):
         return False
     n = normalize(text)
     return any(t in n for t in CAPITAL_TERMS)
