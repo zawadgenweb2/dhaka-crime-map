@@ -41,9 +41,15 @@ def test_gazetteer_word_boundaries():
     assert g.find_all("চাঁপাইনবাবগঞ্জে হত্যা") == []
 
 
-@pytest.mark.parametrize("text", ["কুষ্টিয়ার মিরপুরে হত্যা", "দিনাজপুরের নবাবগঞ্জে হত্যা"])
-def test_gazetteer_rejects_other_district_namesakes(text):
-    assert load().find_all(text) == []
+@pytest.mark.parametrize("text,expected", [("কুষ্টিয়ার মিরপুরে হত্যা", "kushtia:mirpur"),
+                                           ("দিনাজপুরের নবাবগঞ্জে হত্যা", "dinajpur:nawabganj")])
+def test_gazetteer_resolves_namesakes_by_their_district(text, expected):
+    assert [p.id for p in load().find_all(text)] == [expected]      # never Dhaka's Mirpur or Nawabganj
+
+
+def test_gazetteer_rejects_places_abroad():
+    assert load().find_all("ত্রিপুরার কৈলাশহরে হত্যা") == []
+    assert load().find_all("পশ্চিমবঙ্গের নবাবগঞ্জে হত্যা") == []
 
 
 def test_gazetteer_resolves_supported_district_namesake():
@@ -53,7 +59,14 @@ def test_gazetteer_resolves_supported_district_namesake():
 def test_gazetteer_integrity():
     g = load()
     assert len([p for p in g.places if p.kind == "thana" and p.district == "dhaka"]) == 50
-    assert {p.district for p in g.places} == {"dhaka", "chattogram", "sylhet", "khulna", "barishal", "rangpur"}
+    assert len(g.divisions) == 8 and len(g.districts) == 64                 # Bangladesh National Portal
+    assert {p.district for p in g.places} <= {d["id"] for d in g.districts}
+    assert all(d["division"] in {v["id"] for v in g.divisions} for d in g.districts)
+    # every district has places (its upazilas) and a known centre
+    for d in g.districts:
+        assert any(p.district == d["id"] for p in g.places), d["id"]
+        assert 20.5 < d["lat"] < 26.7 and 88.0 < d["lng"] < 92.7, d["id"]
+    assert len({p.id for p in g.places}) == len(g.places)
     for p in g.places:
         if p.district == "dhaka":
             assert 23.55 < p.lat < 24.0 and 90.1 < p.lng < 90.6
@@ -106,8 +119,9 @@ def test_full_text_decides_dhaka():
     g = load()
     assert belongs_to_dhaka("bangladesh/district", "কেরানীগঞ্জে স্ত্রীকে হত্যার মামলায় রায়", g)
     assert belongs_to_dhaka("bangladesh/district", "চট্টগ্রাম নগরের বিবিরহাটে ছিনতাই, ঢাকা মেডিকেলে নেওয়া হয়", g)
-    assert not belongs_to_dhaka("bangladesh/district", "ফেনীর ছাগলনাইয়ায় ছিনতাই, ঢাকা মেডিকেলে নেওয়া হয়", g)
-    assert not belongs_to_dhaka("bangladesh/district", "টঙ্গীতে শিশুকে নিপীড়ন, গাজীপুর", g)
+    assert belongs_to_dhaka("bangladesh/district", "ফেনীর ছাগলনাইয়ায় ছিনতাই, ঢাকা মেডিকেলে নেওয়া হয়", g)   # all 64 now
+    assert belongs_to_dhaka("bangladesh/district", "টঙ্গীতে শিশুকে নিপীড়ন, গাজীপুর", g)
+    assert not belongs_to_dhaka("bangladesh/district", "স্ত্রীকে হত্যা, ঢাকা মেডিকেলে নেওয়া হয়", g)        # referral only
     assert belongs_to_dhaka("bangladesh", "রাজধানীতে ছিনতাই", g)
 
 
@@ -452,9 +466,11 @@ def test_streaming_measures_prefill_and_decode(monkeypatch):
 def test_referral_hospital_is_not_dhaka_evidence():
     from app.scraper import belongs_to_dhaka
     g = load()
-    # Chattogram is a supported district now: Gemma decides (the Dhaka Medical referral still does not count as Dhaka)
+    # every district counts now: Gemma decides (the Dhaka Medical referral still does not count as Dhaka)
     assert belongs_to_dhaka("bangladesh", "চট্টগ্রামে ছুরিকাঘাত, আহত ব্যক্তিকে ঢাকা মেডিকেলে নেওয়া হয়", g)
-    assert not belongs_to_dhaka("bangladesh", "ফেনীতে ছুরিকাঘাত, আহত ব্যক্তিকে ঢাকা মেডিকেলে নেওয়া হয়", g)
+    assert belongs_to_dhaka("bangladesh", "ফেনীতে ছুরিকাঘাত, আহত ব্যক্তিকে ঢাকা মেডিকেলে নেওয়া হয়", g)
+    assert not belongs_to_dhaka("bangladesh", "ছুরিকাঘাত, আহত ব্যক্তিকে ঢাকা মেডিকেলে নেওয়া হয়", g)
+    assert not belongs_to_dhaka("bangladesh", "ছুরিকাঘাত, আহত ব্যক্তিকে চমেক হাসপাতালে নেওয়া হয়", g)
     assert belongs_to_dhaka("bangladesh/crime", "চট্টগ্রামে ছুরিকাঘাত, ঢাকা মেডিকেলে নেওয়া হয়", g)   # crime section: Gemma decides
     assert belongs_to_dhaka("bangladesh", "মিরপুরে ছিনতাই, ঢাকা মেডিকেলে নেওয়া হয়", g)
 
@@ -464,7 +480,8 @@ def test_referral_hospital_is_not_dhaka_evidence():
 def test_namesake_through_connector_words():
     g = load()
     assert [p.id for p in g.find_all("চট্টগ্রাম নগরের চকবাজারে ছিনতাই")] == ["chattogram:chawkbazar"]
-    assert [p.id for p in g.find_all("কুষ্টিয়া সদর উপজেলার মিরপুরে হামলা")] == []
+    assert "kushtia:mirpur" in [p.id for p in g.find_all("কুষ্টিয়া সদর উপজেলার মিরপুরে হামলা")]
+    assert "mirpur" not in [p.id for p in g.find_all("কুষ্টিয়া সদর উপজেলার মিরপুরে হামলা")]
     assert "chawkbazar" in [p.id for p in g.find_all("পুরান ঢাকার চকবাজারে ছিনতাই")]
 
 
@@ -545,7 +562,7 @@ def test_shared_place_names_resolve_by_district():
     assert ids("কোতোয়ালী থানায় ছিনতাই") == []                                   # five districts have one: unused
     # the rest of the text settles an unqualified shared name
     assert set(ids("খুলনার খালিশপুরে হত্যা। কোতোয়ালী থানার ওসি জানান")) == {"khulna:khalishpur", "khulna:khulna_kotwali"}
-    assert ids("কুষ্টিয়ার মিরপুরে হামলা") == []                                   # unsupported district's namesake
+    assert ids("কুষ্টিয়ার মিরপুরে হামলা") == ["kushtia:mirpur"]                  # the other district's namesake
     assert ids("চট্টগ্রামের মিরপুরে হামলা") == []                                  # no Mirpur in Chattogram
 
 
@@ -742,3 +759,52 @@ def test_judge_quotes_must_be_in_the_article_verbatim_or_nearly():
     assert not in_text("খুবজন যুবক তাঁকে চুরির অভিযোগে মারধর করেন।", t)     # garbled
     assert not in_text("রাকিব হাসান নামে এক যুবককে কুপিয়ে হত্যা", t)          # not in the article
     assert not in_text("হত্যা", t)                                         # too short to prove anything
+
+
+# ---- all 64 districts (29 Oct) ---------------------------------------------------------------------
+def test_common_word_places_need_their_district():
+    g = load()
+    ids = lambda t: [p.id for p in g.find_all(t)]                                 # noqa: E731
+    assert ids("দোকানের তালা ভেঙে চুরি") == []                                   # তালা = lock, not Tala upazila
+    assert ids("সাতক্ষীরার তালায় হত্যা") == ["satkhira:tala"]
+    assert ids("তালা উপজেলায় হত্যা") == ["satkhira:tala"]                       # "উপজেলা" after it confirms
+    assert "satkhira:tala" in ids("তালায় হত্যা। সাতক্ষীরা পুলিশ জানায়")           # its district elsewhere in the text
+
+
+def test_district_words_and_police_units():
+    g = load()
+    assert g.district_mentions("কুমিল্লায় হত্যা") == {"cumilla"}
+    assert g.district_mentions("কক্সবাজারের টেকনাফে ইয়াবা") >= {"coxs_bazar"}
+    assert g.district_mentions("চাঁপাইনবাবগঞ্জে হত্যা") == {"chapai_nawabganj"}
+    assert "dhaka" in g.district_mentions("ডিএমপির মিরপুর বিভাগ")
+    assert "dhaka" not in g.district_mentions("ঢাকা মেডিকেল কলেজ হাসপাতালে মৃত্যু")   # referral, not a place
+
+
+def test_division_of_every_district():
+    from app.schema import DISTRICTS, DIVISIONS
+    assert set(DIVISIONS) == {"dhaka", "chattogram", "rajshahi", "khulna", "barishal", "sylhet", "rangpur", "mymensingh"}
+    counts = {}
+    for d in DISTRICTS.values():
+        counts[d["division"]] = counts.get(d["division"], 0) + 1
+    assert counts == {"dhaka": 13, "chattogram": 11, "rajshahi": 8, "khulna": 10, "barishal": 6, "sylhet": 4,
+                      "rangpur": 8, "mymensingh": 4}
+    assert DISTRICTS["gazipur"]["division"] == "dhaka" and DISTRICTS["bogura"]["division"] == "rajshahi"
+
+
+def test_incident_in_a_new_district_is_published():
+    g = load()
+    art = {**ARTICLE, "title": "ফেনীতে ছিনতাই", "body": "ফেনীর ছাগলনাইয়া উপজেলায় গতকাল রাতে এক ব্যবসায়ীর কাছ থেকে টাকা ছিনিয়ে নেওয়া হয়েছে।"}
+    pid = "feni:chhagalnaiya"
+    inc = _inc(category="robbery", place_id=pid, district="feni", location_text="ছাগলনাইয়া উপজেলায়",
+               evidence="ফেনীর ছাগলনাইয়া উপজেলায় গতকাল রাতে এক ব্যবসায়ীর কাছ থেকে টাকা ছিনিয়ে নেওয়া হয়েছে")
+    rows = build_rows(art, ArticleAnalysis(is_crime_report=True, in_scope=True, incidents=[inc], note=""), g, {}, "auto")
+    assert rows[0]["published"] and rows[0]["district"] == "feni"
+
+
+def test_section_patterns():
+    from app.sources import section_matches
+    assert section_matches("country/chitagong", {"country/*"}) and not section_matches("country", {"country/*"})
+    assert not section_matches("countryside", {"country/*"}) and not section_matches("bangladesh/dhaka", {"bangladesh"})
+    g = load()
+    assert is_candidate(Candidate("https://www.ajkerpatrika.com/bangladesh/rajshahi/ajp9", "bangladesh/rajshahi"), g)
+    assert is_candidate(Candidate("https://www.ajkerpatrika.com/bangladesh/mymensingh/ajp8", "bangladesh/mymensingh"), g)

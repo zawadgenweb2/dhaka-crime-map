@@ -58,6 +58,8 @@ def main(argv: list[str] | None = None) -> int:
     cp = sub.add_parser("compare"); cp.add_argument("--with", dest="other", default="gemma")
     cp.add_argument("--limit", type=int, default=1000); cp.add_argument("--out", default=None)
     sub.add_parser("stats")
+    hc = sub.add_parser("healthcheck", help="exit 0 if the service's heartbeat is recent (Docker HEALTHCHECK)")
+    hc.add_argument("service", choices=["collector", "classifier"]); hc.add_argument("--max-age", type=int, default=900)
     args = ap.parse_args(argv)
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -166,6 +168,14 @@ def main(argv: list[str] | None = None) -> int:
     elif args.cmd == "compare":
         from .evaluate import compare
         return compare(args.other, args.limit, args.out)
+    elif args.cmd == "healthcheck":
+        with db.connect() as c:
+            row = c.execute("""SELECT extract(epoch FROM now() - seen_at) AS age FROM heartbeats WHERE service = %s""",
+                            (args.service,)).fetchone()
+        age = None if row is None else float(row["age"])
+        ok = age is not None and age <= args.max_age
+        print(f"{args.service}: {'ok' if ok else 'stale'}, last heartbeat {'never' if age is None else f'{age:.0f} s ago'}")
+        return 0 if ok else 1
     elif args.cmd == "stats":
         with db.connect() as c:
             for r in c.execute("SELECT status, count(*) n FROM articles GROUP BY 1 ORDER BY 1"):

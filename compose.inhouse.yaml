@@ -37,5 +37,5 @@ services:
       DATABASE_URL: postgresql://dcm:${POSTGRES_PASSWORD}@127.0.0.1:${DB_HOST_PORT:-55432}/dcm
       GEMMA_BASE_URL: http://127.0.0.1:8090/v1
       GEMMA_MODEL: dhaka-gemma
-      CLASSIFY_CONCURRENCY: "1"
+      CLASSIFY_CONCURRENCY: ${CLASSIFY_CONCURRENCY:-2}   # the model server has 3 slots; one stays free for the event matcher
       PUBLISH_MODE: ${PUBLISH_MODE:-auto}

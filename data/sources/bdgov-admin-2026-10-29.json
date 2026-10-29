@@ -1,0 +1,2455 @@
+{
+ "source": "https://bangladesh.gov.bd/views/upazila-list",
+ "retrieved": "2026-10-29",
+ "note": "Bangladesh National Portal: division, district and upazila list with official websites. Counter on the page: 8 divisions, 64 districts, 500 upazilas.",
+ "districts": [
+  {
+   "division": "ঢাকা বিভাগ",
+   "district": "ঢাকা জেলা",
+   "url": "https://dhaka.gov.bd",
+   "upazilas": [
+    {
+     "name": "ধামরাই উপজেলা",
+     "url": "https://dhamrai.dhaka.gov.bd"
+    },
+    {
+     "name": "দোহার উপজেলা",
+     "url": "https://dohar.dhaka.gov.bd"
+    },
+    {
+     "name": "কেরাণীগঞ্জ উপজেলা",
+     "url": "https://keraniganj.dhaka.gov.bd"
+    },
+    {
+     "name": "নবাবগঞ্জ উপজেলা, ঢাকা",
+     "url": "https://nawabganj.dhaka.gov.bd"
+    },
+    {
+     "name": "সাভার উপজেলা",
+     "url": "https://savar.dhaka.gov.bd"
+    }
+   ]
+  },
+  {
+   "division": "ঢাকা বিভাগ",
+   "district": "ফরিদপুর জেলা",
+   "url": "https://faridpur.gov.bd",
+   "upazilas": [
+    {
+     "name": "আলফাডাঙ্গা উপজেলা",
+     "url": "https://alfadanga.faridpur.gov.bd"
+    },
+    {
+     "name": "ভাঙ্গা উপজেলা",
+     "url": "https://bhanga.faridpur.gov.bd"
+    },
+    {
+     "name": "বোয়ালমারী উপজেলা",
+     "url": "https://boalmari.faridpur.gov.bd"
+    },
+    {
+     "name": "চরভদ্রাসন উপজেলা",
+     "url": "https://charbhadrasan.faridpur.gov.bd"
+    },
+    {
+     "name": "ফরিদপুর সদর উপজেলা",
+     "url": "https://sadar.faridpur.gov.bd"
+    },
+    {
+     "name": "মধুখালী উপজেলা",
+     "url": "https://madhukhali.faridpur.gov.bd"
+    },
+    {
+     "name": "নগরকান্দা উপজেলা",
+     "url": "https://nagarkanda.faridpur.gov.bd"
+    },
+    {
+     "name": "সদরপুর উপজেলা",
+     "url": "https://sadarpur.faridpur.gov.bd"
+    },
+    {
+     "name": "সালথা উপজেলা",
+     "url": "https://saltha.faridpur.gov.bd"
+    }
+   ]
+  },
+  {
+   "division": "ঢাকা বিভাগ",
+   "district": "গাজীপুর জেলা",
+   "url": "https://gazipur.gov.bd",
+   "upazilas": [
+    {
+     "name": "গাজীপুর সদর উপজেলা",
+     "url": "https://sadar.gazipur.gov.bd"
+    },
+    {
+     "name": "কালিয়াকৈর উপজেলা",
+     "url": "https://kaliakair.gazipur.gov.bd"
+    },
+    {
+     "name": "কালীগঞ্জ উপজেলা",
+     "url": "https://kaliganj.gazipur.gov.bd"
+    },
+    {
+     "name": "কাপাসিয়া উপজেলা",
+     "url": "https://kapasia.gazipur.gov.bd"
+    },
+    {
+     "name": "শ্রীপুর উপজেলা",
+     "url": "https://sreepur.gazipur.gov.bd"
+    }
+   ]
+  },
+  {
+   "division": "ঢাকা বিভাগ",
+   "district": "গোপালগঞ্জ জেলা",
+   "url": "https://gopalganj.gov.bd",
+   "upazilas": [
+    {
+     "name": "গোপালগঞ্জ সদর উপজেলা",
+     "url": "https://sadar.gopalganj.gov.bd"
+    },
+    {
+     "name": "কাশিয়ানী উপজেলা",
+     "url": "https://kashiani.gopalganj.gov.bd"
+    },
+    {
+     "name": "কোটালীপাড়া উপজেলা",
+     "url": "https://kotalipara.gopalganj.gov.bd"
+    },
+    {
+     "name": "মুকসুদপুর উপজেলা",
+     "url": "https://muksudpur.gopalganj.gov.bd"
+    },
+    {
+     "name": "টুঙ্গিপাড়া উপজেলা",
+     "url": "https://tungipara.gopalganj.gov.bd"
+    }
+   ]
+  },
+  {
+   "division": "ঢাকা বিভাগ",
+   "district": "কিশোরগঞ্জ জেলা",
+   "url": "https://kishoreganj.gov.bd",
+   "upazilas": [
+    {
+     "name": "অষ্টগ্রাম উপজেলা",
+     "url": "https://austagram.kishoreganj.gov.bd"
+    },
+    {
+     "name": "বাজিতপুর উপজেলা",
+     "url": "https://bajitpur.kishoreganj.gov.bd"
+    },
+    {
+     "name": "ভৈরব উপজেলা",
+     "url": "https://bhairab.kishoreganj.gov.bd"
+    },
+    {
+     "name": "হোসেনপুর উপজেলা",
+     "url": "https://hossainpur.kishoreganj.gov.bd"
+    },
+    {
+     "name": "ইটনা উপজেলা",
+     "url": "https://itna.kishoreganj.gov.bd"
+    },
+    {
+     "name": "করিমগঞ্জ উপজেলা",
+     "url": "https://karimgonj.kishoreganj.gov.bd"
+    },
+    {
+     "name": "কটিয়াদী উপজেলা",
+     "url": "https://katiadi.kishoreganj.gov.bd"
+    },
+    {
+     "name": "কিশোরগঞ্জ সদর উপজেলা",
+     "url": "https://kishoreganjsadar.kishoreganj.gov.bd"
+    },
+    {
+     "name": "কুলিয়ারচর উপজেলা",
+     "url": "https://kuliarchar.kishoreganj.gov.bd"
+    },
+    {
+     "name": "মিঠামইন উপজেলা",
+     "url": "https://mithamoin.kishoreganj.gov.bd"
+    },
+    {
+     "name": "নিকলী উপজেলা",
+     "url": "https://nikli.kishoreganj.gov.bd"
+    },
+    {
+     "name": "পাকুন্দিয়া উপজেলা",
+     "url": "https://pakundia.kishoreganj.gov.bd"
+    },
+    {
+     "name": "তাড়াইল উপজেলা",
+     "url": "https://tarail.kishoreganj.gov.bd"
+    }
+   ]
+  },
+  {
+   "division": "ঢাকা বিভাগ",
+   "district": "মাদারীপুর জেলা",
+   "url": "https://madaripur.gov.bd",
+   "upazilas": [
+    {
+     "name": "কালকিনি উপজেলা",
+     "url": "https://kalkini.madaripur.gov.bd"
+    },
+    {
+     "name": "মাদারীপুর সদর উপজেলা",
+     "url": "https://sadar.madaripur.gov.bd"
+    },
+    {
+     "name": "রাজৈর উপজেলা",
+     "url": "https://rajoir.madaripur.gov.bd"
+    },
+    {
+     "name": "শিবচর উপজেলা",
+     "url": "https://shibchar.madaripur.gov.bd"
+    },
+    {
+     "name": "ডাসার উপজেলা",
+     "url": "https://dasar.madaripur.gov.bd"
+    }
+   ]
+  },
+  {
+   "division": "ঢাকা বিভাগ",
+   "district": "মানিকগঞ্জ জেলা",
+   "url": "https://manikganj.gov.bd",
+   "upazilas": [
+    {
+     "name": "দৌলতপুর উপজেলা",
+     "url": "https://daulatpur.manikganj.gov.bd"
+    },
+    {
+     "name": "ঘিওর উপজেলা",
+     "url": "https://gior.manikganj.gov.bd"
+    },
+    {
+     "name": "হরিরামপুর উপজেলা",
+     "url": "https://harirampur.manikganj.gov.bd"
+    },
+    {
+     "name": "মানিকগঞ্জ সদর উপজেলা",
+     "url": "https://sadar.manikganj.gov.bd"
+    },
+    {
+     "name": "সাটুরিয়া উপজেলা",
+     "url": "https://saturia.manikganj.gov.bd"
+    },
+    {
+     "name": "শিবালয় উপজেলা",
+     "url": "https://shibaloy.manikganj.gov.bd"
+    },
+    {
+     "name": "সিংগাইর উপজেলা",
+     "url": "https://singair.manikganj.gov.bd"
+    }
+   ]
+  },
+  {
+   "division": "ঢাকা বিভাগ",
+   "district": "মুন্সীগঞ্জ জেলা",
+   "url": "https://munshiganj.gov.bd",
+   "upazilas": [
+    {
+     "name": "গজারিয়া উপজেলা",
+     "url": "https://gajaria.munshiganj.gov.bd"
+    },
+    {
+     "name": "লৌহজং উপজেলা",
+     "url": "https://louhajanj.munshiganj.gov.bd"
+    },
+    {
+     "name": "মুন্সীগঞ্জ সদর উপজেলা",
+     "url": "https://sadar.munshiganj.gov.bd"
+    },
+    {
+     "name": "সিরাজদিখান উপজেলা",
+     "url": "https://sirajdikhan.munshiganj.gov.bd"
+    },
+    {
+     "name": "শ্রীনগর উপজেলা",
+     "url": "https://sreenagar.munshiganj.gov.bd"
+    },
+    {
+     "name": "টংগিবাড়ী উপজেলা",
+     "url": "https://tongibari.munshiganj.gov.bd"
+    }
+   ]
+  },
+  {
+   "division": "ঢাকা বিভাগ",
+   "district": "নারায়ণগঞ্জ জেলা",
+   "url": "https://narayanganj.gov.bd",
+   "upazilas": [
+    {
+     "name": "আড়াইহাজার উপজেলা",
+     "url": "https://araihazar.narayanganj.gov.bd"
+    },
+    {
+     "name": "সোনারগাঁ উপজেলা",
+     "url": "https://sonargaon.narayanganj.gov.bd"
+    },
+    {
+     "name": "নারায়নগঞ্জ সদর উপজেলা",
+     "url": "https://narayanganjsadar.narayanganj.gov.bd"
+    },
+    {
+     "name": "রূপগঞ্জ উপজেলা",
+     "url": "https://rupganj.narayanganj.gov.bd"
+    },
+    {
+     "name": "বন্দর উপজেলা",
+     "url": "https://bandar.narayanganj.gov.bd"
+    }
+   ]
+  },
+  {
+   "division": "ঢাকা বিভাগ",
+   "district": "নরসিংদী জেলা",
+   "url": "https://narsingdi.gov.bd",
+   "upazilas": [
+    {
+     "name": "বেলাবো উপজেলা",
+     "url": "https://belabo.narsingdi.gov.bd"
+    },
+    {
+     "name": "মনোহরদী উপজেলা",
+     "url": "https://monohardi.narsingdi.gov.bd"
+    },
+    {
+     "name": "নরসিংদী সদর",
+     "url": "https://narsingdisadar.narsingdi.gov.bd"
+    },
+    {
+     "name": "পলাশ উপজেলা",
+     "url": "https://palash.narsingdi.gov.bd"
+    },
+    {
+     "name": "রায়পুরা উপজেলা",
+     "url": "https://raipura.narsingdi.gov.bd"
+    },
+    {
+     "name": "শিবপুর উপজেলা",
+     "url": "https://shibpur.narsingdi.gov.bd"
+    }
+   ]
+  },
+  {
+   "division": "ঢাকা বিভাগ",
+   "district": "রাজবাড়ী জেলা",
+   "url": "https://rajbari.gov.bd",
+   "upazilas": [
+    {
+     "name": "বালিয়াকান্দি উপজেলা",
+     "url": "https://baliakandi.rajbari.gov.bd"
+    },
+    {
+     "name": "গোয়ালন্দ উপজেলা",
+     "url": "https://goalanda.rajbari.gov.bd"
+    },
+    {
+     "name": "কালুখালী উপজেলা",
+     "url": "https://kalukhali.rajbari.gov.bd"
+    },
+    {
+     "name": "পাংশা উপজেলা",
+     "url": "https://pangsa.rajbari.gov.bd"
+    },
+    {
+     "name": "রাজবাড়ী সদর উপজেলা",
+     "url": "https://sadar.rajbari.gov.bd"
+    }
+   ]
+  },
+  {
+   "division": "ঢাকা বিভাগ",
+   "district": "শরীয়তপুর জেলা",
+   "url": "https://shariatpur.gov.bd",
+   "upazilas": [
+    {
+     "name": "ভেদরগঞ্জ উপজেলা",
+     "url": "https://bhedarganj.shariatpur.gov.bd"
+    },
+    {
+     "name": "ডামুড্যা উপজেলা",
+     "url": "https://damudya.shariatpur.gov.bd"
+    },
+    {
+     "name": "গোসাইরহাট উপজেলা",
+     "url": "https://gosairhat.shariatpur.gov.bd"
+    },
+    {
+     "name": "নড়িয়া উপজেলা",
+     "url": "https://naria.shariatpur.gov.bd"
+    },
+    {
+     "name": "শরিয়তপুর সদর উপজেলা",
+     "url": "https://sadar.shariatpur.gov.bd"
+    },
+    {
+     "name": "জাজিরা উপজেলা",
+     "url": "https://zajira.shariatpur.gov.bd"
+    }
+   ]
+  },
+  {
+   "division": "ঢাকা বিভাগ",
+   "district": "টাঙ্গাইল জেলা",
+   "url": "https://tangail.gov.bd",
+   "upazilas": [
+    {
+     "name": "বাসাইল উপজেলা",
+     "url": "https://basail.tangail.gov.bd"
+    },
+    {
+     "name": "ভূঞাপুর উপজেলা",
+     "url": "https://bhuapur.tangail.gov.bd"
+    },
+    {
+     "name": "দেলদুয়ার উপজেলা",
+     "url": "https://delduar.tangail.gov.bd"
+    },
+    {
+     "name": "ধনবাড়ী উপজেলা",
+     "url": "https://dhanbari.tangail.gov.bd"
+    },
+    {
+     "name": "ঘাটাইল উপজেলা",
+     "url": "https://ghatail.tangail.gov.bd"
+    },
+    {
+     "name": "গোপালপুর উপজেলা",
+     "url": "https://gopalpur.tangail.gov.bd"
+    },
+    {
+     "name": "কালিহাতী উপজেলা",
+     "url": "https://kalihati.tangail.gov.bd"
+    },
+    {
+     "name": "মধুপুর উপজেলা",
+     "url": "https://madhupur.tangail.gov.bd"
+    },
+    {
+     "name": "মির্জাপুর উপজেলা",
+     "url": "https://mirzapur.tangail.gov.bd"
+    },
+    {
+     "name": "নাগরপুর উপজেলা",
+     "url": "https://nagarpur.tangail.gov.bd"
+    },
+    {
+     "name": "সখিপুর উপজেলা",
+     "url": "https://sakhipur.tangail.gov.bd"
+    },
+    {
+     "name": "টাঙ্গাইল সদর উপজেলা",
+     "url": "https://tangailsadar.tangail.gov.bd"
+    }
+   ]
+  },
+  {
+   "division": "খুলনা বিভাগ",
+   "district": "বাগেরহাট জেলা",
+   "url": "https://bagerhat.gov.bd",
+   "upazilas": [
+    {
+     "name": "চিতলমারী উপজেলা",
+     "url": "https://chitalmari.bagerhat.gov.bd"
+    },
+    {
+     "name": "ফকিরহাট উপজেলা",
+     "url": "https://fakirhat.bagerhat.gov.bd"
+    },
+    {
+     "name": "কচুয়া উপজেলা",
+     "url": "https://kachua.bagerhat.gov.bd"
+    },
+    {
+     "name": "মোল্লাহাট উপজেলা",
+     "url": "https://mollahat.bagerhat.gov.bd"
+    },
+    {
+     "name": "মোংলা উপজেলা",
+     "url": "https://mongla.bagerhat.gov.bd"
+    },
+    {
+     "name": "মোরেলগঞ্জ উপজেলা",
+     "url": "https://morrelganj.bagerhat.gov.bd"
+    },
+    {
+     "name": "রামপাল উপজেলা",
+     "url": "https://rampal.bagerhat.gov.bd"
+    },
+    {
+     "name": "শরণখোলা উপজেলা",
+     "url": "https://sarankhola.bagerhat.gov.bd"
+    },
+    {
+     "name": "বাগেরহাট সদর উপজেলা",
+     "url": "https://sadar.bagerhat.gov.bd"
+    }
+   ]
+  },
+  {
+   "division": "খুলনা বিভাগ",
+   "district": "চুয়াডাঙ্গা জেলা",
+   "url": "https://chuadanga.gov.bd",
+   "upazilas": [
+    {
+     "name": "আলমডাঙ্গা উপজেলা",
+     "url": "https://alamdanga.chuadanga.gov.bd"
+    },
+    {
+     "name": "চুয়াডাঙ্গা সদর উপজেলা",
+     "url": "https://chuadangasadar.chuadanga.gov.bd"
+    },
+    {
+     "name": "দামুড়হুদা উপজেলা",
+     "url": "https://damurhuda.chuadanga.gov.bd"
+    },
+    {
+     "name": "জীবননগর উপজেলা",
+     "url": "https://jibannagar.chuadanga.gov.bd"
+    }
+   ]
+  },
+  {
+   "division": "খুলনা বিভাগ",
+   "district": "যশোর জেলা",
+   "url": "https://jashore.gov.bd",
+   "upazilas": [
+    {
+     "name": "অভয়নগর উপজেলা",
+     "url": "https://abhaynagar.jashore.gov.bd"
+    },
+    {
+     "name": "বাঘারপাড়া উপজেলা",
+     "url": "https://bagherpara.jashore.gov.bd"
+    },
+    {
+     "name": "চৌগাছা উপজেলা",
+     "url": "https://chougachha.jashore.gov.bd"
+    },
+    {
+     "name": "ঝিকরগাছা উপজেলা",
+     "url": "https://jhikargacha.jashore.gov.bd"
+    },
+    {
+     "name": "কেশবপুর উপজেলা",
+     "url": "https://keshabpur.jashore.gov.bd"
+    },
+    {
+     "name": "যশোর সদর উপজেলা",
+     "url": "https://sadar.jashore.gov.bd"
+    },
+    {
+     "name": "মণিরামপুর উপজেলা",
+     "url": "https://manirampur.jashore.gov.bd"
+    },
+    {
+     "name": "শার্শা উপজেলা",
+     "url": "https://sharsha.jashore.gov.bd"
+    }
+   ]
+  },
+  {
+   "division": "খুলনা বিভাগ",
+   "district": "ঝিনাইদহ জেলা",
+   "url": "https://jhenaidah.gov.bd",
+   "upazilas": [
+    {
+     "name": "হরিণাকুন্ডু উপজেলা",
+     "url": "https://harinakundu.jhenaidah.gov.bd"
+    },
+    {
+     "name": "ঝিনাইদহ সদর উপজেলা",
+     "url": "https://sadar.jhenaidah.gov.bd"
+    },
+    {
+     "name": "কালীগঞ্জ উপজেলা",
+     "url": "https://kaliganj.jhenaidah.gov.bd"
+    },
+    {
+     "name": "কোটচাঁদপুর উপজেলা",
+     "url": "https://kotchandpur.jhenaidah.gov.bd"
+    },
+    {
+     "name": "মহেশপুর উপজেলা",
+     "url": "https://moheshpur.jhenaidah.gov.bd"
+    },
+    {
+     "name": "শৈলকুপা উপজেলা",
+     "url": "https://shailkupa.jhenaidah.gov.bd"
+    }
+   ]
+  },
+  {
+   "division": "খুলনা বিভাগ",
+   "district": "খুলনা জেলা",
+   "url": "https://khulna.gov.bd",
+   "upazilas": [
+    {
+     "name": "বটিয়াঘাটা উপজেলা",
+     "url": "https://botiaghata.khulna.gov.bd"
+    },
+    {
+     "name": "দাকোপ উপজেলা",
+     "url": "https://dacope.khulna.gov.bd"
+    },
+    {
+     "name": "ডুমুরিয়া উপজেলা",
+     "url": "https://dumuria.khulna.gov.bd"
+    },
+    {
+     "name": "কয়রা উপজেলা",
+     "url": "https://koyra.khulna.gov.bd"
+    },
+    {
+     "name": "পাইকগাছা উপজেলা",
+     "url": "https://paikgasa.khulna.gov.bd"
+    },
+    {
+     "name": "ফুলতলা উপজেলা",
+     "url": "https://fultola.khulna.gov.bd"
+    },
+    {
+     "name": "রূপসা উপজেলা",
+     "url": "https://rupsha.khulna.gov.bd"
+    },
+    {
+     "name": "তেরখাদা উপজেলা",
+     "url": "https://terokhada.khulna.gov.bd"
+    },
+    {
+     "name": "দিঘলিয়া উপজেলা",
+     "url": "https://digholia.khulna.gov.bd"
+    }
+   ]
+  },
+  {
+   "division": "খুলনা বিভাগ",
+   "district": "কুষ্টিয়া জেলা",
+   "url": "https://kushtia.gov.bd",
+   "upazilas": [
+    {
+     "name": "ভেড়ামারা উপজেলা",
+     "url": "https://bheramara.kushtia.gov.bd"
+    },
+    {
+     "name": "দৌলতপুর উপজেলা",
+     "url": "https://daulatpur.kushtia.gov.bd"
+    },
+    {
+     "name": "খোকসা উপজেলা",
+     "url": "https://khoksa.kushtia.gov.bd"
+    },
+    {
+     "name": "কুমারখালী উপজেলা",
+     "url": "https://kumarkhali.kushtia.gov.bd"
+    },
+    {
+     "name": "কুষ্টিয়া সদর উপজেলা",
+     "url": "https://kushtiasadar.kushtia.gov.bd"
+    },
+    {
+     "name": "মিরপুর উপজেলা",
+     "url": "https://mirpur.kushtia.gov.bd"
+    }
+   ]
+  },
+  {
+   "division": "খুলনা বিভাগ",
+   "district": "মাগুরা জেলা",
+   "url": "https://magura.gov.bd",
+   "upazilas": [
+    {
+     "name": "মাগুরা সদর উপজেলা",
+     "url": "https://magurasadar.magura.gov.bd"
+    },
+    {
+     "name": "মহম্মদপুর উপজেলা",
+     "url": "https://mohammadpur.magura.gov.bd"
+    },
+    {
+     "name": "শালিখা উপজেলা",
+     "url": "https://shalikha.magura.gov.bd"
+    },
+    {
+     "name": "শ্রীপুর উপজেলা",
+     "url": "https://sreepur.magura.gov.bd"
+    }
+   ]
+  },
+  {
+   "division": "খুলনা বিভাগ",
+   "district": "মেহেরপুর জেলা",
+   "url": "https://meherpur.gov.bd",
+   "upazilas": [
+    {
+     "name": "গাংনী উপজেলা",
+     "url": "https://gangni.meherpur.gov.bd"
+    },
+    {
+     "name": "মুজিবনগর উপজেলা",
+     "url": "https://mujibnagar.meherpur.gov.bd"
+    },
+    {
+     "name": "মেহেরপুর সদর উপজেলা",
+     "url": "https://meherpursadar.meherpur.gov.bd"
+    }
+   ]
+  },
+  {
+   "division": "খুলনা বিভাগ",
+   "district": "নড়াইল জেলা",
+   "url": "https://narail.gov.bd",
+   "upazilas": [
+    {
+     "name": "কালিয়া উপজেলা",
+     "url": "https://kalia.narail.gov.bd"
+    },
+    {
+     "name": "লোহাগড়া উপজেলা",
+     "url": "https://lohagara.narail.gov.bd"
+    },
+    {
+     "name": "নড়াইল সদর উপজেলা",
+     "url": "https://narailsadar.narail.gov.bd"
+    }
+   ]
+  },
+  {
+   "division": "খুলনা বিভাগ",
+   "district": "সাতক্ষীরা জেলা",
+   "url": "https://satkhira.gov.bd",
+   "upazilas": [
+    {
+     "name": "আশাশুনি উপজেলা",
+     "url": "https://assasuni.satkhira.gov.bd"
+    },
+    {
+     "name": "দেবহাটা উপজেলা",
+     "url": "https://debhata.satkhira.gov.bd"
+    },
+    {
+     "name": "কলারোয়া উপজেলা",
+     "url": "https://kalaroa.satkhira.gov.bd"
+    },
+    {
+     "name": "কালিগঞ্জ উপজেলা",
+     "url": "https://kaliganj.satkhira.gov.bd"
+    },
+    {
+     "name": "সাতক্ষীরা সদর উপজেলা",
+     "url": "https://satkhirasadar.satkhira.gov.bd"
+    },
+    {
+     "name": "শ্যামনগর উপজেলা",
+     "url": "https://shyamnagar.satkhira.gov.bd"
+    },
+    {
+     "name": "তালা উপজেলা",
+     "url": "https://tala.satkhira.gov.bd"
+    }
+   ]
+  },
+  {
+   "division": "চট্টগ্রাম বিভাগ",
+   "district": "বান্দরবান জেলা",
+   "url": "https://bandarban.gov.bd",
+   "upazilas": [
+    {
+     "name": "আলীকদম উপজেলা",
+     "url": "https://alikadam.bandarban.gov.bd"
+    },
+    {
+     "name": "বান্দরবান সদর উপজেলা",
+     "url": "https://sadar.bandarban.gov.bd"
+    },
+    {
+     "name": "লামা উপজেলা",
+     "url": "https://lama.bandarban.gov.bd"
+    },
+    {
+     "name": "নাইক্ষ্যংছড়ি উপজেলা",
+     "url": "https://naikhongchhari.bandarban.gov.bd"
+    },
+    {
+     "name": "রোয়াংছড়ি উপজেলা",
+     "url": "https://rowangchhari.bandarban.gov.bd"
+    },
+    {
+     "name": "রুমা উপজেলা",
+     "url": "https://ruma.bandarban.gov.bd"
+    },
+    {
+     "name": "থানচি উপজেলা",
+     "url": "https://thanchi.bandarban.gov.bd"
+    }
+   ]
+  },
+  {
+   "division": "চট্টগ্রাম বিভাগ",
+   "district": "ব্রাহ্মণবাড়িয়া জেলা",
+   "url": "https://brahmanbaria.gov.bd",
+   "upazilas": [
+    {
+     "name": "আখাউড়া উপজেলা",
+     "url": "https://akhaura.brahmanbaria.gov.bd"
+    },
+    {
+     "name": "বাঞ্ছারামপুর উপজেলা",
+     "url": "https://bancharampur.brahmanbaria.gov.bd"
+    },
+    {
+     "name": "বিজয়নগর উপজেলা",
+     "url": "https://bijoynagar.brahmanbaria.gov.bd"
+    },
+    {
+     "name": "ব্রাহ্মণবাড়িয়া সদর উপজেলা",
+     "url": "https://sadar.brahmanbaria.gov.bd"
+    },
+    {
+     "name": "আশুগঞ্জ উপজেলা",
+     "url": "https://ashuganj.brahmanbaria.gov.bd"
+    },
+    {
+     "name": "কসবা উপজেলা",
+     "url": "https://kasba.brahmanbaria.gov.bd"
+    },
+    {
+     "name": "নবীনগর উপজেলা",
+     "url": "https://nabinagar.brahmanbaria.gov.bd"
+    },
+    {
+     "name": "নাসিরনগর উপজেলা",
+     "url": "https://nasirnagar.brahmanbaria.gov.bd"
+    },
+    {
+     "name": "সরাইল উপজেলা",
+     "url": "https://sarail.brahmanbaria.gov.bd"
+    }
+   ]
+  },
+  {
+   "division": "চট্টগ্রাম বিভাগ",
+   "district": "চাঁদপুর জেলা",
+   "url": "https://chandpur.gov.bd",
+   "upazilas": [
+    {
+     "name": "চাঁদপুর সদর উপজেলা",
+     "url": "https://sadar.chandpur.gov.bd"
+    },
+    {
+     "name": "ফরিদগঞ্জ উপজেলা",
+     "url": "https://faridgonj.chandpur.gov.bd"
+    },
+    {
+     "name": "হাইমচর উপজেলা",
+     "url": "https://haimchar.chandpur.gov.bd"
+    },
+    {
+     "name": "হাজীগঞ্জ উপজেলা",
+     "url": "https://hajiganj.chandpur.gov.bd"
+    },
+    {
+     "name": "কচুয়া উপজেলা",
+     "url": "https://kachua.chandpur.gov.bd"
+    },
+    {
+     "name": "উপজেলা মতলব দক্ষিণ,চাঁদপুর",
+     "url": "https://matlabsouth.chandpur.gov.bd"
+    },
+    {
+     "name": "মতলব উত্তর",
+     "url": "https://matlabnorth.chandpur.gov.bd"
+    },
+    {
+     "name": "শাহরাস্তি উপজেলা",
+     "url": "https://shahrasti.chandpur.gov.bd"
+    }
+   ]
+  },
+  {
+   "division": "চট্টগ্রাম বিভাগ",
+   "district": "চট্টগ্রাম জেলা",
+   "url": "https://chattogram.gov.bd",
+   "upazilas": [
+    {
+     "name": "আনোয়ারা উপজেলা",
+     "url": "https://anwara.chattogram.gov.bd"
+    },
+    {
+     "name": "বাঁশখালী উপজেলা",
+     "url": "https://banshkhali.chattogram.gov.bd"
+    },
+    {
+     "name": "বোয়ালখালী উপজেলা",
+     "url": "https://boalkhali.chattogram.gov.bd"
+    },
+    {
+     "name": "চন্দনাইশ উপজেলা",
+     "url": "https://chandanaish.chattogram.gov.bd"
+    },
+    {
+     "name": "ফটিকছড়ি উপজেলা",
+     "url": "https://fatikchhari.chattogram.gov.bd"
+    },
+    {
+     "name": "হাটহাজারী উপজেলা",
+     "url": "https://hathazari.chattogram.gov.bd"
+    },
+    {
+     "name": "লোহাগাড়া উপজেলা",
+     "url": "https://lohagara.chattogram.gov.bd"
+    },
+    {
+     "name": "মীরসরাই উপজেলা",
+     "url": "https://mirsharai.chattogram.gov.bd"
+    },
+    {
+     "name": "পটিয়া উপজেলা",
+     "url": "https://patiya.chattogram.gov.bd"
+    },
+    {
+     "name": "রাঙ্গুনিয়া উপজেলা",
+     "url": "https://rangunia.chattogram.gov.bd"
+    },
+    {
+     "name": "রাউজান উপজেলা",
+     "url": "https://raozan.chattogram.gov.bd"
+    },
+    {
+     "name": "সন্দ্বীপ উপজেলা",
+     "url": "https://sandwip.chattogram.gov.bd"
+    },
+    {
+     "name": "সাতকানিয়া উপজেলা",
+     "url": "https://satkania.chattogram.gov.bd"
+    },
+    {
+     "name": "সীতাকুন্ড উপজেলা",
+     "url": "https://sitakunda.chattogram.gov.bd"
+    },
+    {
+     "name": "কর্ণফুলী উপজেলা",
+     "url": "https://karnafuli.chattogram.gov.bd"
+    }
+   ]
+  },
+  {
+   "division": "চট্টগ্রাম বিভাগ",
+   "district": "কুমিল্লা জেলা",
+   "url": "https://comilla.gov.bd",
+   "upazilas": [
+    {
+     "name": "বরুড়া উপজেলা",
+     "url": "https://barura.comilla.gov.bd"
+    },
+    {
+     "name": "ব্রাহ্মণপাড়া উপজেলা",
+     "url": "https://brahmanpara.comilla.gov.bd"
+    },
+    {
+     "name": "বুড়িচং উপজেলা",
+     "url": "https://burichang.comilla.gov.bd"
+    },
+    {
+     "name": "চান্দিনা উপজেলা",
+     "url": "https://chandina.comilla.gov.bd"
+    },
+    {
+     "name": "চৌদ্দগ্রাম উপজেলা",
+     "url": "https://chauddagram.comilla.gov.bd"
+    },
+    {
+     "name": "আদর্শ সদর উপজেলা",
+     "url": "https://comillasadar.comilla.gov.bd"
+    },
+    {
+     "name": "সদর দক্ষিণ উপজেলা",
+     "url": "https://sadarsouth.comilla.gov.bd"
+    },
+    {
+     "name": "দাউদকান্দি উপজেলা",
+     "url": "https://daudkandi.comilla.gov.bd"
+    },
+    {
+     "name": "দেবিদ্বার উপজেলা",
+     "url": "https://debidwar.comilla.gov.bd"
+    },
+    {
+     "name": "হোমনা উপজেলা",
+     "url": "https://homna.comilla.gov.bd"
+    },
+    {
+     "name": "লাকসাম উপজেলা",
+     "url": "https://laksam.comilla.gov.bd"
+    },
+    {
+     "name": "মনোহরগঞ্জ উপজেলা",
+     "url": "https://monohargonj.comilla.gov.bd"
+    },
+    {
+     "name": "মেঘনা উপজেলা",
+     "url": "https://meghna.comilla.gov.bd"
+    },
+    {
+     "name": "মুরাদনগর উপজেলা",
+     "url": "https://muradnagar.comilla.gov.bd"
+    },
+    {
+     "name": "নাঙ্গলকোট উপজেলা",
+     "url": "https://nangalkot.comilla.gov.bd"
+    },
+    {
+     "name": "তিতাস উপজেলা",
+     "url": "https://titas.comilla.gov.bd"
+    },
+    {
+     "name": "লালমাই উপজেলা",
+     "url": "https://lalmai.comilla.gov.bd"
+    }
+   ]
+  },
+  {
+   "division": "চট্টগ্রাম বিভাগ",
+   "district": "কক্সবাজার জেলা",
+   "url": "https://coxsbazar.gov.bd",
+   "upazilas": [
+    {
+     "name": "চকরিয়া উপজেলা",
+     "url": "https://chakaria.coxsbazar.gov.bd"
+    },
+    {
+     "name": "কক্সবাজার সদর উপজেলা",
+     "url": "https://sadar.coxsbazar.gov.bd"
+    },
+    {
+     "name": "কুতুবদিয়া উপজেলা",
+     "url": "https://kutubdia.coxsbazar.gov.bd"
+    },
+    {
+     "name": "মহেশখালী উপজেলা",
+     "url": "https://moheshkhali.coxsbazar.gov.bd"
+    },
+    {
+     "name": "পেকুয়া উপজেলা",
+     "url": "https://pekua.coxsbazar.gov.bd"
+    },
+    {
+     "name": "রামু উপজেলা",
+     "url": "https://ramu.coxsbazar.gov.bd"
+    },
+    {
+     "name": "টেকনাফ উপজেলা",
+     "url": "https://teknaf.coxsbazar.gov.bd"
+    },
+    {
+     "name": "উখিয়া উপজেলা",
+     "url": "https://ukhiya.coxsbazar.gov.bd"
+    },
+    {
+     "name": "ঈদগাঁও উপজেলা",
+     "url": "https://eidgaon.coxsbazar.gov.bd"
+    }
+   ]
+  },
+  {
+   "division": "চট্টগ্রাম বিভাগ",
+   "district": "ফেনী জেলা",
+   "url": "https://feni.gov.bd",
+   "upazilas": [
+    {
+     "name": "ছাগলনাইয়া উপজেলা",
+     "url": "https://chhagalnaiya.feni.gov.bd"
+    },
+    {
+     "name": "দাগনভূঞা উপজেলা",
+     "url": "https://daganbhuiyan.feni.gov.bd"
+    },
+    {
+     "name": "ফেনী সদর উপজেলা",
+     "url": "https://sadar.feni.gov.bd"
+    },
+    {
+     "name": "ফুলগাজী উপজেলা",
+     "url": "https://fulgazi.feni.gov.bd"
+    },
+    {
+     "name": "পরশুরাম উপজেলা",
+     "url": "https://parshuram.feni.gov.bd"
+    },
+    {
+     "name": "সোনাগাজী উপজেলা",
+     "url": "https://sonagazi.feni.gov.bd"
+    }
+   ]
+  },
+  {
+   "division": "চট্টগ্রাম বিভাগ",
+   "district": "খাগড়াছড়ি জেলা",
+   "url": "https://khagrachhari.gov.bd",
+   "upazilas": [
+    {
+     "name": "দীঘিনালা উপজেলা",
+     "url": "https://dighinala.khagrachhari.gov.bd"
+    },
+    {
+     "name": "মানিকছড়ি উপজেলা",
+     "url": "https://manikchari.khagrachhari.gov.bd"
+    },
+    {
+     "name": "খাগড়াছড়ি সদর উপজেলা",
+     "url": "https://sadar.khagrachhari.gov.bd"
+    },
+    {
+     "name": "লক্ষীছড়ি উপজেলা",
+     "url": "https://laxmichhari.khagrachhari.gov.bd"
+    },
+    {
+     "name": "মহালছড়ি উপজেলা",
+     "url": "https://mohalchari.khagrachhari.gov.bd"
+    },
+    {
+     "name": "মাটিরাঙ্গা উপজেলা",
+     "url": "https://matiranga.khagrachhari.gov.bd"
+    },
+    {
+     "name": "পানছড়ি উপজেলা",
+     "url": "https://panchari.khagrachhari.gov.bd"
+    },
+    {
+     "name": "রামগড় উপজেলা",
+     "url": "https://ramgarh.khagrachhari.gov.bd"
+    },
+    {
+     "name": "গুইমারা উপজেলা",
+     "url": "https://guimara.khagrachhari.gov.bd"
+    }
+   ]
+  },
+  {
+   "division": "চট্টগ্রাম বিভাগ",
+   "district": "লক্ষ্মীপুর জেলা",
+   "url": "https://lakshmipur.gov.bd",
+   "upazilas": [
+    {
+     "name": "কমলনগর উপজেলা",
+     "url": "https://kamalnagar.lakshmipur.gov.bd"
+    },
+    {
+     "name": "লক্ষ্মীপুর সদর উপজেলা",
+     "url": "https://sadar.lakshmipur.gov.bd"
+    },
+    {
+     "name": "রায়পুর উপজেলা",
+     "url": "https://raipur.lakshmipur.gov.bd"
+    },
+    {
+     "name": "রামগঞ্জ উপজেলা",
+     "url": "https://ramganj.lakshmipur.gov.bd"
+    },
+    {
+     "name": "রামগতি উপজেলা",
+     "url": "https://ramgati.lakshmipur.gov.bd"
+    },
+    {
+     "name": "চন্দ্রগঞ্জ উপজেলা",
+     "url": "https://chandraganj.lakshmipur.gov.bd"
+    }
+   ]
+  },
+  {
+   "division": "চট্টগ্রাম বিভাগ",
+   "district": "নোয়াখালী জেলা",
+   "url": "https://noakhali.gov.bd",
+   "upazilas": [
+    {
+     "name": "বেগমগঞ্জ উপজেলা",
+     "url": "https://begumganj.noakhali.gov.bd"
+    },
+    {
+     "name": "চাটখিল উপজেলা",
+     "url": "https://chatkhil.noakhali.gov.bd"
+    },
+    {
+     "name": "কোম্পানীগঞ্জ উপজেলা",
+     "url": "https://companiganj.noakhali.gov.bd"
+    },
+    {
+     "name": "হাতিয়া উপজেলা",
+     "url": "https://hatia.noakhali.gov.bd"
+    },
+    {
+     "name": "সেনবাগ উপজেলা",
+     "url": "https://senbug.noakhali.gov.bd"
+    },
+    {
+     "name": "সোনাইমুড়ী উপজেলা",
+     "url": "https://sonaimuri.noakhali.gov.bd"
+    },
+    {
+     "name": "সুবর্ণচর উপজেলা",
+     "url": "https://subarnachar.noakhali.gov.bd"
+    },
+    {
+     "name": "নোয়াখালী সদর",
+     "url": "https://sadar.noakhali.gov.bd"
+    },
+    {
+     "name": "কবিরহাট উপজেলা",
+     "url": "https://kabirhat.noakhali.gov.bd"
+    }
+   ]
+  },
+  {
+   "division": "চট্টগ্রাম বিভাগ",
+   "district": "রাঙ্গামাটি পার্বত্য জেলা",
+   "url": "https://rangamati.gov.bd",
+   "upazilas": [
+    {
+     "name": "বাঘাইছড়ি উপজেলা",
+     "url": "https://baghaichari.rangamati.gov.bd"
+    },
+    {
+     "name": "বরকল উপজেলা",
+     "url": "https://barkal.rangamati.gov.bd"
+    },
+    {
+     "name": "কাউখালী উপজেলা",
+     "url": "https://kawkhali.rangamati.gov.bd"
+    },
+    {
+     "name": "কাপ্তাই উপজেলা",
+     "url": "https://kaptai.rangamati.gov.bd"
+    },
+    {
+     "name": "জুরাছড়ি উপজেলা",
+     "url": "https://juraichari.rangamati.gov.bd"
+    },
+    {
+     "name": "লংগদু উপজেলা",
+     "url": "https://langadu.rangamati.gov.bd"
+    },
+    {
+     "name": "নানিয়ারচর উপজেলা",
+     "url": "https://naniarchar.rangamati.gov.bd"
+    },
+    {
+     "name": "রাঙ্গামাটি সদর উপজেলা",
+     "url": "https://sadar.rangamati.gov.bd"
+    },
+    {
+     "name": "রাজস্থলী উপজেলা",
+     "url": "https://rajasthali.rangamati.gov.bd"
+    },
+    {
+     "name": "বিলাইছড়ি উপজেলা",
+     "url": "https://belaichari.rangamati.gov.bd"
+    }
+   ]
+  },
+  {
+   "division": "রাজশাহী বিভাগ",
+   "district": "বগুড়া জেলা",
+   "url": "https://bogra.gov.bd",
+   "upazilas": [
+    {
+     "name": "আদমদিঘি উপজেলা",
+     "url": "https://adamdighi.bogra.gov.bd"
+    },
+    {
+     "name": "বগুড়া সদর উপজেলা",
+     "url": "https://sadar.bogra.gov.bd"
+    },
+    {
+     "name": "ধুনট উপজেলা",
+     "url": "https://dhunot.bogra.gov.bd"
+    },
+    {
+     "name": "দুপচাচিঁয়া উপজেলা",
+     "url": "https://dupchanchia.bogra.gov.bd"
+    },
+    {
+     "name": "গাবতলী উপজেলা",
+     "url": "https://gabtali.bogra.gov.bd"
+    },
+    {
+     "name": "কাহালু উপজেলা",
+     "url": "https://kahaloo.bogra.gov.bd"
+    },
+    {
+     "name": "নন্দিগ্রাম উপজেলা",
+     "url": "https://nondigram.bogra.gov.bd"
+    },
+    {
+     "name": "সারিয়াকান্দি উপজেলা",
+     "url": "https://shariakandi.bogra.gov.bd"
+    },
+    {
+     "name": "শাজাহানপুর উপজেলা",
+     "url": "https://shajahanpur.bogra.gov.bd"
+    },
+    {
+     "name": "শেরপুর উপজেলা, বগুড়া",
+     "url": "https://sherpur.bogra.gov.bd"
+    },
+    {
+     "name": "শিবগঞ্জ উপজেলা",
+     "url": "https://shibganj.bogra.gov.bd"
+    },
+    {
+     "name": "সোনাতলা উপজেলা",
+     "url": "https://sonatala.bogra.gov.bd"
+    },
+    {
+     "name": "মোকামতলা উপজেলা",
+     "url": "https://mokamtala.bogra.gov.bd"
+    }
+   ]
+  },
+  {
+   "division": "রাজশাহী বিভাগ",
+   "district": "জয়পুরহাট জেলা",
+   "url": "https://joypurhat.gov.bd",
+   "upazilas": [
+    {
+     "name": "আক্কেলপুর উপজেলা",
+     "url": "https://akkelpur.joypurhat.gov.bd"
+    },
+    {
+     "name": "জয়পুরহাট সদর উপজেলা",
+     "url": "https://joypurhatsadar.joypurhat.gov.bd"
+    },
+    {
+     "name": "কালাই উপজেলা",
+     "url": "https://kalai.joypurhat.gov.bd"
+    },
+    {
+     "name": "পাঁচবিবি উপজেলা",
+     "url": "https://panchbibi.joypurhat.gov.bd"
+    },
+    {
+     "name": "ক্ষেতলাল উপজেলা",
+     "url": "https://khetlal.joypurhat.gov.bd"
+    }
+   ]
+  },
+  {
+   "division": "রাজশাহী বিভাগ",
+   "district": "নওগাঁ জেলা",
+   "url": "https://naogaon.gov.bd",
+   "upazilas": [
+    {
+     "name": "আত্রাই উপজেলা",
+     "url": "https://atrai.naogaon.gov.bd"
+    },
+    {
+     "name": "ধামইরহাট উপজেলা",
+     "url": "https://dhamoirhat.naogaon.gov.bd"
+    },
+    {
+     "name": "মান্দা উপজেলা",
+     "url": "https://manda.naogaon.gov.bd"
+    },
+    {
+     "name": "মহাদেবপুর উপজেলা",
+     "url": "https://mohadevpur.naogaon.gov.bd"
+    },
+    {
+     "name": "নওগাঁ সদর উপজেলা",
+     "url": "https://naogaonsadar.naogaon.gov.bd"
+    },
+    {
+     "name": "নিয়ামতপুর উপজেলা",
+     "url": "https://niamatpur.naogaon.gov.bd"
+    },
+    {
+     "name": "পত্নীতলা উপজেলা",
+     "url": "https://patnitala.naogaon.gov.bd"
+    },
+    {
+     "name": "রাণীনগর উপজেলা",
+     "url": "https://raninagar.naogaon.gov.bd"
+    },
+    {
+     "name": "সাপাহার উপজেলা",
+     "url": "https://sapahar.naogaon.gov.bd"
+    },
+    {
+     "name": "বদলগাছী উপজেলা",
+     "url": "https://badalgachi.naogaon.gov.bd"
+    },
+    {
+     "name": "পোরশা উপজেলা",
+     "url": "https://porsha.naogaon.gov.bd"
+    }
+   ]
+  },
+  {
+   "division": "রাজশাহী বিভাগ",
+   "district": "নাটোর জেলা",
+   "url": "https://natore.gov.bd",
+   "upazilas": [
+    {
+     "name": "বাগাতিপাড়া উপজেলা",
+     "url": "https://bagatipara.natore.gov.bd"
+    },
+    {
+     "name": "বড়াইগ্রাম উপজেলা",
+     "url": "https://baraigram.natore.gov.bd"
+    },
+    {
+     "name": "গুরুদাসপুর উপজেলা",
+     "url": "https://gurudaspur.natore.gov.bd"
+    },
+    {
+     "name": "লালপুর উপজেলা",
+     "url": "https://lalpur.natore.gov.bd"
+    },
+    {
+     "name": "নাটোর সদর উপজেলা",
+     "url": "https://natoresadar.natore.gov.bd"
+    },
+    {
+     "name": "সিংড়া উপজেলা",
+     "url": "https://singra.natore.gov.bd"
+    },
+    {
+     "name": "নলডাঙ্গা উপজেলা",
+     "url": "https://naldanga.natore.gov.bd"
+    }
+   ]
+  },
+  {
+   "division": "রাজশাহী বিভাগ",
+   "district": "চাঁপাইনবাবগঞ্জ জেলা",
+   "url": "https://chapainawabganj.gov.bd",
+   "upazilas": [
+    {
+     "name": "ভোলাহাট উপজেলা",
+     "url": "https://bholahat.chapainawabganj.gov.bd"
+    },
+    {
+     "name": "গোমস্তাপুর উপজেলা",
+     "url": "https://gomostapur.chapainawabganj.gov.bd"
+    },
+    {
+     "name": "নাচোল উপজেলা",
+     "url": "https://nachol.chapainawabganj.gov.bd"
+    },
+    {
+     "name": "চাঁপাইনবাবগঞ্জ সদর উপজেলা",
+     "url": "https://chapainawabganjsadar.chapainawabganj.gov.bd"
+    },
+    {
+     "name": "শিবগঞ্জ উপজেলা",
+     "url": "https://shibganj.chapainawabganj.gov.bd"
+    }
+   ]
+  },
+  {
+   "division": "রাজশাহী বিভাগ",
+   "district": "পাবনা জেলা",
+   "url": "https://pabna.gov.bd",
+   "upazilas": [
+    {
+     "name": "আটঘরিয়া উপজেলা",
+     "url": "https://atghoria.pabna.gov.bd"
+    },
+    {
+     "name": "বেড়া উপজেলা",
+     "url": "https://bera.pabna.gov.bd"
+    },
+    {
+     "name": "ভাঙ্গুড়া উপজেলা",
+     "url": "https://bhangura.pabna.gov.bd"
+    },
+    {
+     "name": "চাটমোহর উপজেলা",
+     "url": "https://chatmohar.pabna.gov.bd"
+    },
+    {
+     "name": "ফরিদপুর উপজেলা",
+     "url": "https://faridpur.pabna.gov.bd"
+    },
+    {
+     "name": "ঈশ্বরদী উপজেলা",
+     "url": "https://ishurdi.pabna.gov.bd"
+    },
+    {
+     "name": "পাবনা সদর উপজেলা",
+     "url": "https://pabnasadar.pabna.gov.bd"
+    },
+    {
+     "name": "সাঁথিয়া উপজেলা",
+     "url": "https://santhia.pabna.gov.bd"
+    },
+    {
+     "name": "সুজানগর উপজেলা",
+     "url": "https://sujanagar.pabna.gov.bd"
+    }
+   ]
+  },
+  {
+   "division": "রাজশাহী বিভাগ",
+   "district": "রাজশাহী জেলা",
+   "url": "https://rajshahi.gov.bd",
+   "upazilas": [
+    {
+     "name": "বাঘা উপজেলা",
+     "url": "https://bagha.rajshahi.gov.bd"
+    },
+    {
+     "name": "বাগমারা উপজেলা",
+     "url": "https://bagmara.rajshahi.gov.bd"
+    },
+    {
+     "name": "চারঘাট উপজেলা",
+     "url": "https://charghat.rajshahi.gov.bd"
+    },
+    {
+     "name": "দুর্গাপুর উপজেলা",
+     "url": "https://durgapur.rajshahi.gov.bd"
+    },
+    {
+     "name": "গোদাগাড়ী উপজেলা",
+     "url": "https://godagari.rajshahi.gov.bd"
+    },
+    {
+     "name": "মোহনপুর উপজেলা",
+     "url": "https://mohonpur.rajshahi.gov.bd"
+    },
+    {
+     "name": "পবা উপজেলা",
+     "url": "https://paba.rajshahi.gov.bd"
+    },
+    {
+     "name": "পুঠিয়া উপজেলা",
+     "url": "https://puthia.rajshahi.gov.bd"
+    },
+    {
+     "name": "তানোর উপজেলা",
+     "url": "https://tanore.rajshahi.gov.bd"
+    }
+   ]
+  },
+  {
+   "division": "রাজশাহী বিভাগ",
+   "district": "সিরাজগঞ্জ জেলা",
+   "url": "https://sirajganj.gov.bd",
+   "upazilas": [
+    {
+     "name": "বেলকুচি উপজেলা",
+     "url": "https://belkuchi.sirajganj.gov.bd"
+    },
+    {
+     "name": "চৌহালি উপজেলা",
+     "url": "https://chauhali.sirajganj.gov.bd"
+    },
+    {
+     "name": "কামারখন্দ উপজেলা",
+     "url": "https://kamarkhand.sirajganj.gov.bd"
+    },
+    {
+     "name": "কাজীপুর উপজেলা",
+     "url": "https://kazipur.sirajganj.gov.bd"
+    },
+    {
+     "name": "রায়গঞ্জ উপজেলা",
+     "url": "https://raigonj.sirajganj.gov.bd"
+    },
+    {
+     "name": "শাহজাদপুর উপজেলা",
+     "url": "https://shahjadpur.sirajganj.gov.bd"
+    },
+    {
+     "name": "সিরাজগঞ্জ সদর",
+     "url": "https://sirajganjsadar.sirajganj.gov.bd"
+    },
+    {
+     "name": "তাড়াশ উপজেলা",
+     "url": "https://tarash.sirajganj.gov.bd"
+    },
+    {
+     "name": "উল্লাপাড়া উপজেলা",
+     "url": "https://ullapara.sirajganj.gov.bd"
+    }
+   ]
+  },
+  {
+   "division": "সিলেট বিভাগ",
+   "district": "হবিগঞ্জ জেলা",
+   "url": "https://habiganj.gov.bd",
+   "upazilas": [
+    {
+     "name": "আজমিরীগঞ্জ উপজেলা",
+     "url": "https://ajmiriganj.habiganj.gov.bd"
+    },
+    {
+     "name": "বাহুবল উপজেলা",
+     "url": "https://bahubal.habiganj.gov.bd"
+    },
+    {
+     "name": "বানিয়াচং উপজেলা",
+     "url": "https://baniachong.habiganj.gov.bd"
+    },
+    {
+     "name": "চুনারুঘাট উপজেলা",
+     "url": "https://chunarughat.habiganj.gov.bd"
+    },
+    {
+     "name": "হবিগঞ্জ সদর উপজেলা",
+     "url": "https://habiganjsadar.habiganj.gov.bd"
+    },
+    {
+     "name": "লাখাই উপজেলা",
+     "url": "https://lakhai.habiganj.gov.bd"
+    },
+    {
+     "name": "মাধবপুর উপজেলা",
+     "url": "https://madhabpur.habiganj.gov.bd"
+    },
+    {
+     "name": "নবীগঞ্জ উপজেলা",
+     "url": "https://nabiganj.habiganj.gov.bd"
+    },
+    {
+     "name": "শায়েস্তাগঞ্জ উপজেলা",
+     "url": "https://shayestaganj.habiganj.gov.bd"
+    }
+   ]
+  },
+  {
+   "division": "সিলেট বিভাগ",
+   "district": "মৌলভীবাজার জেলা",
+   "url": "https://moulvibazar.gov.bd",
+   "upazilas": [
+    {
+     "name": "বড়লেখা উপজেলা",
+     "url": "https://barlekha.moulvibazar.gov.bd"
+    },
+    {
+     "name": "জুড়ী উপজেলা",
+     "url": "https://juri.moulvibazar.gov.bd"
+    },
+    {
+     "name": "কমলগঞ্জ উপজেলা",
+     "url": "https://kamolganj.moulvibazar.gov.bd"
+    },
+    {
+     "name": "কুলাউড়া উপজেলা",
+     "url": "https://kulaura.moulvibazar.gov.bd"
+    },
+    {
+     "name": "মৌলভীবাজার সদর উপজেলা",
+     "url": "https://moulvibazarsadar.moulvibazar.gov.bd"
+    },
+    {
+     "name": "রাজনগর উপজেলা",
+     "url": "https://rajnagar.moulvibazar.gov.bd"
+    },
+    {
+     "name": "শ্রীমঙ্গল উপজেলা",
+     "url": "https://sreemangal.moulvibazar.gov.bd"
+    }
+   ]
+  },
+  {
+   "division": "সিলেট বিভাগ",
+   "district": "সুনামগঞ্জ জেলা",
+   "url": "https://sunamganj.gov.bd",
+   "upazilas": [
+    {
+     "name": "বিশ্বম্ভরপুর উপজেলা",
+     "url": "https://bishwambarpur.sunamganj.gov.bd"
+    },
+    {
+     "name": "ছাতক উপজেলা",
+     "url": "https://chhatak.sunamganj.gov.bd"
+    },
+    {
+     "name": "দিরাই উপজেলা",
+     "url": "https://derai.sunamganj.gov.bd"
+    },
+    {
+     "name": "ধর্মপাশা উপজেলা",
+     "url": "https://dharmapasha.sunamganj.gov.bd"
+    },
+    {
+     "name": "দোয়ারাবাজার উপজেলা",
+     "url": "https://dowarabazar.sunamganj.gov.bd"
+    },
+    {
+     "name": "জগন্নাথপুর উপজেলা",
+     "url": "https://jagannathpur.sunamganj.gov.bd"
+    },
+    {
+     "name": "জামালগঞ্জ উপজেলা",
+     "url": "https://jamalganj.sunamganj.gov.bd"
+    },
+    {
+     "name": "শাল্লা উপজেলা",
+     "url": "https://shalla.sunamganj.gov.bd"
+    },
+    {
+     "name": "সুনামগঞ্জ সদর উপজেলা",
+     "url": "https://sadar.sunamganj.gov.bd"
+    },
+    {
+     "name": "তাহিরপুর উপজেলা",
+     "url": "https://tahirpur.sunamganj.gov.bd"
+    },
+    {
+     "name": "শান্তিগঞ্জ উপজেলা",
+     "url": "https://shantiganj.sunamganj.gov.bd"
+    },
+    {
+     "name": "মধ্যনগর উপজেলা",
+     "url": "https://madhyanagar.sunamganj.gov.bd"
+    }
+   ]
+  },
+  {
+   "division": "সিলেট বিভাগ",
+   "district": "সিলেট জেলা",
+   "url": "https://sylhet.gov.bd",
+   "upazilas": [
+    {
+     "name": "বালাগঞ্জ উপজেলা",
+     "url": "https://balaganj.sylhet.gov.bd"
+    },
+    {
+     "name": "বিয়ানীবাজার উপজেলা",
+     "url": "https://beanibazar.sylhet.gov.bd"
+    },
+    {
+     "name": "বিশ্বনাথ উপজেলা",
+     "url": "https://bishwanath.sylhet.gov.bd"
+    },
+    {
+     "name": "কোম্পানীগঞ্জ উপজেলা",
+     "url": "https://companiganj.sylhet.gov.bd"
+    },
+    {
+     "name": "দক্ষিণ সুরমা উপজেলা",
+     "url": "https://dakshinsurma.sylhet.gov.bd"
+    },
+    {
+     "name": "ফেঞ্চুগঞ্জ উপজেলা",
+     "url": "https://fenchuganj.sylhet.gov.bd"
+    },
+    {
+     "name": "গোলাপগঞ্জ উপজেলা",
+     "url": "https://golapganj.sylhet.gov.bd"
+    },
+    {
+     "name": "গোয়াইনঘাট উপজেলা",
+     "url": "https://gowainghat.sylhet.gov.bd"
+    },
+    {
+     "name": "জৈন্তাপুর উপজেলা",
+     "url": "https://jaintiapur.sylhet.gov.bd"
+    },
+    {
+     "name": "কানাইঘাট উপজেলা",
+     "url": "https://kanaighat.sylhet.gov.bd"
+    },
+    {
+     "name": "সিলেট সদর উপজেলা",
+     "url": "https://sylhetsadar.sylhet.gov.bd"
+    },
+    {
+     "name": "জকিগঞ্জ উপজেলা",
+     "url": "https://zakiganj.sylhet.gov.bd"
+    },
+    {
+     "name": "ওসমানী নগর উপজেলা",
+     "url": "https://osmaninagar.sylhet.gov.bd"
+    }
+   ]
+  },
+  {
+   "division": "রংপুর বিভাগ",
+   "district": "দিনাজপুর জেলা",
+   "url": "https://dinajpur.gov.bd",
+   "upazilas": [
+    {
+     "name": "বিরামপুর উপজেলা",
+     "url": "https://birampur.dinajpur.gov.bd"
+    },
+    {
+     "name": "বীরগঞ্জ উপজেলা",
+     "url": "https://birganj.dinajpur.gov.bd"
+    },
+    {
+     "name": "বিরল উপজেলা",
+     "url": "https://birol.dinajpur.gov.bd"
+    },
+    {
+     "name": "বোচাগঞ্জ উপজেলা",
+     "url": "https://bochaganj.dinajpur.gov.bd"
+    },
+    {
+     "name": "চিরিরবন্দর উপজেলা",
+     "url": "https://chirirbandar.dinajpur.gov.bd"
+    },
+    {
+     "name": "ফুলবাড়ী উপজেলা",
+     "url": "https://fulbari.dinajpur.gov.bd"
+    },
+    {
+     "name": "ঘোড়াঘাট উপজেলা",
+     "url": "https://ghoraghat.dinajpur.gov.bd"
+    },
+    {
+     "name": "হাকিমপুর উপজেলা",
+     "url": "https://hakimpur.dinajpur.gov.bd"
+    },
+    {
+     "name": "কাহারোল উপজেলা",
+     "url": "https://kaharol.dinajpur.gov.bd"
+    },
+    {
+     "name": "খানসামা উপজেলা",
+     "url": "https://khansama.dinajpur.gov.bd"
+    },
+    {
+     "name": "নবাবগঞ্জ উপজেলা",
+     "url": "https://nawabganj.dinajpur.gov.bd"
+    },
+    {
+     "name": "পার্বতীপুর উপজেলা",
+     "url": "https://parbatipur.dinajpur.gov.bd"
+    },
+    {
+     "name": "দিনাজপুর সদর উপজেলা",
+     "url": "https://dinajpursadar.dinajpur.gov.bd"
+    }
+   ]
+  },
+  {
+   "division": "রংপুর বিভাগ",
+   "district": "গাইবান্ধা জেলা",
+   "url": "https://gaibandha.gov.bd",
+   "upazilas": [
+    {
+     "name": "ফুলছড়ি উপজেলা",
+     "url": "https://phulchari.gaibandha.gov.bd"
+    },
+    {
+     "name": "গাইবান্ধা সদর উপজেলা",
+     "url": "https://gaibandhasadar.gaibandha.gov.bd"
+    },
+    {
+     "name": "গোবিন্দগঞ্জ উপজেলা",
+     "url": "https://gobindaganj.gaibandha.gov.bd"
+    },
+    {
+     "name": "পলাশবাড়ী উপজেলা",
+     "url": "https://palashbari.gaibandha.gov.bd"
+    },
+    {
+     "name": "সাদুল্লাপুর উপজেলা",
+     "url": "https://sadullapur.gaibandha.gov.bd"
+    },
+    {
+     "name": "সাঘাটা উপজেলা",
+     "url": "https://saghata.gaibandha.gov.bd"
+    },
+    {
+     "name": "সুন্দরগঞ্জ উপজেলা",
+     "url": "https://sundarganj.gaibandha.gov.bd"
+    }
+   ]
+  },
+  {
+   "division": "রংপুর বিভাগ",
+   "district": "কুড়িগ্রাম জেলা",
+   "url": "https://kurigram.gov.bd",
+   "upazilas": [
+    {
+     "name": "ভূরুঙ্গামারী উপজেলা",
+     "url": "https://bhurungamari.kurigram.gov.bd"
+    },
+    {
+     "name": "চর রাজিবপুর উপজেলা",
+     "url": "https://charrajibpur.kurigram.gov.bd"
+    },
+    {
+     "name": "চিলমারী উপজেলা",
+     "url": "https://chilmari.kurigram.gov.bd"
+    },
+    {
+     "name": "ফুলবাড়ী উপজেলা",
+     "url": "https://phulbari.kurigram.gov.bd"
+    },
+    {
+     "name": "কুড়িগ্রাম সদর উপজেলা",
+     "url": "https://kurigramsadar.kurigram.gov.bd"
+    },
+    {
+     "name": "নাগেশ্বরী উপজেলা",
+     "url": "https://nageshwari.kurigram.gov.bd"
+    },
+    {
+     "name": "রাজারহাট উপজেলা",
+     "url": "https://rajarhat.kurigram.gov.bd"
+    },
+    {
+     "name": "রৌমারী উপজেলা",
+     "url": "https://rowmari.kurigram.gov.bd"
+    },
+    {
+     "name": "উলিপুর উপজেলা",
+     "url": "https://ulipur.kurigram.gov.bd"
+    }
+   ]
+  },
+  {
+   "division": "রংপুর বিভাগ",
+   "district": "লালমনিরহাট জেলা",
+   "url": "https://lalmonirhat.gov.bd",
+   "upazilas": [
+    {
+     "name": "আদিতমারী উপজেলা",
+     "url": "https://aditmari.lalmonirhat.gov.bd"
+    },
+    {
+     "name": "হাতীবান্ধা উপজেলা",
+     "url": "https://hatibandha.lalmonirhat.gov.bd"
+    },
+    {
+     "name": "কালীগঞ্জ উপজেলা",
+     "url": "https://kaliganj.lalmonirhat.gov.bd"
+    },
+    {
+     "name": "লালমনিরহাট সদর উপজেলা",
+     "url": "https://sadar.lalmonirhat.gov.bd"
+    },
+    {
+     "name": "পাটগ্রাম উপজেলা",
+     "url": "https://patgram.lalmonirhat.gov.bd"
+    }
+   ]
+  },
+  {
+   "division": "রংপুর বিভাগ",
+   "district": "নীলফামারী জেলা",
+   "url": "https://nilphamari.gov.bd",
+   "upazilas": [
+    {
+     "name": "ডোমার উপজেলা",
+     "url": "https://domar.nilphamari.gov.bd"
+    },
+    {
+     "name": "জলঢাকা উপজেলা",
+     "url": "https://jaldhaka.nilphamari.gov.bd"
+    },
+    {
+     "name": "কিশোরগঞ্জ উপজেলা",
+     "url": "https://kishorganj.nilphamari.gov.bd"
+    },
+    {
+     "name": "নীলফামারী সদর উপজেলা",
+     "url": "https://nilphamarisadar.nilphamari.gov.bd"
+    },
+    {
+     "name": "সৈয়দপুর উপজেলা",
+     "url": "https://syedpur.nilphamari.gov.bd"
+    },
+    {
+     "name": "ডিমলা উপজেলা",
+     "url": "https://dimla.nilphamari.gov.bd"
+    }
+   ]
+  },
+  {
+   "division": "রংপুর বিভাগ",
+   "district": "পঞ্চগড় জেলা",
+   "url": "https://panchagarh.gov.bd",
+   "upazilas": [
+    {
+     "name": "আটোয়ারী উপজেলা",
+     "url": "https://atwari.panchagarh.gov.bd"
+    },
+    {
+     "name": "বোদা উপজেলা",
+     "url": "https://boda.panchagarh.gov.bd"
+    },
+    {
+     "name": "দেবীগঞ্জ উপজেলা",
+     "url": "https://debiganj.panchagarh.gov.bd"
+    },
+    {
+     "name": "পঞ্চগড় সদর",
+     "url": "https://panchagarhsadar.panchagarh.gov.bd"
+    },
+    {
+     "name": "তেঁতুলিয়া উপজেলা",
+     "url": "https://tetulia.panchagarh.gov.bd"
+    }
+   ]
+  },
+  {
+   "division": "রংপুর বিভাগ",
+   "district": "রংপুর জেলা",
+   "url": "https://rangpur.gov.bd",
+   "upazilas": [
+    {
+     "name": "বদরগঞ্জ উপজেলা",
+     "url": "https://badargonj.rangpur.gov.bd"
+    },
+    {
+     "name": "কাউনিয়া উপজেলা",
+     "url": "https://kaunia.rangpur.gov.bd"
+    },
+    {
+     "name": "রংপুর সদর উপজেলা",
+     "url": "https://rangpursadar.rangpur.gov.bd"
+    },
+    {
+     "name": "মিঠাপুকুর উপজেলা",
+     "url": "https://mithapukur.rangpur.gov.bd"
+    },
+    {
+     "name": "পীরগাছা উপজেলা",
+     "url": "https://pirgacha.rangpur.gov.bd"
+    },
+    {
+     "name": "পীরগঞ্জ উপজেলা",
+     "url": "https://pirgonj.rangpur.gov.bd"
+    },
+    {
+     "name": "তারাগঞ্জ উপজেলা",
+     "url": "https://taragonj.rangpur.gov.bd"
+    },
+    {
+     "name": "গংগাচড়া উপজেলা",
+     "url": "https://gangachara.rangpur.gov.bd"
+    }
+   ]
+  },
+  {
+   "division": "রংপুর বিভাগ",
+   "district": "ঠাকুরগাঁও জেলা",
+   "url": "https://thakurgaon.gov.bd",
+   "upazilas": [
+    {
+     "name": "বালিয়াডাঙ্গী উপজেলা",
+     "url": "https://baliadangi.thakurgaon.gov.bd"
+    },
+    {
+     "name": "হরিপুর উপজেলা",
+     "url": "https://haripur.thakurgaon.gov.bd"
+    },
+    {
+     "name": "পীরগঞ্জ উপজেলা",
+     "url": "https://pirganj.thakurgaon.gov.bd"
+    },
+    {
+     "name": "রাণীশংকৈল উপজেলা",
+     "url": "https://ranisankail.thakurgaon.gov.bd"
+    },
+    {
+     "name": "ঠাকুরগাঁও সদর উপজেলা",
+     "url": "https://thakurgaonsadar.thakurgaon.gov.bd"
+    },
+    {
+     "name": "ভূল্লী উপজেলা",
+     "url": "https://bhulli.thakurgaon.gov.bd"
+    },
+    {
+     "name": "রুহিয়া উপজেলা",
+     "url": "https://ruhia.thakurgaon.gov.bd"
+    }
+   ]
+  },
+  {
+   "division": "ময়মনসিংহ বিভাগ",
+   "district": "জামালপুর জেলা",
+   "url": "https://jamalpur.gov.bd",
+   "upazilas": [
+    {
+     "name": "বকশীগঞ্জ উপজেলা",
+     "url": "https://bokshiganj.jamalpur.gov.bd"
+    },
+    {
+     "name": "দেওয়ানগঞ্জ উপজেলা",
+     "url": "https://dewangonj.jamalpur.gov.bd"
+    },
+    {
+     "name": "ইসলামপুর উপজেলা",
+     "url": "https://islampur.jamalpur.gov.bd"
+    },
+    {
+     "name": "জামালপুর সদর উপজেলা",
+     "url": "https://jamalpursadar.jamalpur.gov.bd"
+    },
+    {
+     "name": "মাদারগঞ্জ উপজেলা",
+     "url": "https://madarganj.jamalpur.gov.bd"
+    },
+    {
+     "name": "মেলান্দহ উপজেলা",
+     "url": "https://melandah.jamalpur.gov.bd"
+    },
+    {
+     "name": "সরিষাবাড়ী উপজেলা",
+     "url": "https://sarishabari.jamalpur.gov.bd"
+    }
+   ]
+  },
+  {
+   "division": "ময়মনসিংহ বিভাগ",
+   "district": "ময়মনসিংহ জেলা",
+   "url": "https://mymensingh.gov.bd",
+   "upazilas": [
+    {
+     "name": "ভালুকা উপজেলা",
+     "url": "https://bhaluka.mymensingh.gov.bd"
+    },
+    {
+     "name": "ধোবাউড়া উপজেলা",
+     "url": "https://dhobaura.mymensingh.gov.bd"
+    },
+    {
+     "name": "ফুলবাড়ীয়া উপজেলা",
+     "url": "https://fulbaria.mymensingh.gov.bd"
+    },
+    {
+     "name": "গফরগাঁও উপজেলা",
+     "url": "https://gafargaon.mymensingh.gov.bd"
+    },
+    {
+     "name": "গৌরীপুর উপজেলা",
+     "url": "https://gouripur.mymensingh.gov.bd"
+    },
+    {
+     "name": "হালুয়াঘাট উপজেলা",
+     "url": "https://haluaghat.mymensingh.gov.bd"
+    },
+    {
+     "name": "ঈশ্বরগঞ্জ উপজেলা",
+     "url": "https://iswarganj.mymensingh.gov.bd"
+    },
+    {
+     "name": "ময়মনসিংহ সদর উপজেলা",
+     "url": "https://mymensinghsadar.mymensingh.gov.bd"
+    },
+    {
+     "name": "মুক্তাগাছা উপজেলা",
+     "url": "https://muktagacha.mymensingh.gov.bd"
+    },
+    {
+     "name": "নান্দাইল উপজেলা",
+     "url": "https://nandail.mymensingh.gov.bd"
+    },
+    {
+     "name": "ফুলপুর উপজেলা",
+     "url": "https://phulpur.mymensingh.gov.bd"
+    },
+    {
+     "name": "তারাকান্দা উপজেলা",
+     "url": "https://tarakanda.mymensingh.gov.bd"
+    },
+    {
+     "name": "ত্রিশাল উপজেলা",
+     "url": "https://trishal.mymensingh.gov.bd"
+    },
+    {
+     "name": "দক্ষিণ গফরগাঁও উপজেলা",
+     "url": "https://southgafargaon.mymensingh.gov.bd"
+    }
+   ]
+  },
+  {
+   "division": "ময়মনসিংহ বিভাগ",
+   "district": "নেত্রকোণা জেলা",
+   "url": "https://netrokona.gov.bd",
+   "upazilas": [
+    {
+     "name": "আটপাড়া উপজেলা",
+     "url": "https://atpara.netrokona.gov.bd"
+    },
+    {
+     "name": "বারহাট্টা উপজেলা",
+     "url": "https://barhatta.netrokona.gov.bd"
+    },
+    {
+     "name": "দুর্গাপুর উপজেলা",
+     "url": "https://durgapur.netrokona.gov.bd"
+    },
+    {
+     "name": "খালিয়াজুরী উপজেলা",
+     "url": "https://khaliajuri.netrokona.gov.bd"
+    },
+    {
+     "name": "কলমাকান্দা উপজেলা",
+     "url": "https://kalmakanda.netrokona.gov.bd"
+    },
+    {
+     "name": "কেন্দুয়া উপজেলা",
+     "url": "https://kendua.netrokona.gov.bd"
+    },
+    {
+     "name": "মদন উপজেলা",
+     "url": "https://madan.netrokona.gov.bd"
+    },
+    {
+     "name": "মোহনগঞ্জ উপজেলা",
+     "url": "https://mohongonj.netrokona.gov.bd"
+    },
+    {
+     "name": "নেত্রকোণা সদর উপজেলা",
+     "url": "https://netrokonasadar.netrokona.gov.bd"
+    },
+    {
+     "name": "পূর্বধলা উপজেলা",
+     "url": "https://purbadhala.netrokona.gov.bd"
+    }
+   ]
+  },
+  {
+   "division": "ময়মনসিংহ বিভাগ",
+   "district": "শেরপুর জেলা",
+   "url": "https://sherpur.gov.bd",
+   "upazilas": [
+    {
+     "name": "ঝিনাইগাতী উপজেলা",
+     "url": "https://jhenaigati.sherpur.gov.bd"
+    },
+    {
+     "name": "নকলা উপজেলা",
+     "url": "https://nokla.sherpur.gov.bd"
+    },
+    {
+     "name": "নালিতাবাড়ী উপজেলা",
+     "url": "https://nalitabari.sherpur.gov.bd"
+    },
+    {
+     "name": "শেরপুর সদর উপজেলা",
+     "url": "https://sherpursadar.sherpur.gov.bd"
+    },
+    {
+     "name": "শ্রীবরদী উপজেলা",
+     "url": "https://sreebordi.sherpur.gov.bd"
+    }
+   ]
+  },
+  {
+   "division": "বরিশাল বিভাগ",
+   "district": "বরগুনা জেলা",
+   "url": "https://barguna.gov.bd",
+   "upazilas": [
+    {
+     "name": "আমতলী উপজেলা",
+     "url": "https://amtali.barguna.gov.bd"
+    },
+    {
+     "name": "বামনা উপজেলা",
+     "url": "https://bamna.barguna.gov.bd"
+    },
+    {
+     "name": "বরগুনা সদর উপজেলা",
+     "url": "https://sadar.barguna.gov.bd"
+    },
+    {
+     "name": "বেতাগী উপজেলা",
+     "url": "https://betagi.barguna.gov.bd"
+    },
+    {
+     "name": "পাথরঘাটা উপজেলা",
+     "url": "https://pathorghata.barguna.gov.bd"
+    },
+    {
+     "name": "তালতলী উপজেলা",
+     "url": "https://taltali.barguna.gov.bd"
+    }
+   ]
+  },
+  {
+   "division": "বরিশাল বিভাগ",
+   "district": "বরিশাল জেলা",
+   "url": "https://barisal.gov.bd",
+   "upazilas": [
+    {
+     "name": "আগৈলঝাড়া উপজেলা",
+     "url": "https://agailjhara.barisal.gov.bd"
+    },
+    {
+     "name": "বাবুগঞ্জ উপজেলা",
+     "url": "https://babuganj.barisal.gov.bd"
+    },
+    {
+     "name": "বাকেরগঞ্জ উপজেলা",
+     "url": "https://bakerganj.barisal.gov.bd"
+    },
+    {
+     "name": "বানারীপাড়া উপজেলা",
+     "url": "https://banaripara.barisal.gov.bd"
+    },
+    {
+     "name": "গৌরনদী উপজেলা",
+     "url": "https://gournadi.barisal.gov.bd"
+    },
+    {
+     "name": "হিজলা উপজেলা",
+     "url": "https://hizla.barisal.gov.bd"
+    },
+    {
+     "name": "বরিশাল সদর উপজেলা",
+     "url": "https://barisalsadar.barisal.gov.bd"
+    },
+    {
+     "name": "মেহেন্দিগঞ্জ উপজেলা",
+     "url": "https://mehendiganj.barisal.gov.bd"
+    },
+    {
+     "name": "মুলাদী উপজেলা",
+     "url": "https://muladi.barisal.gov.bd"
+    },
+    {
+     "name": "উজিরপুর উপজেলা",
+     "url": "https://wazirpur.barisal.gov.bd"
+    }
+   ]
+  },
+  {
+   "division": "বরিশাল বিভাগ",
+   "district": "ভোলা জেলা",
+   "url": "https://bhola.gov.bd",
+   "upazilas": [
+    {
+     "name": "ভোলা সদর উপজেলা",
+     "url": "https://sadar.bhola.gov.bd"
+    },
+    {
+     "name": "বোরহানউদ্দিন উপজেলা",
+     "url": "https://borhanuddin.bhola.gov.bd"
+    },
+    {
+     "name": "দৌলতখান উপজেলা",
+     "url": "https://doulatkhan.bhola.gov.bd"
+    },
+    {
+     "name": "লালমোহন উপজেলা",
+     "url": "https://lalmohan.bhola.gov.bd"
+    },
+    {
+     "name": "মনপুরা উপজেলা",
+     "url": "https://monpura.bhola.gov.bd"
+    },
+    {
+     "name": "তজুমদ্দিন উপজেলা",
+     "url": "https://tazumuddin.bhola.gov.bd"
+    },
+    {
+     "name": "চরফ্যাশন উপজেলা",
+     "url": "https://charfesson.bhola.gov.bd"
+    }
+   ]
+  },
+  {
+   "division": "বরিশাল বিভাগ",
+   "district": "ঝালকাঠি জেলা",
+   "url": "https://jhalakathi.gov.bd",
+   "upazilas": [
+    {
+     "name": "ঝালকাঠি সদর উপজেলা",
+     "url": "https://sadar.jhalakathi.gov.bd"
+    },
+    {
+     "name": "নলছিটি উপজেলা",
+     "url": "https://nalchity.jhalakathi.gov.bd"
+    },
+    {
+     "name": "কাঠালিয়া উপজেলা",
+     "url": "https://kathalia.jhalakathi.gov.bd"
+    },
+    {
+     "name": "রাজাপুর উপজেলা",
+     "url": "https://rajapur.jhalakathi.gov.bd"
+    }
+   ]
+  },
+  {
+   "division": "বরিশাল বিভাগ",
+   "district": "পটুয়াখালী জেলা",
+   "url": "https://patuakhali.gov.bd",
+   "upazilas": [
+    {
+     "name": "বাউফল উপজেলা",
+     "url": "https://bauphal.patuakhali.gov.bd"
+    },
+    {
+     "name": "দশমিনা উপজেলা",
+     "url": "https://dashmina.patuakhali.gov.bd"
+    },
+    {
+     "name": "দুমকী উপজেলা",
+     "url": "https://dumki.patuakhali.gov.bd"
+    },
+    {
+     "name": "কলাপাড়া উপজেলা",
+     "url": "https://kalapara.patuakhali.gov.bd"
+    },
+    {
+     "name": "মির্জাগঞ্জ উপজেলা",
+     "url": "https://mirzaganj.patuakhali.gov.bd"
+    },
+    {
+     "name": "পটুয়াখালী সদর উপজেলা",
+     "url": "https://sadar.patuakhali.gov.bd"
+    },
+    {
+     "name": "রাঙ্গাবালী উপজেলা",
+     "url": "https://rangabali.patuakhali.gov.bd"
+    },
+    {
+     "name": "গলাচিপা উপজেলা",
+     "url": "https://galachipa.patuakhali.gov.bd"
+    }
+   ]
+  },
+  {
+   "division": "বরিশাল বিভাগ",
+   "district": "পিরোজপুর জেলা",
+   "url": "https://pirojpur.gov.bd",
+   "upazilas": [
+    {
+     "name": "ভান্ডারিয়া উপজেলা",
+     "url": "https://bhandaria.pirojpur.gov.bd"
+    },
+    {
+     "name": "কাউখালী উপজেলা",
+     "url": "https://kawkhali.pirojpur.gov.bd"
+    },
+    {
+     "name": "মঠবাড়ীয়া উপজেলা",
+     "url": "https://mathbaria.pirojpur.gov.bd"
+    },
+    {
+     "name": "নাজিরপুর উপজেলা",
+     "url": "https://nazirpur.pirojpur.gov.bd"
+    },
+    {
+     "name": "পিরোজপুর সদর উপজেলা",
+     "url": "https://sadar.pirojpur.gov.bd"
+    },
+    {
+     "name": "নেছারাবাদ উপজেলা",
+     "url": "https://nesarabad.pirojpur.gov.bd"
+    },
+    {
+     "name": "জিয়ানগর উপজেলা",
+     "url": "https://zianagar.pirojpur.gov.bd"
+    }
+   ]
+  }
+ ]
+}

@@ -33,7 +33,7 @@ services:
       retries: 20
 
   migrate:
-    build: { context: ., target: base }
+    build: { context: ., target: base, args: { GIT_SHA: "${GIT_SHA:-dev}" } }
     image: dhaka-crime-map:latest
     command: ["migrate"]
     environment: { <<: *db-url }
@@ -93,6 +93,12 @@ services:
       CLASSIFIER: ${CLASSIFIER:-gemma}
       USER_AGENT: ${USER_AGENT:-DhakaCrimeMap/0.2 (+https://github.com/zawadgenweb2/dhaka-crime-map)}
       MAX_ARTICLES_PER_RUN: ${MAX_ARTICLES_PER_RUN:-150}
+    healthcheck:   # the collector writes a heartbeat every 20 s when idle and every 10 articles while collecting
+      test: ["CMD", "python", "-m", "app", "healthcheck", "collector", "--max-age", "900"]
+      interval: 60s
+      timeout: 15s
+      retries: 3
+      start_period: 60s
 
   classifier:
     <<: *app
@@ -105,8 +111,15 @@ services:
       GEMMA_MODEL: ${GEMMA_MODEL:-dhaka-gemma}
       PUBLISH_MODE: ${PUBLISH_MODE:-auto}
       GEMMA_API_KEY: ${GEMMA_API_KEY:-}
+      EMBED_URL: ${EMBED_URL:-http://127.0.0.1:8091/v1/embeddings}
       GEOCODE_ENABLED: ${GEOCODE_ENABLED:-true}
       USER_AGENT: ${USER_AGENT:-DhakaCrimeMap/0.2 (+https://github.com/zawadgenweb2/dhaka-crime-map)}
+    healthcheck:   # heartbeat every 60 s from the supervisor loop
+      test: ["CMD", "python", "-m", "app", "healthcheck", "classifier", "--max-age", "300"]
+      interval: 60s
+      timeout: 15s
+      retries: 3
+      start_period: 60s
 
   test:
     build: { context: ., target: test }

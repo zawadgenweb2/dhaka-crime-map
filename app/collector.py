@@ -220,7 +220,7 @@ def _collect_source(key, client, days_back, gaz, window_start, run_id, by_day, s
         relevant = not outside and title_ok and crime_signal(text) > 0 and in_scope
         why = None if relevant else ("outside the window" if outside
                                      else "pre-filter: no crime word in the title" if not title_ok
-                                     else "pre-filter: no supported district in the text" if not in_scope
+                                     else "pre-filter: no place in Bangladesh in the text" if not in_scope
                                      else "pre-filter: no crime word in the text")
         with db.tx() as c:
             row = c.execute(

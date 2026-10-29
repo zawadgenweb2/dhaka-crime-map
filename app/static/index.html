@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>বাংলাদেশ অপরাধ মানচিত্র</title>
 <meta name="description" content="Prothom Alo crime reports in Dhaka, classified and mapped by neighbourhood.">
-<link rel="stylesheet" href="/static/styles.css">
+<link rel="stylesheet" href="/static/styles.css?v=20261029">
 </head>
 <body>
 <header class="topbar">
@@ -44,9 +44,9 @@
       <div class="chips" id="cats"></div>
     </section>
     <section>
-      <h2 data-i18n="district">জেলা</h2>
-      <select id="district" aria-label="District"></select>
-      <select id="thana" aria-label="Thana / upazila" hidden style="margin-top:8px"></select>
+      <h2 data-i18n="place">বিভাগ ও জেলা</h2>
+      <select id="division" aria-label="Division"></select>
+      <select id="district" aria-label="District" hidden style="margin-top:8px"></select>
     </section>
     <section>
       <h2 data-i18n="mapView">মানচিত্র</h2>
@@ -100,7 +100,7 @@
 </nav>
 
 <script src="https://unpkg.com/deck.gl@9.4.0/dist.min.js"></script>
-<script src="/static/heat-paint.js"></script>
-<script src="/static/app.js"></script>
+<script src="/static/heat-paint.js?v=20261029"></script>
+<script src="/static/app.js?v=20261029"></script>
 </body>
 </html>

@@ -9,6 +9,10 @@ COPY app/ app/
 COPY data/places.json data/places.json
 COPY migrations/ migrations/
 RUN useradd --system --uid 10001 dcm
+# The commit this image was built from (CI: --build-arg GIT_SHA=$(git rev-parse --short HEAD)); shown by /api/health
+ARG GIT_SHA=dev
+ENV APP_VERSION=$GIT_SHA
+LABEL org.opencontainers.image.revision=$GIT_SHA org.opencontainers.image.source="https://github.com/zawadgenweb2/dhaka-crime-map"
 USER dcm
 ENTRYPOINT ["python", "-m", "app"]
 

@@ -18,7 +18,7 @@ from . import db
 from .api import STATIC, _filters, _iso
 from .config import settings
 from .gazetteer import load as load_gazetteer
-from .schema import CATEGORIES, DISTRICTS, TIME_OF_DAY, TOTALS_ONLY
+from .schema import CATEGORIES, DISTRICTS, DIVISIONS, TIME_OF_DAY, TOTALS_ONLY
 from .scraper import DHAKA_TZ
 from .sources import source_for_url
 
@@ -57,7 +57,7 @@ def create_public_app() -> FastAPI:
     def health():
         with db.connect() as c:
             c.execute("SELECT 1")
-        return {"ok": True}
+        return {"ok": True, "version": settings.version}
 
     @app.get("/api/config")
     def config(response: Response):
@@ -67,6 +67,7 @@ def create_public_app() -> FastAPI:
         return {
             "categories": [{"key": k, **v} for k, v in CATEGORIES.items()],
             "time_of_day": [{"key": k, **v} for k, v in TIME_OF_DAY.items()],
+            "divisions": [{"id": k, **v, "bounds": gaz.bounds(division=k)} for k, v in DIVISIONS.items()],
             "districts": [{"id": k, **v, "bounds": gaz.bounds(k)} for k, v in DISTRICTS.items()],
             "all_bounds": gaz.bounds(),
             "thanas": [p.to_dict() for p in gaz.places if p.kind in ("thana", "upazila")],
@@ -87,9 +88,10 @@ def create_public_app() -> FastAPI:
     @app.get("/api/incidents")
     def incidents(response: Response, start: str | None = None, end: str | None = None,
                   days: int | None = Query(None, ge=1, le=366), categories: str | None = None,
-                  thana: str | None = None, district: str | None = None, limit: int = Query(10000, ge=1, le=20000)):
+                  thana: str | None = None, district: str | None = None, division: str | None = None,
+                  limit: int = Query(10000, ge=1, le=20000)):
         """Published incidents as safe summaries (no quotes, headlines or victim counts)."""
-        where, params, _, _ = _filters(start, end, days, categories, thana, district)
+        where, params, _, _ = _filters(start, end, days, categories, thana, district, division)
         where += " AND NOT (i.category = ANY(%s))"
         params = [*params, sorted(AREA_TOTALS_ONLY)]
         with db.connect() as c:
@@ -120,9 +122,9 @@ def create_public_app() -> FastAPI:
     @app.get("/api/stats")
     def stats(response: Response, start: str | None = None, end: str | None = None,
               days: int | None = Query(None, ge=1, le=366), categories: str | None = None, thana: str | None = None,
-              district: str | None = None):
+              district: str | None = None, division: str | None = None):
         """Totals for the same filters (all categories, including those shown only as totals)."""
-        where, params, start_d, end_d = _filters(start, end, days, categories, thana, district)
+        where, params, start_d, end_d = _filters(start, end, days, categories, thana, district, division)
         gaz = load_gazetteer()
         with db.connect() as c:
             def q(sql):
@@ -150,11 +152,18 @@ def create_public_app() -> FastAPI:
             by_district = {r["district_id"]: r["n"] for r in c.execute(
                 f"""SELECT district_id, count(*) n FROM incidents i WHERE {where} AND district_id IS NOT NULL
                     GROUP BY district_id""", params)}
+        by_division: dict[str, int] = {}
+        for k, n in by_district.items():
+            if k in DISTRICTS:
+                dv = DISTRICTS[k]["division"]
+                by_division[dv] = by_division.get(dv, 0) + n
         response.headers["Cache-Control"] = CACHE
         return {"total": total["n"], "unlocated": total["unloc"], "by_category": by_category, "by_time_of_day": by_tod,
                 "by_day": by_day, "by_thana": by_thana,
                 "by_district": [{"id": k, **DISTRICTS[k], "count": n} for k, n in
-                                sorted(by_district.items(), key=lambda kv: -kv[1])], "range": {"start": start_d.isoformat(), "end": end_d.isoformat()}}
+                                sorted(by_district.items(), key=lambda kv: -kv[1]) if k in DISTRICTS],
+                "by_division": [{"id": k, **DIVISIONS[k], "count": n} for k, n in
+                                sorted(by_division.items(), key=lambda kv: -kv[1])], "range": {"start": start_d.isoformat(), "end": end_d.isoformat()}}
 
     return app
 
